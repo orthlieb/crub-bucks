@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crub
+      POSTGRES_PASSWORD: crub
+      POSTGRES_DB: crubbucks
+    ports:
+      - '5432:5432'
+    volumes:
+      - crub_pgdata:/var/lib/postgresql/data
+
+volumes:
+  crub_pgdata:

@@ -1,0 +1,239 @@
+import { describe, it, expect } from 'vitest';
+import {
+	planSettlement,
+	allocate,
+	evenSplitDeltas,
+	winnerLoserDeltas,
+	tieredDeltas,
+	potSplitDeltas,
+	BetMathError,
+	type ParticipantDelta,
+	type SettlementTransfer
+} from './ledger-math';
+
+const sum = (ds: ParticipantDelta[]) => ds.reduce((s, d) => s + d.delta, 0);
+const find = (ds: ParticipantDelta[], id: string) => ds.find((d) => d.userId === id)!.delta;
+
+/** Sum the transfers each user receives (positive) / pays (negative). */
+function net(transfers: SettlementTransfer[]): Map<string, number> {
+	const m = new Map<string, number>();
+	for (const t of transfers) {
+		m.set(t.toUserId, (m.get(t.toUserId) ?? 0) + t.amount);
+		m.set(t.fromUserId, (m.get(t.fromUserId) ?? 0) - t.amount);
+	}
+	return m;
+}
+
+describe('planSettlement', () => {
+	it('settles a simple 1v1 bet with one transfer', () => {
+		const t = planSettlement([{ userId: 'w', amount: 10 }], [{ userId: 'l', amount: 10 }]);
+		expect(t).toEqual([{ fromUserId: 'l', toUserId: 'w', amount: 10 }]);
+	});
+
+	it('fans one loser out to multiple winners (team win)', () => {
+		const t = planSettlement(
+			[
+				{ userId: 'w1', amount: 15 },
+				{ userId: 'w2', amount: 15 }
+			],
+			[{ userId: 'l', amount: 30 }]
+		);
+		const n = net(t);
+		expect(n.get('w1')).toBe(15);
+		expect(n.get('w2')).toBe(15);
+		expect(n.get('l')).toBe(-30);
+	});
+
+	it('collects from multiple losers to multiple winners with uneven stakes', () => {
+		const winners = [
+			{ userId: 'w1', amount: 20 },
+			{ userId: 'w2', amount: 10 }
+		];
+		const losers = [
+			{ userId: 'l1', amount: 25 },
+			{ userId: 'l2', amount: 5 }
+		];
+		const t = planSettlement(winners, losers);
+		const n = net(t);
+		// Every party nets exactly their declared amount.
+		expect(n.get('w1')).toBe(20);
+		expect(n.get('w2')).toBe(10);
+		expect(n.get('l1')).toBe(-25);
+		expect(n.get('l2')).toBe(-5);
+		// And the whole thing nets to zero.
+		expect([...n.values()].reduce((s, v) => s + v, 0)).toBe(0);
+	});
+
+	it('produces transfers that sum to the pot', () => {
+		const t = planSettlement(
+			[
+				{ userId: 'a', amount: 7 },
+				{ userId: 'b', amount: 3 }
+			],
+			[
+				{ userId: 'c', amount: 4 },
+				{ userId: 'd', amount: 6 }
+			]
+		);
+		expect(t.reduce((s, x) => s + x.amount, 0)).toBe(10);
+	});
+
+	it('does not mutate its inputs', () => {
+		const winners = [{ userId: 'w', amount: 10 }];
+		const losers = [{ userId: 'l', amount: 10 }];
+		planSettlement(winners, losers);
+		expect(winners[0].amount).toBe(10);
+		expect(losers[0].amount).toBe(10);
+	});
+
+	it('returns nothing when there are no winners or no losers', () => {
+		expect(planSettlement([], [{ userId: 'l', amount: 5 }])).toEqual([]);
+		expect(planSettlement([{ userId: 'w', amount: 5 }], [])).toEqual([]);
+	});
+});
+
+describe('allocate', () => {
+	it('splits evenly when divisible', () => {
+		expect(allocate(30, [1, 1, 1])).toEqual([10, 10, 10]);
+	});
+
+	it('distributes the remainder and still sums to total', () => {
+		const parts = allocate(10, [1, 1, 1]); // 10/3
+		expect(parts.reduce((a, b) => a + b, 0)).toBe(10);
+		expect(parts.every((p) => Number.isInteger(p))).toBe(true);
+	});
+
+	it('weights proportionally (tiered shape)', () => {
+		expect(allocate(6, [1, 2, 3])).toEqual([1, 2, 3]);
+		expect(allocate(3, [1, 2])).toEqual([1, 2]);
+	});
+});
+
+describe('evenSplitDeltas', () => {
+	it('winner takes pool, losers split equally, nets to zero', () => {
+		const d = evenSplitDeltas(30, 'w', ['a', 'b', 'c']);
+		expect(find(d, 'w')).toBe(30);
+		expect(find(d, 'a')).toBe(-10);
+		expect(find(d, 'b')).toBe(-10);
+		expect(find(d, 'c')).toBe(-10);
+		expect(sum(d)).toBe(0);
+	});
+
+	it('stays exact with an indivisible pool', () => {
+		const d = evenSplitDeltas(10, 'w', ['a', 'b', 'c']);
+		expect(find(d, 'w')).toBe(10);
+		expect(sum(d)).toBe(0);
+		const losses = ['a', 'b', 'c'].map((id) => -find(d, id));
+		expect(losses.reduce((a, b) => a + b, 0)).toBe(10);
+	});
+});
+
+describe('winnerLoserDeltas', () => {
+	it('only the named loser pays; extras net zero', () => {
+		const d = winnerLoserDeltas(25, 'w', 'l', ['x', 'y']);
+		expect(find(d, 'w')).toBe(25);
+		expect(find(d, 'l')).toBe(-25);
+		expect(find(d, 'x')).toBe(0);
+		expect(find(d, 'y')).toBe(0);
+		expect(sum(d)).toBe(0);
+	});
+});
+
+describe('tieredDeltas', () => {
+	it('3 players: losers pay 1/3 and 2/3 of the pool', () => {
+		const d = tieredDeltas(30, 'w', ['first', 'second']);
+		expect(find(d, 'w')).toBe(30);
+		expect(find(d, 'first')).toBe(-10); // 1/3 of 30
+		expect(find(d, 'second')).toBe(-20); // 2/3 of 30
+		expect(sum(d)).toBe(0);
+	});
+
+	it('4 players: losers pay 1/6, 2/6, 3/6 of the pool', () => {
+		const d = tieredDeltas(60, 'w', ['l1', 'l2', 'l3']);
+		expect(find(d, 'l1')).toBe(-10); // 1/6 of 60
+		expect(find(d, 'l2')).toBe(-20); // 2/6
+		expect(find(d, 'l3')).toBe(-30); // 3/6
+		expect(sum(d)).toBe(0);
+	});
+
+	it('last-ordered loser always pays the most and it nets to zero', () => {
+		const d = tieredDeltas(17, 'w', ['l1', 'l2', 'l3']); // indivisible
+		expect(sum(d)).toBe(0);
+		expect(-find(d, 'l3')).toBeGreaterThanOrEqual(-find(d, 'l2'));
+		expect(-find(d, 'l2')).toBeGreaterThanOrEqual(-find(d, 'l1'));
+	});
+
+	it('losses are whole CB and sum to exactly the pot for many indivisible pools', () => {
+		for (const pool of [1, 2, 5, 7, 13, 17, 31, 100, 101, 999]) {
+			for (const losers of [1, 2, 3, 4, 5]) {
+				const ids = Array.from({ length: losers }, (_, i) => `l${i}`);
+				const d = tieredDeltas(pool, 'w', ids);
+				// winner takes exactly the pot
+				expect(find(d, 'w')).toBe(pool);
+				// every delta is a whole number
+				expect(d.every((x) => Number.isInteger(x.delta))).toBe(true);
+				// losers' losses sum to exactly the pot (and the whole thing nets to 0)
+				const totalLoss = ids.reduce((s, id) => s + -find(d, id), 0);
+				expect(totalLoss).toBe(pool);
+				expect(sum(d)).toBe(0);
+				// rank order preserved (non-decreasing by rank)
+				for (let i = 1; i < ids.length; i++) {
+					expect(-find(d, ids[i])).toBeGreaterThanOrEqual(-find(d, ids[i - 1]));
+				}
+			}
+		}
+	});
+});
+
+describe('potSplitDeltas', () => {
+	it('settles a poker night: three buy in 100, winnings 200 / 100 / 0', () => {
+		const d = potSplitDeltas([
+			{ userId: 'a', boughtIn: 100, winnings: 200 },
+			{ userId: 'b', boughtIn: 100, winnings: 100 },
+			{ userId: 'c', boughtIn: 100, winnings: 0 }
+		]);
+		expect(find(d, 'a')).toBe(100);
+		expect(find(d, 'b')).toBe(0); // break-even
+		expect(find(d, 'c')).toBe(-100);
+		expect(sum(d)).toBe(0);
+	});
+
+	it('honours re-buys: someone bought in more than the base stake', () => {
+		const d = potSplitDeltas([
+			{ userId: 'a', boughtIn: 100, winnings: 350 },
+			{ userId: 'b', boughtIn: 100, winnings: 0 },
+			{ userId: 'c', boughtIn: 150, winnings: 0 } // re-bought 50
+		]);
+		expect(find(d, 'a')).toBe(250);
+		expect(find(d, 'b')).toBe(-100);
+		expect(find(d, 'c')).toBe(-150);
+		expect(sum(d)).toBe(0);
+	});
+
+	it('supports break-even all round (winnings == bought-in for each)', () => {
+		const d = potSplitDeltas([
+			{ userId: 'a', boughtIn: 50, winnings: 50 },
+			{ userId: 'b', boughtIn: 50, winnings: 50 }
+		]);
+		expect(d.every((x) => x.delta === 0)).toBe(true);
+		expect(sum(d)).toBe(0);
+	});
+
+	it('throws when winnings do not total the pot', () => {
+		expect(() =>
+			potSplitDeltas([
+				{ userId: 'a', boughtIn: 100, winnings: 100 },
+				{ userId: 'b', boughtIn: 100, winnings: 50 }
+			])
+		).toThrow(BetMathError);
+	});
+
+	it('rejects fractional or negative inputs', () => {
+		expect(() => potSplitDeltas([{ userId: 'a', boughtIn: 10.5, winnings: 10 }])).toThrow(
+			BetMathError
+		);
+		expect(() => potSplitDeltas([{ userId: 'a', boughtIn: 10, winnings: -1 }])).toThrow(
+			BetMathError
+		);
+	});
+});
