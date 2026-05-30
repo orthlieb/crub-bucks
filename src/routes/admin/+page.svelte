@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import { formatAmount } from '$lib/format';
 
@@ -56,14 +55,5 @@
 				<CardContent class="text-2xl font-bold">{c.value}</CardContent>
 			</Card>
 		{/each}
-	</section>
-
-	<section>
-		<h2 class="text-xl font-semibold tracking-tight">Quick links</h2>
-		<div class="mt-3 flex flex-wrap gap-2">
-			<Badge variant="outline"><a href="/admin/users">Users</a></Badge>
-			<Badge variant="outline"><a href="/admin/security-events">Security events</a></Badge>
-			<Badge variant="outline"><a href="/admin/system">System controls</a></Badge>
-		</div>
 	</section>
 </div>

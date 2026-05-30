@@ -18,7 +18,83 @@
 
 	let level = $state<'info' | 'success' | 'warning'>('info');
 	let target = $state<'broadcast' | 'user'>('broadcast');
-	let userId = $state('');
+
+	// Typeahead state: user is searched via /admin/users/search.
+	type UserHit = { id: string; displayName: string; email: string; isActive: boolean };
+	let query = $state('');
+	let results = $state<UserHit[]>([]);
+	let highlighted = $state(0);
+	let suggestionsOpen = $state(false);
+	let isSearching = $state(false);
+	let selected = $state<UserHit | null>(null);
+
+	// Debounce the search so we don't hammer the endpoint on every keystroke.
+	let searchTimer: ReturnType<typeof setTimeout> | null = null;
+	let lastQuery = '';
+
+	function scheduleSearch(q: string) {
+		if (searchTimer) clearTimeout(searchTimer);
+		// Drop search if user clears or types < 2 chars.
+		if (q.trim().length < 2) {
+			results = [];
+			suggestionsOpen = false;
+			isSearching = false;
+			return;
+		}
+		searchTimer = setTimeout(() => runSearch(q), 180);
+	}
+
+	async function runSearch(q: string) {
+		isSearching = true;
+		lastQuery = q;
+		try {
+			const res = await fetch(`/admin/users/search?q=${encodeURIComponent(q)}`);
+			// Race guard: if a newer keystroke fired while we awaited, drop this.
+			if (q !== lastQuery) return;
+			if (!res.ok) {
+				results = [];
+				return;
+			}
+			results = await res.json();
+			highlighted = 0;
+			suggestionsOpen = results.length > 0;
+		} catch {
+			results = [];
+		} finally {
+			if (q === lastQuery) isSearching = false;
+		}
+	}
+
+	function pick(u: UserHit) {
+		selected = u;
+		query = '';
+		results = [];
+		suggestionsOpen = false;
+	}
+
+	function clearSelection() {
+		selected = null;
+		query = '';
+		// Refocus the input so the admin can keep going.
+		queueMicrotask(() => document.getElementById('recipient-search')?.focus());
+	}
+
+	function onKeydown(e: KeyboardEvent) {
+		if (!suggestionsOpen || results.length === 0) return;
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			highlighted = (highlighted + 1) % results.length;
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			highlighted = (highlighted - 1 + results.length) % results.length;
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			const hit = results[highlighted];
+			if (hit) pick(hit);
+		} else if (e.key === 'Escape') {
+			suggestionsOpen = false;
+		}
+	}
 
 	function fmtDate(d: Date | string): string {
 		const date = typeof d === 'string' ? new Date(d) : d;
@@ -83,19 +159,88 @@
 
 				{#if target === 'user'}
 					<div class="space-y-2">
-						<Label for="recipient">Recipient</Label>
-						<select
-							id="recipient"
-							name="userId"
-							bind:value={userId}
-							required
-							class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-						>
-							<option value="">— Pick a user —</option>
-							{#each data.recipients as r (r.id)}
-								<option value={r.id}>{r.displayName} ({r.email})</option>
-							{/each}
-						</select>
+						<Label for="recipient-search">Recipient</Label>
+						<!-- userId is the source of truth the server reads. -->
+						<input type="hidden" name="userId" value={selected?.id ?? ''} />
+
+						{#if selected}
+							<!-- Selected chip: shows who's targeted, with a Clear button to pick someone else. -->
+							<div class="flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+								<div class="min-w-0">
+									<div class="truncate font-medium">
+										{selected.displayName}
+										{#if !selected.isActive}
+											<Badge variant="outline" class="ml-1 uppercase">suspended</Badge>
+										{/if}
+									</div>
+									<div class="truncate text-xs text-muted-foreground">{selected.email}</div>
+								</div>
+								<Button type="button" variant="ghost" size="sm" onclick={clearSelection}>
+									Change
+								</Button>
+							</div>
+						{:else}
+							<!-- Typeahead: 2-char minimum, 180ms debounce, /admin/users/search backs it. -->
+							<div class="relative">
+								<Input
+									id="recipient-search"
+									type="search"
+									autocomplete="off"
+									placeholder="Search by name or email…"
+									bind:value={query}
+									oninput={() => scheduleSearch(query)}
+									onkeydown={onKeydown}
+									onfocus={() => {
+										if (results.length > 0) suggestionsOpen = true;
+									}}
+									onblur={() => {
+										// Delay so a click on a suggestion can register first.
+										setTimeout(() => (suggestionsOpen = false), 120);
+									}}
+									aria-expanded={suggestionsOpen}
+									aria-autocomplete="list"
+									aria-controls="recipient-suggestions"
+								/>
+								{#if suggestionsOpen && results.length > 0}
+									<ul
+										id="recipient-suggestions"
+										role="listbox"
+										class="absolute left-0 right-0 z-10 mt-1 max-h-72 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg"
+									>
+										{#each results as r, i (r.id)}
+											<li
+												role="option"
+												aria-selected={highlighted === i}
+												class="cursor-pointer px-3 py-2 text-sm {highlighted === i
+													? 'bg-accent'
+													: 'hover:bg-accent'}"
+												onmousedown={(e) => {
+													// mousedown beats the input's blur, so the click registers.
+													e.preventDefault();
+													pick(r);
+												}}
+												onmouseenter={() => (highlighted = i)}
+											>
+												<div class="font-medium">
+													{r.displayName}
+													{#if !r.isActive}
+														<Badge variant="outline" class="ml-1 uppercase">suspended</Badge>
+													{/if}
+												</div>
+												<div class="text-xs text-muted-foreground">{r.email}</div>
+											</li>
+										{/each}
+									</ul>
+								{:else if query.trim().length >= 2 && !isSearching && results.length === 0}
+									<div class="absolute left-0 right-0 z-10 mt-1 rounded-md border bg-popover px-3 py-2 text-sm text-muted-foreground shadow-lg">
+										No users match “{query}”.
+									</div>
+								{/if}
+							</div>
+							<p class="text-xs text-muted-foreground">
+								Type at least 2 characters. Use ↑/↓ to navigate, Enter to pick.
+							</p>
+						{/if}
 					</div>
 				{/if}
 

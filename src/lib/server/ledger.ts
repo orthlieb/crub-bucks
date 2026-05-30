@@ -711,7 +711,8 @@ export interface BetParticipantInput {
 export async function createBet(opts: {
 	mode: BetMode;
 	title: string;
-	description?: string | null;
+	/** Single-grapheme emoji like "🎲". Optional — display has a fallback. */
+	icon?: string | null;
 	createdBy: string;
 	pool?: number | null;
 	/** 'pot' mode only: the equal per-player buy-in. */
@@ -719,7 +720,7 @@ export async function createBet(opts: {
 	participantIds?: string[];
 	participants?: BetParticipantInput[];
 }): Promise<string> {
-	const { mode, title, description = null, createdBy } = opts;
+	const { mode, title, icon = null, createdBy } = opts;
 	if (!title.trim()) throw new LedgerError('Bet title is required');
 
 	let ids: string[];
@@ -774,7 +775,7 @@ export async function createBet(opts: {
 			.insert(bets)
 			.values({
 				title: title.trim(),
-				description,
+				icon,
 				createdBy,
 				status: 'open',
 				mode,

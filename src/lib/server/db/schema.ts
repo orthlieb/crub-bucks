@@ -217,7 +217,9 @@ export const bets = pgTable(
 	{
 		id: uuid('id').primaryKey().defaultRandom(),
 		title: text('title').notNull(),
-		description: text('description'),
+		// emoji chosen by the creator — single grapheme like "🎲". Nullable for
+		// rows that pre-date the picker; the display side falls back to a default.
+		icon: text('icon'),
 		status: betStatusEnum('status').notNull().default('open'),
 		// how the pot is split at resolution
 		mode: betModeEnum('mode').notNull().default('custom'),

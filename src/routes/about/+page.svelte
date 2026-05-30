@@ -47,8 +47,7 @@
 			/>
 			<figcaption class="mt-2 text-center text-xs text-muted-foreground">
 				Issued by <em>The Republic of Crub</em>. Backed by the Tail Tuft Guarantee.
-				Signed by the Governor of Bark and the Registrar of Puppiness. Not legal tender anywhere
-				else.
+				Signed by the Governor of Bark and the Registrar of Puppiness.
 			</figcaption>
 		</figure>
 

@@ -66,11 +66,8 @@
 					alt="A one Crub Buck note: purple, with Cala the dog as Governor of Bark."
 					width="1024"
 					height="440"
-					class="w-full rotate-[-3deg] rounded-md shadow-2xl ring-1 ring-primary/20 transition-transform hover:rotate-0"
+					class="w-full rotate-[-3deg] rounded-md ring-1 ring-primary/20 shadow-[0_35px_60px_-15px_rgba(124,58,237,0.45),0_12px_24px_-10px_rgba(0,0,0,0.3)] transition-transform duration-300 hover:-translate-y-1 hover:rotate-0"
 				/>
-				<div class="pointer-events-none absolute -bottom-3 left-4 text-xs text-muted-foreground">
-					Legal tender of <em>The Republic of Crub</em>.
-				</div>
 			</div>
 		</section>
 

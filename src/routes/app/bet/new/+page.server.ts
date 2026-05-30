@@ -5,6 +5,16 @@ import type { Actions, PageServerLoad } from './$types';
 
 const MODES: BetMode[] = ['even_split', 'winner_loser', 'tiered', 'pot', 'custom'];
 
+// Cap the icon at 8 chars to allow for multi-codepoint emoji (skin tones,
+// ZWJ sequences) while keeping it well away from "user pasted a paragraph."
+const MAX_ICON_LEN = 8;
+
+function parseIcon(raw: FormDataEntryValue | null): string | null {
+	const s = String(raw ?? '').trim();
+	if (!s) return null;
+	return s.slice(0, MAX_ICON_LEN);
+}
+
 export const load: PageServerLoad = async ({ locals }) => {
 	const friends = await getFriends(locals.user!.id);
 	return {
@@ -18,10 +28,10 @@ export const actions: Actions = {
 		const userId = locals.user!.id;
 		const form = await request.formData();
 		const title = String(form.get('title') ?? '').trim();
-		const description = String(form.get('description') ?? '').trim() || null;
+		const icon = parseIcon(form.get('icon'));
 		const mode = String(form.get('mode') ?? '') as BetMode;
 		if (!MODES.includes(mode)) {
-			return fail(400, { error: 'Pick a bet type.', title, description });
+			return fail(400, { error: 'Pick a bet type.', title, icon });
 		}
 
 		try {
@@ -31,12 +41,12 @@ export const actions: Actions = {
 				const payouts = form.getAll('payoutIfWin').map((v) => Number(v));
 				const losses = form.getAll('lossIfLose').map((v) => Number(v));
 				if (userIds.length !== payouts.length || userIds.length !== losses.length) {
-					return fail(400, { error: 'Mismatched participant data.', title, description });
+					return fail(400, { error: 'Mismatched participant data.', title, icon });
 				}
 				const participants = userIds
 					.map((u, i) => ({ userId: u, payoutIfWin: payouts[i], lossIfLose: losses[i] }))
 					.filter((p) => p.userId);
-				betId = await createBet({ mode, title, description, createdBy: userId, participants });
+				betId = await createBet({ mode, title, icon, createdBy: userId, participants });
 			} else if (mode === 'pot') {
 				const stake = Number(form.get('stake'));
 				const selected = form.getAll('participantId').map(String).filter(Boolean);
@@ -44,7 +54,7 @@ export const actions: Actions = {
 				betId = await createBet({
 					mode,
 					title,
-					description,
+					icon,
 					createdBy: userId,
 					stake,
 					participantIds
@@ -57,7 +67,7 @@ export const actions: Actions = {
 				betId = await createBet({
 					mode,
 					title,
-					description,
+					icon,
 					createdBy: userId,
 					pool,
 					participantIds
@@ -65,7 +75,7 @@ export const actions: Actions = {
 			}
 			throw redirect(303, `/app/bet/${betId}`);
 		} catch (e) {
-			if (e instanceof LedgerError) return fail(400, { error: e.message, title, description });
+			if (e instanceof LedgerError) return fail(400, { error: e.message, title, icon });
 			throw e;
 		}
 	}

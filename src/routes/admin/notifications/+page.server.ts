@@ -1,7 +1,4 @@
 import { fail } from '@sveltejs/kit';
-import { asc, eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { users } from '$lib/server/db/schema';
 import {
 	createNotification,
 	deleteNotification,
@@ -14,15 +11,8 @@ import type { Actions, PageServerLoad } from './$types';
 const LEVELS: NotificationLevel[] = ['info', 'success', 'warning'];
 
 export const load: PageServerLoad = async () => {
-	const [items, recipientList] = await Promise.all([
-		listAllForAdmin(100),
-		db
-			.select({ id: users.id, displayName: users.displayName, email: users.email })
-			.from(users)
-			.where(eq(users.isActive, true))
-			.orderBy(asc(users.displayName))
-	]);
-	return { items, recipients: recipientList };
+	const items = await listAllForAdmin(100);
+	return { items };
 };
 
 export const actions: Actions = {

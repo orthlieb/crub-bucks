@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.select({
 			id: bets.id,
 			title: bets.title,
-			description: bets.description,
+			icon: bets.icon,
 			status: bets.status,
 			mode: bets.mode,
 			pool: bets.pool,

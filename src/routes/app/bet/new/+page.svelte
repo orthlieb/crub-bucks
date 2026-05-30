@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 	import { Button } from '$lib/components/ui/button';
@@ -73,6 +74,84 @@
 	function removeRow(i: number) {
 		rows = rows.filter((_, idx) => idx !== i);
 	}
+
+	// Bet icon. Default 💰; if a previous submit failed and the server echoed
+	// an icon back, sync it on first render via an effect (avoiding the
+	// state_referenced_locally warning that comes from reading props in
+	// the $state initializer).
+	let icon = $state<string>('💰');
+	$effect.pre(() => {
+		if (form?.icon) icon = form.icon;
+	});
+
+	// emoji-picker-element integration. The component is a self-registering
+	// web component, so we dynamically import it after mount to keep it out
+	// of the SSR bundle (and lazy-load its ~75 KB of code + data only when
+	// the user actually visits the create-bet page). Picker is created once
+	// and stays mounted (just visibility-toggled) so its emoji DB only loads
+	// once even after multiple opens.
+	let pickerOpen = $state(false);
+	let pickerMount: HTMLDivElement | undefined = $state();
+	let pickerInstance: HTMLElement | null = null;
+	let themeObserver: MutationObserver | null = null;
+
+	onMount(() => {
+		let disposed = false;
+		(async () => {
+			const { Picker } = await import('emoji-picker-element');
+			if (disposed || !pickerMount) return;
+			const p = new Picker() as HTMLElement;
+
+			// Sync with our class-based .dark theme override (the picker
+			// otherwise follows prefers-color-scheme, which can disagree
+			// with the user's app-level light/dark choice).
+			const syncTheme = () => {
+				const dark = document.documentElement.classList.contains('dark');
+				p.classList.toggle('dark', dark);
+				p.classList.toggle('light', !dark);
+			};
+			syncTheme();
+			themeObserver = new MutationObserver(syncTheme);
+			themeObserver.observe(document.documentElement, {
+				attributes: true,
+				attributeFilter: ['class']
+			});
+
+			p.addEventListener('emoji-click', (e: Event) => {
+				const detail = (e as CustomEvent<{ unicode: string }>).detail;
+				if (detail?.unicode) {
+					icon = detail.unicode;
+					pickerOpen = false;
+				}
+			});
+			// Fit our popover width.
+			p.style.setProperty('--num-columns', '8');
+			p.style.width = '100%';
+			pickerMount.appendChild(p);
+			pickerInstance = p;
+		})();
+		return () => {
+			disposed = true;
+			themeObserver?.disconnect();
+			themeObserver = null;
+			pickerInstance?.remove();
+			pickerInstance = null;
+		};
+	});
+
+	// Click-outside to close the picker popover.
+	let pickerPopover: HTMLDivElement | undefined = $state();
+	function onDocClick(e: MouseEvent) {
+		if (!pickerOpen) return;
+		const t = e.target as Node | null;
+		if (pickerPopover && t && !pickerPopover.contains(t)) pickerOpen = false;
+	}
+	$effect(() => {
+		if (pickerOpen) {
+			document.addEventListener('mousedown', onDocClick);
+			return () => document.removeEventListener('mousedown', onDocClick);
+		}
+	});
 </script>
 
 <div class="space-y-6">
@@ -112,13 +191,37 @@
 					</p>
 				</div>
 
-				<div class="space-y-2">
-					<Label for="title">Title</Label>
-					<Input id="title" name="title" required placeholder="Cornhole rematch" value={form?.title ?? ''} />
-				</div>
-				<div class="space-y-2">
-					<Label for="description">Description (optional)</Label>
-					<Input id="description" name="description" placeholder="Best of 3" value={form?.description ?? ''} />
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-[auto,1fr] sm:items-end">
+					<div class="space-y-2">
+						<Label>Icon</Label>
+						<div class="relative" bind:this={pickerPopover}>
+							<button
+								type="button"
+								onclick={() => (pickerOpen = !pickerOpen)}
+								aria-haspopup="dialog"
+								aria-expanded={pickerOpen}
+								aria-label="Pick an icon"
+								class="flex h-9 w-14 items-center justify-center rounded-md border bg-muted/30 text-2xl leading-none transition-colors hover:bg-accent"
+							>
+								{icon}
+							</button>
+							<!-- Container is always mounted so the picker (loaded once after
+							     onMount) doesn't tear down + reload its emoji DB on every
+							     open. We hide/show with class:hidden instead. -->
+							<div
+								bind:this={pickerMount}
+								role="dialog"
+								aria-label="Emoji picker"
+								class="absolute left-0 top-full z-20 mt-1 w-[20rem] overflow-hidden rounded-md border bg-popover shadow-lg sm:w-[22rem]"
+								class:hidden={!pickerOpen}
+							></div>
+						</div>
+						<input type="hidden" name="icon" value={icon} />
+					</div>
+					<div class="space-y-2">
+						<Label for="title">Title</Label>
+						<Input id="title" name="title" required placeholder="Cornhole rematch" value={form?.title ?? ''} />
+					</div>
 				</div>
 
 				{#if mode === 'custom'}

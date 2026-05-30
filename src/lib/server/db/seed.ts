@@ -134,7 +134,7 @@ const [resolvedBet] = await db
 	.insert(bets)
 	.values({
 		title: 'Cornhole — Carl & Dana vs Theo & Mira',
-		description: 'Best of 3. Losers pay the winners.',
+		icon: '🌽',
 		status: 'resolved',
 		mode: 'custom',
 		createdBy: carl.id,
@@ -173,7 +173,7 @@ const [openBet] = await db
 	.insert(bets)
 	.values({
 		title: 'Poker night — winner takes 30',
-		description: 'Tiered: last place pays the most.',
+		icon: '🃏',
 		status: 'open',
 		mode: 'tiered',
 		pool: 30,
@@ -192,7 +192,7 @@ const [cancelledBet] = await db
 	.insert(bets)
 	.values({
 		title: 'Rain check on mini-golf',
-		description: 'Course flooded — never happened.',
+		icon: '⛳',
 		status: 'cancelled',
 		createdBy: carl.id,
 		cancelledAt: now,

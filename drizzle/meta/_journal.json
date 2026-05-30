@@ -50,6 +50,20 @@
       "when": 1780158679040,
       "tag": "0006_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780161545189,
+      "tag": "0007_add_bet_icon",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780161563958,
+      "tag": "0008_drop_bet_description",
+      "breakpoints": true
     }
   ]
 }

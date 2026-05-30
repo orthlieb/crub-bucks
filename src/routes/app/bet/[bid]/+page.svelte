@@ -140,21 +140,27 @@
 <div class="space-y-6">
 	<header>
 		<a href="/app" class="text-sm text-muted-foreground hover:text-foreground">← Dashboard</a>
-		<h1 class="mt-1 text-3xl font-bold tracking-tight">{data.bet.title}</h1>
-		<div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-			<Badge
-				variant={data.bet.status === 'open'
-					? 'default'
-					: data.bet.status === 'resolved'
-						? 'info'
-						: 'destructive'}>{data.bet.status}</Badge
-			>
-			<Badge variant="secondary">{modeLabel[mode]}</Badge>
-			{#if mode !== 'custom'}<span>pot {fmt(pool)} ₡</span>{/if}
-			<span>· by {data.creatorName} · {fmtDate(data.bet.createdAt)}</span>
-			{#if data.bet.resolvedAt}<span>· resolved {fmtDate(data.bet.resolvedAt)}</span>{/if}
+		<div class="mt-1 flex items-start gap-4">
+			<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border bg-muted/40 text-4xl leading-none sm:h-20 sm:w-20 sm:text-5xl">
+				{data.bet.icon ?? '💰'}
+			</div>
+			<div class="min-w-0 flex-1">
+				<h1 class="text-3xl font-bold tracking-tight">{data.bet.title}</h1>
+				<div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+					<Badge
+						variant={data.bet.status === 'open'
+							? 'default'
+							: data.bet.status === 'resolved'
+								? 'info'
+								: 'destructive'}>{data.bet.status}</Badge
+					>
+					<Badge variant="secondary">{modeLabel[mode]}</Badge>
+					{#if mode !== 'custom'}<span>pot {fmt(pool)} ₡</span>{/if}
+					<span>· by {data.creatorName} · {fmtDate(data.bet.createdAt)}</span>
+					{#if data.bet.resolvedAt}<span>· resolved {fmtDate(data.bet.resolvedAt)}</span>{/if}
+				</div>
+			</div>
 		</div>
-		{#if data.bet.description}<p class="mt-2 text-muted-foreground">{data.bet.description}</p>{/if}
 		{#if data.bet.status === 'resolved' && data.bet.resolutionNote}
 			<p class="mt-2 rounded-md border bg-muted/30 p-3 text-sm">
 				<span class="font-medium">Note:</span> {data.bet.resolutionNote}

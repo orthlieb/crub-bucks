@@ -69,16 +69,21 @@
 				{#each data.openBets as b (b.id)}
 					<a
 						href={`/app/bet/${b.id}`}
-						class="flex items-center justify-between rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-accent"
+						class="flex items-stretch overflow-hidden rounded-lg border bg-card shadow-sm transition-colors hover:bg-accent"
 					>
-						<div>
-							<div class="font-semibold">{b.title}</div>
-							<div class="mt-1 text-xs text-muted-foreground">
-								{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
-								{fmtDate(b.createdAt)}
-							</div>
+						<div class="flex w-16 shrink-0 items-center justify-center border-r bg-muted/40 text-3xl leading-none sm:w-20 sm:text-4xl">
+							{b.icon ?? '💰'}
 						</div>
-						<Badge class="w-24 justify-center uppercase">open</Badge>
+						<div class="flex flex-1 items-center justify-between gap-3 p-4">
+							<div>
+								<div class="font-semibold">{b.title}</div>
+								<div class="mt-1 text-xs text-muted-foreground">
+									{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
+									{fmtDate(b.createdAt)}
+								</div>
+							</div>
+							<Badge class="w-24 justify-center uppercase">open</Badge>
+						</div>
 					</a>
 				{/each}
 			</div>
@@ -98,16 +103,21 @@
 				{#each data.settledBets as b (b.id)}
 					<a
 						href={`/app/bet/${b.id}`}
-						class="flex items-center justify-between rounded-lg border bg-card p-4 text-muted-foreground shadow-sm transition-colors hover:bg-accent"
+						class="flex items-stretch overflow-hidden rounded-lg border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-accent"
 					>
-						<div>
-							<div class="font-medium text-foreground">{b.title}</div>
-							<div class="mt-1 text-xs">
-								{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
-								{b.status === 'resolved' ? `resolved ${fmtDate(b.resolvedAt)}` : 'cancelled'}
-							</div>
+						<div class="flex w-16 shrink-0 items-center justify-center border-r bg-muted/40 text-3xl leading-none opacity-70 sm:w-20 sm:text-4xl">
+							{b.icon ?? '💰'}
 						</div>
-						<Badge variant={b.status === 'resolved' ? 'info' : 'destructive'} class="w-24 justify-center uppercase">{b.status}</Badge>
+						<div class="flex flex-1 items-center justify-between gap-3 p-4">
+							<div>
+								<div class="font-medium text-foreground">{b.title}</div>
+								<div class="mt-1 text-xs">
+									{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
+									{b.status === 'resolved' ? `resolved ${fmtDate(b.resolvedAt)}` : 'cancelled'}
+								</div>
+							</div>
+							<Badge variant={b.status === 'resolved' ? 'info' : 'destructive'} class="w-24 justify-center uppercase">{b.status}</Badge>
+						</div>
 					</a>
 				{/each}
 			</div>

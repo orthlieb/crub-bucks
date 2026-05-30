@@ -40,6 +40,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.select({
 				id: bets.id,
 				title: bets.title,
+				icon: bets.icon,
 				status: bets.status,
 				createdAt: bets.createdAt,
 				resolvedAt: bets.resolvedAt
@@ -52,6 +53,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.select({
 				id: bets.id,
 				title: bets.title,
+				icon: bets.icon,
 				status: bets.status,
 				createdAt: bets.createdAt,
 				resolvedAt: bets.resolvedAt
