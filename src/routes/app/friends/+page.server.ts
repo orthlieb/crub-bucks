@@ -13,6 +13,7 @@ import {
 	transferBetweenUsers,
 	areFriends,
 	userBalance,
+	setFavorite,
 	LedgerError
 } from '$lib/server/ledger';
 import type { Actions, PageServerLoad } from './$types';
@@ -96,12 +97,31 @@ export const actions: Actions = {
 		return { unfriended: true };
 	},
 
+	favorite: async ({ request, locals }) => {
+		const userId = locals.user!.id;
+		const form = await request.formData();
+		const friendId = String(form.get('friendId') ?? '');
+		// Form sends the *desired* end state, not a toggle, so the server is
+		// authoritative if two tabs disagree.
+		const desired = form.get('isFavorite') === 'true';
+		try {
+			await setFavorite(userId, friendId, desired);
+		} catch (e) {
+			if (e instanceof LedgerError) return fail(400, { favoriteError: e.message });
+			throw e;
+		}
+		return { favoriteToggled: true };
+	},
+
 	pay: async ({ request, locals }) => {
 		const userId = locals.user!.id;
 		const form = await request.formData();
 		const toUserId = String(form.get('toUserId') ?? '');
 		const amount = Number(form.get('amount'));
 		const memo = String(form.get('memo') ?? '').trim() || null;
+		// Cap at 8 chars to allow multi-codepoint emoji (skin tones, ZWJ) while
+		// preventing prose abuse.
+		const icon = String(form.get('icon') ?? '').trim().slice(0, 8) || null;
 
 		if (!toUserId || toUserId === userId) {
 			return fail(400, { payError: 'Pick a friend to pay.' });
@@ -111,7 +131,14 @@ export const actions: Actions = {
 		}
 
 		try {
-			await transferBetweenUsers({ fromUserId: userId, toUserId, amount, memo, createdBy: userId });
+			await transferBetweenUsers({
+				fromUserId: userId,
+				toUserId,
+				amount,
+				memo,
+				icon,
+				createdBy: userId
+			});
 		} catch (e) {
 			if (e instanceof LedgerError) return fail(400, { payError: e.message });
 			throw e;

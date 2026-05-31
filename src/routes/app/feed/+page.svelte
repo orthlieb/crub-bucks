@@ -114,6 +114,7 @@
 									<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>.
 								{:else if item.type === 'payment'}
 									<Badge variant="success" class="mr-2 w-24 justify-center align-middle uppercase">payment</Badge>
+									{#if item.icon}<span class="mr-1 align-middle text-lg leading-none">{item.icon}</span>{/if}
 									<strong>{item.from}</strong> paid <strong>{item.to}</strong>
 									<span class="text-foreground">{fmt(item.amount)} ₡</span>{#if item.memo}<span class="text-muted-foreground"> — {item.memo}</span>{/if}.
 								{/if}

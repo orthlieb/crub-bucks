@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 	import { Button } from '$lib/components/ui/button';
@@ -18,6 +19,138 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const fmtAmount = (n: number) => formatSigned(n, data.locale);
+
+	// Client-side filter over the already-loaded friends list. Case-insensitive
+	// substring match on display name OR email. Friends are capped at 99 so
+	// filtering in JS is trivial — no server round-trip.
+	let friendFilter = $state('');
+	const filteredFriends = $derived.by(() => {
+		const q = friendFilter.trim().toLowerCase();
+		if (!q) return data.friends;
+		return data.friends.filter(
+			(f) => f.displayName.toLowerCase().includes(q) || f.email.toLowerCase().includes(q)
+		);
+	});
+	// Server returns favorites-first then alphabetical; we split the matched
+	// list into two groups so we can render a "Favorites" header above the
+	// pinned ones.
+	const filteredFavorites = $derived(filteredFriends.filter((f) => f.isFavorite));
+	const filteredOthers = $derived(filteredFriends.filter((f) => !f.isFavorite));
+
+	// Selected friend drives the unified pay / unfriend action panel.
+	// Reset to null when the underlying list refreshes (e.g. unfriend
+	// succeeds) and the selected id no longer exists.
+	let selectedFriendId = $state<string | null>(null);
+	const selectedFriend = $derived(
+		data.friends.find((f) => f.id === selectedFriendId) ?? null
+	);
+	$effect(() => {
+		if (selectedFriendId && !selectedFriend) selectedFriendId = null;
+	});
+
+	// Typeahead state for the Pay-a-friend selector. Client-side since
+	// friends are already loaded. Substring match on name OR email.
+	// Favorites still get a ★ prefix in the suggestions.
+	let payQuery = $state('');
+	let paySuggestionsOpen = $state(false);
+	let payHighlight = $state(0);
+	const paySuggestions = $derived.by(() => {
+		const q = payQuery.trim().toLowerCase();
+		if (!q) return [];
+		return data.friends
+			.filter(
+				(f) =>
+					f.displayName.toLowerCase().includes(q) || f.email.toLowerCase().includes(q)
+			)
+			.slice(0, 20);
+	});
+	function pickPayFriend(id: string) {
+		selectedFriendId = id;
+		payQuery = '';
+		paySuggestionsOpen = false;
+	}
+	function onPayKeydown(e: KeyboardEvent) {
+		if (!paySuggestionsOpen || paySuggestions.length === 0) return;
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			payHighlight = (payHighlight + 1) % paySuggestions.length;
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			payHighlight = (payHighlight - 1 + paySuggestions.length) % paySuggestions.length;
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			const hit = paySuggestions[payHighlight];
+			if (hit) pickPayFriend(hit.id);
+		} else if (e.key === 'Escape') {
+			paySuggestionsOpen = false;
+		}
+	}
+	// Reset highlight whenever the suggestion set changes.
+	$effect(() => {
+		paySuggestions.length;
+		payHighlight = 0;
+	});
+
+	// Per-friend icon memory for the pay form (so if you select a friend,
+	// pick 🍕, switch to another, then come back, your 🍕 is still there).
+	// Default 💸. The shared picker writes here keyed by `selectedFriendId`.
+	let payIcons = $state<Record<string, string>>({});
+	let pickerOpen = $state(false);
+	let pickerMount: HTMLDivElement | undefined = $state();
+	let pickerInstance: HTMLElement | null = null;
+	let themeObserver: MutationObserver | null = null;
+
+	function iconFor(id: string | null): string {
+		return id ? (payIcons[id] ?? '💸') : '💸';
+	}
+
+	onMount(() => {
+		let disposed = false;
+		(async () => {
+			const { Picker } = await import('emoji-picker-element');
+			if (disposed || !pickerMount) return;
+			const p = new Picker() as HTMLElement;
+
+			const syncTheme = () => {
+				const dark = document.documentElement.classList.contains('dark');
+				p.classList.toggle('dark', dark);
+				p.classList.toggle('light', !dark);
+			};
+			syncTheme();
+			themeObserver = new MutationObserver(syncTheme);
+			themeObserver.observe(document.documentElement, {
+				attributes: true,
+				attributeFilter: ['class']
+			});
+
+			p.addEventListener('emoji-click', (e: Event) => {
+				const detail = (e as CustomEvent<{ unicode: string }>).detail;
+				if (detail?.unicode && selectedFriendId) {
+					payIcons = { ...payIcons, [selectedFriendId]: detail.unicode };
+					pickerOpen = false;
+				}
+			});
+			p.style.setProperty('--num-columns', '8');
+			p.style.width = '100%';
+			pickerMount.appendChild(p);
+			pickerInstance = p;
+		})();
+		return () => {
+			disposed = true;
+			themeObserver?.disconnect();
+			themeObserver = null;
+			pickerInstance?.remove();
+			pickerInstance = null;
+		};
+	});
+
+	// Close picker on Escape or backdrop click.
+	function onBackdropClick(e: MouseEvent) {
+		if (e.target === e.currentTarget) pickerOpen = false;
+	}
+	function onKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && pickerOpen) pickerOpen = false;
+	}
 	function balanceClass(n: number): string {
 		if (n > 0) return 'text-success';
 		if (n < 0) return 'text-destructive';
@@ -61,6 +194,149 @@
 			</form>
 		</CardContent>
 	</Card>
+
+	<!-- Pay a friend (or unfriend). Picks from the same `selectedFriendId`
+	     state that row-clicks below drive, so either path works. -->
+	{#if data.friends.length > 0}
+		<Card>
+			<CardHeader>
+				<CardTitle level={2}>Pay a friend</CardTitle>
+				<CardDescription>
+					Pick a friend, enter an amount, and send them some bucks. Tap a row in the list
+					below to fill this in quickly.
+				</CardDescription>
+			</CardHeader>
+			<CardContent>
+				{#if form?.payError}
+					<Alert variant="destructive" class="mb-4"><AlertDescription>{form.payError}</AlertDescription></Alert>
+				{:else if form?.paid}
+					<Alert variant="success" class="mb-4"><AlertDescription>Payment sent.</AlertDescription></Alert>
+				{/if}
+
+				<div class="space-y-2">
+					<Label for="pay-friend-search">Friend</Label>
+
+					{#if selectedFriend}
+						<!-- Chip with current selection. Change clears + refocuses
+						     the search input so the user can pick a different friend. -->
+						<div class="flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+							<div class="min-w-0">
+								<div class="truncate font-medium">
+									{selectedFriend.displayName}
+									{#if selectedFriend.isFavorite}
+										<span aria-hidden="true" class="text-yellow-500">★</span>
+									{/if}
+								</div>
+								<div class="truncate text-xs text-muted-foreground">{selectedFriend.email}</div>
+							</div>
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								onclick={() => {
+									selectedFriendId = null;
+									payQuery = '';
+									queueMicrotask(() =>
+										(document.getElementById('pay-friend-search') as HTMLInputElement | null)?.focus()
+									);
+								}}
+							>
+								Change
+							</Button>
+						</div>
+					{:else}
+						<div class="relative">
+							<Input
+								id="pay-friend-search"
+								type="search"
+								autocomplete="off"
+								placeholder="Start typing a name or email…"
+								bind:value={payQuery}
+								oninput={() => (paySuggestionsOpen = payQuery.trim().length > 0)}
+								onfocus={() => {
+									if (payQuery.trim().length > 0) paySuggestionsOpen = true;
+								}}
+								onblur={() => setTimeout(() => (paySuggestionsOpen = false), 120)}
+								onkeydown={onPayKeydown}
+								aria-expanded={paySuggestionsOpen}
+								aria-autocomplete="list"
+								aria-controls="pay-friend-suggestions"
+							/>
+							{#if paySuggestionsOpen && paySuggestions.length > 0}
+								<ul
+									id="pay-friend-suggestions"
+									role="listbox"
+									class="absolute left-0 right-0 z-10 mt-1 max-h-72 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg"
+								>
+									{#each paySuggestions as f, i (f.id)}
+										<li
+											role="option"
+											aria-selected={payHighlight === i}
+											class="cursor-pointer px-3 py-2 text-sm {payHighlight === i
+												? 'bg-accent'
+												: 'hover:bg-accent'}"
+											onmousedown={(e) => {
+												// mousedown beats input blur so the click actually
+												// registers before the dropdown closes.
+												e.preventDefault();
+												pickPayFriend(f.id);
+											}}
+											onmouseenter={() => (payHighlight = i)}
+										>
+											<div class="font-medium">
+												{#if f.isFavorite}<span aria-hidden="true" class="text-yellow-500">★</span> {/if}{f.displayName}
+											</div>
+											<div class="text-xs text-muted-foreground">{f.email}</div>
+										</li>
+									{/each}
+								</ul>
+							{:else if paySuggestionsOpen && payQuery.trim().length > 0 && paySuggestions.length === 0}
+								<div class="absolute left-0 right-0 z-10 mt-1 rounded-md border bg-popover px-3 py-2 text-sm text-muted-foreground shadow-lg">
+									No friends match “{payQuery}”.
+								</div>
+							{/if}
+						</div>
+						<p class="text-xs text-muted-foreground">
+							Or tap a friend in the list below. Use ↑/↓ + Enter to pick from suggestions.
+						</p>
+					{/if}
+				</div>
+
+				{#if selectedFriend}
+					<form
+						method="POST"
+						action="?/pay"
+						use:enhance
+						class="mt-4 flex flex-wrap items-end gap-2"
+					>
+						<input type="hidden" name="toUserId" value={selectedFriend.id} />
+						<input type="hidden" name="icon" value={iconFor(selectedFriend.id)} />
+						<div class="space-y-1">
+							<Label class="text-xs">Icon</Label>
+							<button
+								type="button"
+								onclick={() => (pickerOpen = true)}
+								aria-haspopup="dialog"
+								aria-label="Pick a payment icon"
+								class="flex h-9 w-12 items-center justify-center rounded-md border bg-muted/30 text-xl leading-none transition-colors hover:bg-accent"
+							>
+								{iconFor(selectedFriend.id)}
+							</button>
+						</div>
+						<div class="space-y-1">
+							<Label class="text-xs">Pay (CB)</Label>
+							<Input type="number" name="amount" min="1" required class="w-24" placeholder="0" />
+						</div>
+						<div class="flex-1 space-y-1">
+							<Label class="text-xs">Note (optional)</Label>
+							<Input name="memo" placeholder="What's it for?" maxlength={140} />
+						</div>
+						<Button type="submit">Pay {selectedFriend.displayName}</Button>
+					</form>
+				{/if}
+			</CardContent>
+		</Card>
+	{/if}
 
 	<!-- Incoming requests -->
 	{#if data.incoming.length > 0}
@@ -150,14 +426,31 @@
 		</section>
 	{/if}
 
-	<!-- Friends list + pay -->
+	<!-- Friends list + unified action panel -->
 	<section>
-		<h2 class="text-xl font-semibold tracking-tight">Your friends ({data.friends.length})</h2>
+		<div class="flex flex-wrap items-end justify-between gap-3">
+			<h2 class="text-xl font-semibold tracking-tight">
+				Your friends ({data.friends.length})
+				{#if friendFilter.trim() !== '' && filteredFriends.length !== data.friends.length}
+					<span class="ml-1 text-sm font-normal text-muted-foreground">
+						· {filteredFriends.length} match{filteredFriends.length === 1 ? '' : 'es'}
+					</span>
+				{/if}
+			</h2>
+			{#if data.friends.length > 5}
+				<div class="w-full sm:w-64">
+					<Input
+						type="search"
+						placeholder="Filter by name or email…"
+						bind:value={friendFilter}
+						aria-label="Filter friends"
+					/>
+				</div>
+			{/if}
+		</div>
 
-		{#if form?.payError}
-			<Alert variant="destructive" class="mt-3"><AlertDescription>{form.payError}</AlertDescription></Alert>
-		{:else if form?.paid}
-			<Alert variant="success" class="mt-3"><AlertDescription>Payment sent.</AlertDescription></Alert>
+		{#if form?.favoriteError}
+			<Alert variant="destructive" class="mt-3"><AlertDescription>{form.favoriteError}</AlertDescription></Alert>
 		{/if}
 
 		{#if data.friends.length === 0}
@@ -173,37 +466,119 @@
 					No friends yet. Send a request above to get started.
 				</CardContent>
 			</Card>
+		{:else if filteredFriends.length === 0}
+			<Card class="mt-3">
+				<CardContent class="py-8 text-center text-sm text-muted-foreground">
+					No friends match “{friendFilter}”.
+				</CardContent>
+			</Card>
 		{:else}
-			<div class="mt-3 space-y-2">
-				{#each data.friends as f (f.id)}
-					<Card>
-						<CardContent class="flex flex-wrap items-center justify-between gap-3 py-4">
-							<div>
-								<div class="font-medium">{f.displayName}</div>
-								<div class="text-xs text-muted-foreground">{f.email}</div>
-							</div>
-							<div class="flex items-end gap-2">
-								<form method="POST" action="?/pay" use:enhance class="flex items-end gap-2">
-									<input type="hidden" name="toUserId" value={f.id} />
-									<div class="space-y-1">
-										<Label class="text-xs">Pay (CB)</Label>
-										<Input type="number" name="amount" min="1" required class="w-20" placeholder="0" />
-									</div>
-									<div class="space-y-1">
-										<Label class="text-xs">Note (optional)</Label>
-										<Input name="memo" class="w-40" placeholder="What's it for?" maxlength={140} />
-									</div>
-									<Button type="submit">Pay</Button>
-								</form>
-								<form method="POST" action="?/unfriend" use:enhance>
-									<input type="hidden" name="friendId" value={f.id} />
-									<Button type="submit" variant="outline">Unfriend</Button>
-								</form>
-							</div>
-						</CardContent>
-					</Card>
-				{/each}
+			<div class="mt-4 space-y-3">
+				{#if filteredFavorites.length > 0}
+					<div>
+						<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+							Favorites
+						</h3>
+						<div class="space-y-2">
+							{#each filteredFavorites as f (f.id)}
+								{@render friendRow(f)}
+							{/each}
+						</div>
+					</div>
+				{/if}
+				{#if filteredOthers.length > 0}
+					<div>
+						{#if filteredFavorites.length > 0}
+							<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+								All friends
+							</h3>
+						{/if}
+						<div class="space-y-2">
+							{#each filteredOthers as f (f.id)}
+								{@render friendRow(f)}
+							{/each}
+						</div>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</section>
+</div>
+
+{#snippet friendRow(f: { id: string; displayName: string; email: string; isFavorite: boolean })}
+	{@const isSelected = selectedFriendId === f.id}
+	<div
+		class="group flex items-center gap-2 rounded-lg border bg-card shadow-sm transition-colors {isSelected
+			? 'border-primary ring-1 ring-primary'
+			: 'hover:bg-accent'}"
+	>
+		<!-- Favorite toggle. Form-on-button so it works without JS too; use:enhance
+		     re-fetches data and the star updates from the server. -->
+		<form method="POST" action="?/favorite" use:enhance class="pl-3">
+			<input type="hidden" name="friendId" value={f.id} />
+			<input type="hidden" name="isFavorite" value={!f.isFavorite} />
+			<button
+				type="submit"
+				aria-label={f.isFavorite ? `Unfavorite ${f.displayName}` : `Favorite ${f.displayName}`}
+				aria-pressed={f.isFavorite}
+				class="flex h-9 w-9 items-center justify-center rounded text-xl leading-none transition-colors {f.isFavorite
+					? 'text-yellow-500 hover:text-yellow-600'
+					: 'text-muted-foreground hover:text-foreground'}"
+			>
+				{f.isFavorite ? '★' : '☆'}
+			</button>
+		</form>
+		<!-- Row body: click to select. -->
+		<button
+			type="button"
+			onclick={() => (selectedFriendId = isSelected ? null : f.id)}
+			class="flex-1 cursor-pointer py-3 pr-3 text-left"
+			aria-pressed={isSelected}
+		>
+			<div class="font-medium">{f.displayName}</div>
+			<div class="text-xs text-muted-foreground">{f.email}</div>
+		</button>
+		<!-- Unfriend, revealed on row hover (desktop) or focus-within. Always
+		     visible on touch / small viewports since there's no hover there. -->
+		<form
+			method="POST"
+			action="?/unfriend"
+			use:enhance
+			class="pr-3 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+			onsubmit={(e) => {
+				if (!confirm(`Unfriend ${f.displayName}?`)) e.preventDefault();
+			}}
+		>
+			<input type="hidden" name="friendId" value={f.id} />
+			<Button
+				type="submit"
+				variant="ghost"
+				size="sm"
+				class="text-destructive hover:bg-destructive/10 hover:text-destructive"
+			>
+				Unfriend
+			</Button>
+		</form>
+	</div>
+{/snippet}
+
+<svelte:window onkeydown={onKeydown} />
+
+<!-- Shared emoji picker: one instance, opened from the pay form. The mount
+     container stays in the DOM (so the picker's emoji DB only loads once);
+     the surrounding overlay is shown only while pickerOpen is true. -->
+<div
+	class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+	class:hidden={!pickerOpen}
+	role="presentation"
+	onclick={onBackdropClick}
+>
+	<div
+		role="dialog"
+		aria-label="Emoji picker"
+		aria-modal="true"
+		class="w-[20rem] overflow-hidden rounded-md border bg-popover shadow-lg sm:w-[22rem]"
+	>
+		<div bind:this={pickerMount}></div>
+	</div>
 </div>

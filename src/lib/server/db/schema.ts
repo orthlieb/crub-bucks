@@ -125,6 +125,27 @@ export const friendships = pgTable(
 	})
 );
 
+// Per-side favorites. (userId, friendId) — Alice marking Bob does NOT mark
+// Bob's view of Alice. App layer enforces that friendId is actually a friend
+// before insert; the row is harmless if the friendship is later dropped, but
+// it's removed via FK ON DELETE CASCADE when either user is deleted.
+export const friendFavorites = pgTable(
+	'friend_favorites',
+	{
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		friendId: uuid('friend_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => ({
+		pk: primaryKey({ columns: [t.userId, t.friendId] }),
+		userIdx: index('friend_favorites_user_idx').on(t.userId)
+	})
+);
+
 // ---------------------------------------------------------------------------
 // Friend invites (to email addresses that aren't users yet)
 // When you "friend" an email with no account, we record an invite and email
@@ -195,6 +216,11 @@ export const ledgerEntries = pgTable(
 		// signed: negative debits the wallet, positive credits it
 		delta: bigint('delta', { mode: 'number' }).notNull(),
 		memo: text('memo'),
+		// Single-grapheme emoji chosen by the payer ("🍕", "🎁", "💸"). Both
+		// legs of a transfer carry the same icon, just like memo. Nullable for
+		// system-issued transfers (welcome grant, bet settlements) and rows
+		// that pre-date the picker; the display falls back to a default.
+		icon: text('icon'),
 		// optional context — which bet resolution produced this entry (if any)
 		betId: uuid('bet_id').references(() => bets.id, { onDelete: 'set null' }),
 		// the user who initiated the transfer; null for system seeds / grants

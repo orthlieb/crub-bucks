@@ -66,9 +66,9 @@ Before you start the server work, line these up:
       password, database name)
 - [ ] **Domain name** with DNS access (or willingness to wait on DNS
       propagation)
-- [ ] **Resend account** with your sending domain verified (DKIM/SPF
-      records on the registrar). `onboarding@resend.dev` only delivers
-      to your own account address — useless for real users.
+- [ ] **Resend account** with your sending domain verified — full
+      walkthrough in [Phase 0.5](#phase-05--set-up-resend-email).
+      Start this early; DNS propagation can take a few hours.
 - [ ] **hCaptcha** site key + secret (free tier is fine)
 - [ ] **SSH key pair** on your laptop (`ed25519` recommended)
 - [ ] **GitHub repository** with the code pushed
@@ -98,6 +98,132 @@ Make sure your VPS IP is on the database's **firewall allowlist** once
 the VPS is up (Phase 1). You can leave it open to `0.0.0.0/0` for the
 initial connection from your laptop too, but lock it down to the VPS
 IP afterward.
+
+---
+
+## Phase 0.5 — Set up Resend (email)
+
+The app sends two kinds of transactional email — **verify-your-email**
+on signup and **password reset** — via Resend's HTTP API. No SDK
+dependency; the transport is a plain `fetch` to
+`https://api.resend.com/emails`. It auto-selects between Resend (when
+`RESEND_API_KEY` is set) and a console transport (when it isn't), so
+you can run the app without Resend for dev work — but real users need
+a real sender.
+
+**Do this before Phase 1.** DNS propagation typically takes a few
+minutes but can stretch to hours; starting now means the records are
+verified by the time you need them in Phase 3 (`.env`).
+
+### 0.5.1 Pick a sending subdomain
+
+Send from a **subdomain**, not your apex. Reasons:
+
+- The DNS records Resend asks for don't conflict with anything you
+  might already have at the apex (existing mail provider, SPF for
+  newsletters, etc.).
+- If a future Resend incident lands you on a blocklist, only the
+  subdomain's reputation is hit — your main domain is unaffected.
+- DKIM rotation is cleaner when isolated to a subdomain.
+
+Recommended: `send.yourdomain.com` or `mail.yourdomain.com`. The user
+never sees the subdomain; the visible `From:` can still be
+`no-reply@yourdomain.com` if you want — what matters for deliverability
+is the **return-path** subdomain.
+
+### 0.5.2 Create the account + add the domain
+
+1. Sign up at <https://resend.com>. Free tier covers 3 000 emails /
+   month and 100 / day — fine for a friends-and-family bet tracker;
+   upgrade later if you grow.
+2. Dashboard → **Domains → Add Domain**. Enter your sending domain
+   (e.g. `send.yourdomain.com`) and pick the closest region.
+3. Resend shows you a list of **DNS records to add**. There are
+   usually four:
+   - **MX** record on the subdomain (for return-path / bounce handling)
+   - **TXT (SPF)** authorising Resend's mail servers to send
+   - **TXT or CNAME (DKIM)** for cryptographic signing
+   - **TXT (DMARC)** *(strongly recommended — see 0.5.4)*
+
+   Copy the exact values shown in the dashboard — don't paste guesses
+   from this doc, Resend sometimes changes the host targets.
+
+### 0.5.3 Add the DNS records at your registrar
+
+Wherever you bought the domain (Ionos, Namecheap, Cloudflare, etc.):
+
+1. Open the DNS editor for the apex domain.
+2. Add each record exactly as Resend shows. **Name fields are relative
+   to the apex**, so an entry like `send` actually means
+   `send.yourdomain.com`.
+3. Save. Most registrars publish within minutes; some take an hour.
+4. Back in Resend, click **Verify**. Status flips to **Verified** once
+   every record resolves. You can keep refreshing — it doesn't penalise.
+
+If verification fails, the dashboard tells you which record is missing
+or wrong; the most common mistakes are pasting a value with extra
+quotes around it, or putting the record at the apex instead of the
+subdomain.
+
+### 0.5.4 Add a DMARC record *(strongly recommended)*
+
+Google and Yahoo's bulk-sender rules effectively require DMARC since
+2024. Add this TXT record at `_dmarc.yourdomain.com`:
+
+```
+v=DMARC1; p=none; rua=mailto:you@yourdomain.com; pct=100; adkim=s; aspf=s
+```
+
+`p=none` means "report but don't reject" — safe to start with. After
+a few weeks of clean reports (`rua=` is where they land), tighten to
+`p=quarantine` and eventually `p=reject`.
+
+### 0.5.5 Create a sending-only API key
+
+1. Resend dashboard → **API Keys → Create API Key**.
+2. **Permission: "Sending access"** — *not* "Full access". Least
+   privilege means if the VPS is ever compromised the attacker can
+   send emails but can't reconfigure your domain or read previous
+   sends.
+3. **Domain: restrict to your verified domain** (don't leave as "All
+   domains" — same reasoning).
+4. Name it `production-vps` or similar so future-you remembers what
+   it's for.
+5. Copy the key (starts with `re_…`). You won't see it again — store
+   it in your password manager *and* it's about to go in the `.env`
+   on the VPS in Phase 3.
+
+### 0.5.6 Pick your `EMAIL_FROM`
+
+Must use an address on your verified domain. Format is the standard
+RFC 5322:
+
+```
+EMAIL_FROM="Crub Bucks <no-reply@yourdomain.com>"
+```
+
+The display name (`Crub Bucks`) is what shows in inboxes; the address
+after it (`no-reply@…`) is what receivers see in headers and what
+DKIM/SPF are checked against. Apex `yourdomain.com` is fine here even
+if you verified the `send.yourdomain.com` subdomain — Resend allows
+the apex when the subdomain's records cover it.
+
+### 0.5.7 Smoke test (after Phase 3)
+
+Once `RESEND_API_KEY` and `EMAIL_FROM` are in the VPS `.env` and PM2
+is running (Phase 6), trigger a real send by registering an account
+on your live site with your own email. You should receive the
+verify-email message within seconds. If you don't:
+
+- Check `pm2 logs crub-bucks` for `Resend send failed: …` lines
+- Check the Resend dashboard's **Logs** tab — every send (success or
+  failure) shows there with the response from the recipient's mail
+  server
+
+See also the gotcha [`Resend onboarding sender only delivers to one
+address`](#resend-onboarding-sender-only-delivers-to-one-address) at
+the bottom of the doc if you skipped 0.5.1–0.5.5 and tried
+`onboarding@resend.dev`.
 
 ---
 
@@ -374,93 +500,120 @@ HTTPS.
 
 ---
 
-## Phase 9 — GitHub Actions for push-to-deploy *(optional)*
+## Phase 9 — GitHub Actions for push-to-deploy
 
-Once the first manual deploy works, automate it.
+Once the first manual deploy works, every subsequent change ships by
+pushing to `main`. The workflow file is **already in the repo** at
+`.github/workflows/deploy.yml`; you only need to authorize CI on the
+VPS and add three (or four) secrets to the GitHub repo.
 
-### 9.1 Add a deploy SSH key
+### 9.1 What the workflow does
+
+On every push to `main` (and on demand via the Actions tab):
+
+1. Check out the repo, install deps, run `npm run check` + `npm test`
+   + `npm run build` on a GitHub-hosted Ubuntu runner. **A failure here
+   aborts before anything touches the VPS** — broken main never deploys.
+2. SSH to the VPS as `crubbucks` and run, in `~/app`:
+   - `git fetch origin main && git reset --hard origin/main`
+   - `npm ci` (production deps + drizzle-kit for the next step)
+   - `npm run db:migrate`
+   - `npm run build`
+   - `pm2 reload ecosystem.config.cjs --update-env && pm2 save`
+3. Probe `https://<your domain>/health` for up to 60 seconds. A
+   non-200 fails the workflow so you'll see red in the Actions tab.
+
+Concurrency: only one deploy at a time, and in-flight deploys are NOT
+cancelled by a newer push — letting them finish is safer than leaving
+the box mid-migration. Subsequent pushes queue.
+
+### 9.2 Add a deploy SSH key
 
 On the VPS, as `crubbucks`:
 
 ```bash
-ssh-keygen -t ed25519 -f ~/.ssh/deploy_key -N ""
+ssh-keygen -t ed25519 -f ~/.ssh/deploy_key -N "" -C "github-actions"
 cat ~/.ssh/deploy_key.pub >> ~/.ssh/authorized_keys
-cat ~/.ssh/deploy_key   # copy this private key to GitHub Secrets
+chmod 600 ~/.ssh/authorized_keys
+cat ~/.ssh/deploy_key   # copy this private key (incl. header/footer) into GH Secrets
 ```
 
-### 9.2 Add GitHub Secrets
+Keep the private key in your password manager too, in case you ever
+need to rotate or troubleshoot.
 
-In your repo → Settings → Secrets → Actions:
+### 9.3 Capture the host key fingerprint *(recommended)*
+
+Strict host-key checking prevents a MITM if your VPS is ever replaced.
+On your **laptop**:
+
+```bash
+ssh-keyscan -t ed25519 VPS_IP \
+  | ssh-keygen -lf - \
+  | awk '{print $2}'
+# Example output:
+#   SHA256:abc123…xyz
+```
+
+Save the entire `SHA256:…` line as the `IONOS_SSH_FINGERPRINT` secret
+below. If you skip this, the action still connects — it just trusts
+whatever host answers at `IONOS_HOST` on first contact.
+
+### 9.4 Add GitHub Secrets
+
+Repo → Settings → Secrets and variables → Actions → New repository
+secret. Add:
 
 | Secret | Value |
 |---|---|
-| `IONOS_HOST` | VPS IP address |
-| `IONOS_DEPLOY_KEY` | Contents of `~/.ssh/deploy_key` (private) |
-| `IONOS_DOMAIN` | `yourdomain.com` |
+| `IONOS_HOST` | VPS IP address or DNS name |
+| `IONOS_DEPLOY_KEY` | Contents of `~/.ssh/deploy_key` — the **private** key, including the `-----BEGIN OPENSSH PRIVATE KEY-----` / `-----END…` lines |
+| `IONOS_DOMAIN` | `yourdomain.com` — what the health probe hits |
+| `IONOS_SSH_FINGERPRINT` | `SHA256:…` from 9.3 (optional but recommended) |
 
-### 9.3 Workflow file
+Also create a GitHub **environment** named `production` (Settings →
+Environments → New) — the workflow targets it, which gives you a place
+to add approvals later if you want a "wait for human review" gate on
+deploys.
 
-Create `.github/workflows/deploy.yml`:
+### 9.5 First automated deploy
 
-```yaml
-name: Deploy
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run check
-      - run: npm test
-      - run: npm run build
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host:     ${{ secrets.IONOS_HOST }}
-          username: crubbucks
-          key:      ${{ secrets.IONOS_DEPLOY_KEY }}
-          timeout:  180s
-          script: |
-            set -euo pipefail
-            source ~/.nvm/nvm.sh
-            cd ~/app
-            git fetch origin main
-            git reset --hard origin/main
-            npm ci
-            npm run db:migrate
-            npm run build
-            pm2 reload ecosystem.config.cjs --update-env
-
-      - name: Health check
-        run: |
-          for i in $(seq 1 12); do
-            CODE=$(curl -sf -o /dev/null -w "%{http_code}" "https://${{ secrets.IONOS_DOMAIN }}/health" || echo 000)
-            if [ "$CODE" = "200" ]; then echo "✅ healthy"; exit 0; fi
-            echo "Attempt $i: HTTP $CODE — waiting 5s"
-            sleep 5
-          done
-          echo "❌ health check failed"
-          exit 1
+```bash
+# Make a trivial change, e.g. bump README, commit, push.
+git push origin main
 ```
 
-Push to `main` → CI runs check/test/build, SSHs in, migrates, reloads,
-and probes `/health`. Failed probes fail the workflow so you'll know.
+Watch the Actions tab. The workflow runs `check + test + build` on the
+runner first; if that's green, it SSHes in, deploys, and probes
+`/health`. Total time on a small change is usually 2–4 minutes.
+
+If the health probe fails, the workflow turns red but the new code is
+still on the box (PM2 is reloading from whatever pulled cleanly).
+SSH in, run `pm2 logs crub-bucks`, and iterate.
+
+### 9.6 Rollback
+
+The deploy script does `git reset --hard origin/main`, so the canonical
+way to roll back is:
+
+```bash
+git revert <bad-sha>
+git push origin main
+```
+
+CI redeploys the revert.
+
+Bear in mind: **migrations are forward-only.** If the bad deploy
+included a destructive migration (e.g. dropping a column), the revert
+of the code does *not* automatically restore the DB shape — you'd need
+a follow-up "fix-up" migration. For app-only bugs (UI, ledger logic,
+etc.) this never comes up.
+
+### 9.7 Manual re-deploy
+
+If you need to redeploy without a new commit (e.g. after editing
+something on the box by hand and wanting CI to put it back in a known
+state), open the Actions tab → Deploy workflow → "Run workflow" on the
+`main` branch.
 
 ---
 

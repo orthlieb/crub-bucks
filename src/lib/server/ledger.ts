@@ -7,6 +7,7 @@ import {
 	betParticipants,
 	friendships,
 	friendInvites,
+	friendFavorites,
 	users
 } from './db/schema';
 import { sendFriendInviteEmail } from './email';
@@ -108,13 +109,23 @@ export interface TransferOpts {
 	toWalletId: string;
 	amount: number;
 	memo?: string | null;
+	/** Single-grapheme emoji ("🍕", "🎁"). Stamped on both ledger legs. */
+	icon?: string | null;
 	createdBy?: string | null;
 	/** Optional context — the bet whose resolution produced this transfer. */
 	betId?: string | null;
 }
 
 async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<string> {
-	const { fromWalletId, toWalletId, amount, memo = null, createdBy = null, betId = null } = opts;
+	const {
+		fromWalletId,
+		toWalletId,
+		amount,
+		memo = null,
+		icon = null,
+		createdBy = null,
+		betId = null
+	} = opts;
 
 	if (!Number.isInteger(amount) || amount <= 0) {
 		throw new LedgerError('Amount must be a positive whole number of Crub Bucks');
@@ -133,8 +144,8 @@ async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<string> {
 
 	const transferId = crypto.randomUUID();
 	await tx.insert(ledgerEntries).values([
-		{ transferId, walletId: fromWalletId, delta: -amount, memo, createdBy, betId },
-		{ transferId, walletId: toWalletId, delta: amount, memo, createdBy, betId }
+		{ transferId, walletId: fromWalletId, delta: -amount, memo, icon, createdBy, betId },
+		{ transferId, walletId: toWalletId, delta: amount, memo, icon, createdBy, betId }
 	]);
 	return transferId;
 }
@@ -152,6 +163,7 @@ export async function transferBetweenUsers(opts: {
 	toUserId: string;
 	amount: number;
 	memo?: string | null;
+	icon?: string | null;
 	createdBy?: string | null;
 }): Promise<string> {
 	return db.transaction(async (tx) => {
@@ -162,6 +174,7 @@ export async function transferBetweenUsers(opts: {
 			toWalletId,
 			amount: opts.amount,
 			memo: opts.memo ?? null,
+			icon: opts.icon ?? null,
 			createdBy: opts.createdBy ?? opts.fromUserId
 		});
 	});
@@ -356,20 +369,27 @@ export async function areFriends(a: string, b: string): Promise<boolean> {
 /** Accepted friends of a user (the other party in each accepted row). */
 export async function getFriends(
 	userId: string
-): Promise<Array<{ id: string; displayName: string; email: string; since: Date | null }>> {
+): Promise<
+	Array<{ id: string; displayName: string; email: string; since: Date | null; isFavorite: boolean }>
+> {
+	// LEFT JOIN to friend_favorites so we can sort favorites first without a
+	// separate query. The "other side" of each friendship is computed once via
+	// the CASE expression and reused for both the user join and the favorite
+	// join (so the favorite is keyed to *the friend's* id, not the caller's).
+	const otherId = sql<string>`case when ${friendships.requesterId} = ${userId} then ${friendships.addresseeId} else ${friendships.requesterId} end`;
 	const rows = await db
 		.select({
-			requesterId: friendships.requesterId,
-			addresseeId: friendships.addresseeId,
 			respondedAt: friendships.respondedAt,
-			otherId: sql<string>`case when ${friendships.requesterId} = ${userId} then ${friendships.addresseeId} else ${friendships.requesterId} end`,
+			otherId,
 			displayName: users.displayName,
-			email: users.email
+			email: users.email,
+			favoritedAt: friendFavorites.createdAt
 		})
 		.from(friendships)
-		.innerJoin(
-			users,
-			sql`${users.id} = case when ${friendships.requesterId} = ${userId} then ${friendships.addresseeId} else ${friendships.requesterId} end`
+		.innerJoin(users, sql`${users.id} = ${otherId}`)
+		.leftJoin(
+			friendFavorites,
+			and(eq(friendFavorites.userId, userId), sql`${friendFavorites.friendId} = ${otherId}`)
 		)
 		.where(
 			and(
@@ -377,14 +397,44 @@ export async function getFriends(
 				or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId))
 			)
 		)
-		.orderBy(users.displayName);
+		// Favorites first (NULLS LAST puts non-favorites after), then
+		// alphabetical within each group.
+		.orderBy(sql`${friendFavorites.createdAt} IS NULL`, users.displayName);
 
 	return rows.map((r) => ({
 		id: r.otherId,
 		displayName: r.displayName,
 		email: r.email,
-		since: r.respondedAt
+		since: r.respondedAt,
+		isFavorite: r.favoritedAt !== null
 	}));
+}
+
+/**
+ * Toggle the favorite flag on a friend for the calling user. Idempotent on
+ * both sides — calling with isFavorite=true twice is a no-op. Verifies the
+ * friendship is accepted before allowing the favorite (you can't pin a
+ * stranger).
+ */
+export async function setFavorite(
+	userId: string,
+	friendId: string,
+	isFavorite: boolean
+): Promise<void> {
+	if (userId === friendId) throw new LedgerError("You can't favorite yourself");
+	if (!(await areFriends(userId, friendId))) {
+		throw new LedgerError('You can only favorite your friends');
+	}
+	if (isFavorite) {
+		await db
+			.insert(friendFavorites)
+			.values({ userId, friendId })
+			.onConflictDoNothing();
+	} else {
+		await db
+			.delete(friendFavorites)
+			.where(and(eq(friendFavorites.userId, userId), eq(friendFavorites.friendId, friendId)));
+	}
 }
 
 /** Pending requests sent TO this user (awaiting their approval). */

@@ -64,6 +64,20 @@
       "when": 1780161563958,
       "tag": "0008_drop_bet_description",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780167478432,
+      "tag": "0009_add_payment_icon",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1780167759558,
+      "tag": "0010_friend_favorites",
+      "breakpoints": true
     }
   ]
 }

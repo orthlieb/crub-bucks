@@ -1,0 +1,117 @@
+name: Deploy
+
+# Push to main → CI verifies → SSH to the VPS → pull, migrate, build, reload,
+# health-check. Manual re-runs available via the Actions tab (workflow_dispatch).
+#
+# Required GitHub Secrets (Settings → Secrets and variables → Actions):
+#   IONOS_HOST            VPS public IP or hostname
+#   IONOS_DEPLOY_KEY      Private SSH key (ed25519) authorized for the
+#                         crubbucks user on the VPS
+#   IONOS_DOMAIN          e.g. crubbucks.example.com — used for the
+#                         post-deploy /health probe
+#
+# Optional but recommended:
+#   IONOS_SSH_FINGERPRINT SHA256 fingerprint of the VPS host key. When set,
+#                         the action verifies the host before connecting
+#                         (prevents MITM if your VPS is ever replaced).
+#
+# See docs/deployment.md → Phase 9 for full setup.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Only one deploy at a time. Don't cancel an in-flight deploy — let it finish
+# rather than leaving the VPS in a half-applied state (migrations are mid-run,
+# pm2 hasn't reloaded, etc.). Subsequent pushes queue.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Verify the push is deployable before we touch the server. A failure
+      # here aborts the deploy without ever SSHing in.
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Production build (smoke)
+        run: npm run build
+
+      # Actual deploy. The VPS is the source of truth — it re-checks out
+      # main, re-installs prod deps, runs migrations, rebuilds, and reloads
+      # PM2. We don't ship the local build/ to the server; the VPS rebuilds
+      # so its node_modules and binaries match its own platform.
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.IONOS_HOST }}
+          username: crubbucks
+          key: ${{ secrets.IONOS_DEPLOY_KEY }}
+          fingerprint: ${{ secrets.IONOS_SSH_FINGERPRINT }}
+          timeout: 180s
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            # nvm isn't on PATH in non-interactive SSH; source it explicitly.
+            source ~/.nvm/nvm.sh
+            cd ~/app
+
+            echo "→ Pulling latest from origin/main"
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "→ Installing dependencies"
+            npm ci --no-audit --no-fund
+
+            echo "→ Running migrations"
+            npm run db:migrate
+
+            echo "→ Building"
+            npm run build
+
+            echo "→ Reloading PM2"
+            pm2 reload ecosystem.config.cjs --update-env
+            pm2 save
+
+            echo "→ Deploy step done"
+
+      # Public health probe. /health returns 200 only when the Node server
+      # is up AND the DB ping succeeds. Retries for ~60s to give pm2 reload
+      # a moment to settle.
+      - name: Health check
+        run: |
+          set -euo pipefail
+          URL="https://${{ secrets.IONOS_DOMAIN }}/health"
+          echo "Probing $URL"
+          for i in $(seq 1 12); do
+            CODE=$(curl -sf -o /tmp/health-body -w "%{http_code}" "$URL" || echo 000)
+            if [ "$CODE" = "200" ]; then
+              echo "✅ healthy"
+              cat /tmp/health-body || true
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $CODE — waiting 5s"
+            sleep 5
+          done
+          echo "❌ health check failed after 60s"
+          cat /tmp/health-body || true
+          exit 1

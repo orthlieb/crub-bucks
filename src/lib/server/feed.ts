@@ -59,6 +59,7 @@ export type FeedItem =
 			to: string;
 			amount: number;
 			memo: string | null;
+			icon: string | null;
 	  };
 
 export async function getFeed(opts: { limit?: number; userId?: string } = {}): Promise<FeedItem[]> {
@@ -159,6 +160,7 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 			createdAt: ledgerEntries.createdAt,
 			delta: ledgerEntries.delta,
 			memo: ledgerEntries.memo,
+			icon: ledgerEntries.icon,
 			kind: wallets.kind,
 			userId: users.id,
 			userName: users.displayName
@@ -175,11 +177,14 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 		{
 			createdAt: Date;
 			memo: string | null;
+			icon: string | null;
 			legs: { delta: number; kind: string; userId: string | null; name: string | null }[];
 		}
 	>();
 	for (const r of payRows) {
-		const entry = byTransfer.get(r.transferId) ?? { createdAt: r.createdAt, memo: r.memo, legs: [] };
+		const entry =
+			byTransfer.get(r.transferId) ??
+			{ createdAt: r.createdAt, memo: r.memo, icon: r.icon, legs: [] };
 		entry.legs.push({ delta: Number(r.delta), kind: r.kind, userId: r.userId, name: r.userName });
 		byTransfer.set(r.transferId, entry);
 	}
@@ -200,7 +205,8 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 			from: fromLeg.name,
 			to: toLeg.name,
 			amount: Math.abs(fromLeg.delta),
-			memo: t.memo
+			memo: t.memo,
+			icon: t.icon
 		});
 	}
 
