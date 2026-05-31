@@ -31,7 +31,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (token) {
 		const { session, user } = await validateSessionToken(token);
 		if (session && user && user.isActive) {
-			setSessionCookie(event, token, session.expiresAt);
+			// Re-set on every request so sliding renewal extends the cookie
+			// too — but preserve the original remember choice, so an
+			// un-remembered session stays ephemeral.
+			setSessionCookie(event, token, session.expiresAt, session.remember);
 			event.locals.user = user;
 			event.locals.session = session;
 		} else {

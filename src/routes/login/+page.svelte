@@ -25,7 +25,20 @@
 			<span>Crub Bucks</span>
 		</a>
 
-		<Card>
+		<!-- Cala greets returning users. Negative margin tucks her face just
+		     above the card; rounded-full + ring + shadow lifts her off the
+		     gradient. -->
+		<div class="relative z-10 -mb-12 flex justify-center">
+			<img
+				src="/cala-avatar.png"
+				alt="Cala the dog, smiling."
+				width="160"
+				height="160"
+				class="h-[7.5rem] w-[7.5rem] select-none rounded-full bg-background object-cover shadow-lg ring-4 ring-background"
+			/>
+		</div>
+
+		<Card class="pt-12">
 			<CardHeader>
 				<CardTitle level={1}>Welcome back</CardTitle>
 				<CardDescription>Log in to your account.</CardDescription>
@@ -66,6 +79,18 @@
 							required
 						/>
 					</div>
+
+					<!-- Remember me. When checked the cookie persists across browser
+					     restarts; when unchecked the browser drops it on close. -->
+					<label class="flex cursor-pointer items-center gap-2 text-sm select-none">
+						<input
+							type="checkbox"
+							name="remember"
+							class="h-4 w-4 rounded border-input"
+							checked={form?.remember ?? false}
+						/>
+						<span>Remember me on this device</span>
+					</label>
 
 					<Captcha />
 

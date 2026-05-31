@@ -29,6 +29,9 @@ export const actions: Actions = {
 			.toLowerCase();
 		const password = String(form.get('password') ?? '');
 		const captchaToken = form.get('h-captcha-response');
+		// Checkboxes only submit a value when checked — typically "on" — so
+		// presence-test rather than equality-test (covers "true"/"1"/etc.).
+		const remember = form.get('remember') !== null;
 
 		// Captcha first — cheap reject for bots before we touch the DB.
 		const captcha = await verifyCaptcha(
@@ -36,7 +39,11 @@ export const actions: Actions = {
 			event.getClientAddress?.() ?? null
 		);
 		if (!captcha.ok) {
-			return fail(400, { error: 'Captcha verification failed. Please try again.', email });
+			return fail(400, {
+				error: 'Captcha verification failed. Please try again.',
+				email,
+				remember
+			});
 		}
 
 		const [user] = await db
@@ -62,7 +69,7 @@ export const actions: Actions = {
 				event,
 				metadata: { email, reason: 'unknown_email' }
 			});
-			return fail(400, { error: GENERIC_LOGIN_FAILURE, email });
+			return fail(400, { error: GENERIC_LOGIN_FAILURE, email, remember });
 		}
 
 		// Known email, wrong password → bump counter, maybe lock out.
@@ -93,7 +100,7 @@ export const actions: Actions = {
 				});
 			}
 
-			return fail(400, { error: GENERIC_LOGIN_FAILURE, email });
+			return fail(400, { error: GENERIC_LOGIN_FAILURE, email, remember });
 		}
 
 		// Password correct. Run the account-state gates in order:
@@ -107,7 +114,8 @@ export const actions: Actions = {
 			});
 			return fail(403, {
 				error: 'Your account has been suspended. Please contact an administrator.',
-				email
+				email,
+				remember
 			});
 		}
 
@@ -121,7 +129,8 @@ export const actions: Actions = {
 			return fail(403, {
 				error:
 					'Please verify your email before logging in. Check the inbox for the address you registered with.',
-				email
+				email,
+				remember
 			});
 		}
 
@@ -141,9 +150,10 @@ export const actions: Actions = {
 		const token = generateSessionToken();
 		const session = await createSession(token, user.id, {
 			userAgent: event.request.headers.get('user-agent'),
-			ipAddress: event.getClientAddress?.() ?? null
+			ipAddress: event.getClientAddress?.() ?? null,
+			remember
 		});
-		setSessionCookie(event, token, session.expiresAt);
+		setSessionCookie(event, token, session.expiresAt, remember);
 
 		await logSecurityEvent({
 			userId: user.id,

@@ -1,4 +1,5 @@
 import type { RequestEvent } from '@sveltejs/kit';
+import { and, eq, gte, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { securityEvents } from '../db/schema';
 
@@ -19,6 +20,7 @@ import { securityEvents } from '../db/schema';
  *   'admin_suspend' / 'admin_unsuspend' admin toggled isActive
  *   'maintenance_mode_change'           admin toggled maintenance mode
  *   'registration_lock_change'          admin toggled registration lock
+ *   'registration_daily_limit_change'   admin set/cleared the per-day signup cap
  *   'notification_sent'                 admin pushed a notification (broadcast or to one user)
  *   'notification_deleted'              admin retracted a notification
  */
@@ -36,6 +38,7 @@ export type SecurityEventType =
 	| 'admin_unsuspend'
 	| 'maintenance_mode_change'
 	| 'registration_lock_change'
+	| 'registration_daily_limit_change'
 	| 'notification_sent'
 	| 'notification_deleted';
 
@@ -73,4 +76,28 @@ export async function logSecurityEvent(opts: {
 		// Audit logging should never break the user flow — log and swallow.
 		console.warn('[audit] failed to write security event', opts.eventType, err);
 	}
+}
+
+/**
+ * Successful 'register' events since local midnight today. Used by the
+ * registration daily-limit enforcement on /register.
+ *
+ * Backed by the (event_type, created_at) index on security_events, so a
+ * range scan with the equality predicate is cheap even with a busy table.
+ * "Today" is local server time — picked the same way you'd read a calendar
+ * — to match the admin's expectation when they look at the cutover.
+ */
+export async function countRegistrationsToday(): Promise<number> {
+	const startOfDay = new Date();
+	startOfDay.setHours(0, 0, 0, 0);
+	const [row] = await db
+		.select({ n: sql<number>`count(*)::int` })
+		.from(securityEvents)
+		.where(
+			and(
+				eq(securityEvents.eventType, 'register'),
+				gte(securityEvents.createdAt, startOfDay)
+			)
+		);
+	return Number(row?.n ?? 0);
 }

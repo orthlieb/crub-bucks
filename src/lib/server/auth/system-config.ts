@@ -17,6 +17,12 @@ export interface SystemConfig {
 	maintenanceMessage: string | null;
 	registrationLock: boolean;
 	registrationLockMessage: string | null;
+	/**
+	 * Soft cap on successful signups per calendar day. null = no cap.
+	 * Enforced in the registration action; admin sets it on /admin/system.
+	 */
+	registrationDailyLimit: number | null;
+	registrationDailyLimitMessage: string | null;
 	updatedAt: Date;
 	updatedBy: string | null;
 }
@@ -29,6 +35,8 @@ export async function getSystemConfig(): Promise<SystemConfig> {
 			maintenanceMessage: row.maintenanceMessage,
 			registrationLock: row.registrationLock,
 			registrationLockMessage: row.registrationLockMessage,
+			registrationDailyLimit: row.registrationDailyLimit,
+			registrationDailyLimitMessage: row.registrationDailyLimitMessage,
 			updatedAt: row.updatedAt,
 			updatedBy: row.updatedBy
 		};
@@ -43,6 +51,8 @@ export async function getSystemConfig(): Promise<SystemConfig> {
 			maintenanceMessage: null,
 			registrationLock: false,
 			registrationLockMessage: null,
+			registrationDailyLimit: null,
+			registrationDailyLimitMessage: null,
 			updatedAt: now,
 			updatedBy: null
 		})
@@ -52,6 +62,8 @@ export async function getSystemConfig(): Promise<SystemConfig> {
 		maintenanceMessage: null,
 		registrationLock: false,
 		registrationLockMessage: null,
+		registrationDailyLimit: null,
+		registrationDailyLimitMessage: null,
 		updatedAt: now,
 		updatedBy: null
 	};
@@ -62,6 +74,8 @@ export interface SystemConfigPatch {
 	maintenanceMessage?: string | null;
 	registrationLock?: boolean;
 	registrationLockMessage?: string | null;
+	registrationDailyLimit?: number | null;
+	registrationDailyLimitMessage?: string | null;
 }
 
 export async function updateSystemConfig(

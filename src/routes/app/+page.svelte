@@ -36,7 +36,6 @@
 
 	<div class="flex flex-wrap gap-2">
 		<Button href="/app/bet/new" disabled={data.friends.length === 0}>Create a bet</Button>
-		<Button href="/app/friends" variant="outline">Friends ({data.friends.length})</Button>
 	</div>
 
 	{#if data.friends.length === 0}

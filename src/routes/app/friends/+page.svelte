@@ -173,32 +173,23 @@
 		</div>
 	</header>
 
-	<!-- Add / request -->
-	<Card>
-		<CardHeader>
-			<CardTitle level={2}>Add a friend</CardTitle>
-			<CardDescription>They need a Crub Bucks account, and must approve your request.</CardDescription>
-		</CardHeader>
-		<CardContent>
-			{#if form?.requestError}
-				<Alert variant="destructive" class="mb-4"><AlertDescription>{form.requestError}</AlertDescription></Alert>
-			{:else if form?.requestMessage}
-				<Alert variant="success" class="mb-4"><AlertDescription>{form.requestMessage}</AlertDescription></Alert>
-			{/if}
-			<form method="POST" action="?/request" use:enhance class="flex flex-col gap-3 sm:flex-row sm:items-end">
-				<div class="flex-1 space-y-2">
-					<Label for="email">Friend's email</Label>
-					<Input id="email" name="email" type="email" placeholder="friend@example.com" required value={form?.email ?? ''} />
-				</div>
-				<Button type="submit">Send request</Button>
-			</form>
-		</CardContent>
-	</Card>
-
 	<!-- Pay a friend (or unfriend). Picks from the same `selectedFriendId`
 	     state that row-clicks below drive, so either path works. -->
 	{#if data.friends.length > 0}
-		<Card>
+		<Card class="overflow-hidden">
+			<!-- Two-column layout: Cala-money on the left (hidden on small
+			     screens where the image would crowd the form), header +
+			     content stacked on the right. items-stretch on the flex
+			     parent makes the image column match the form column's height. -->
+			<div class="flex items-stretch">
+				<div class="relative hidden w-40 shrink-0 overflow-hidden border-r bg-primary/5 sm:block lg:w-48">
+					<img
+						src="/cala-money.png"
+						alt="Cala the dog proudly holding a 1 Crub Buck note."
+						class="absolute inset-0 h-full w-full select-none object-contain object-center p-2"
+					/>
+				</div>
+				<div class="min-w-0 flex-1">
 			<CardHeader>
 				<CardTitle level={2}>Pay a friend</CardTitle>
 				<CardDescription>
@@ -335,21 +326,48 @@
 					</form>
 				{/if}
 			</CardContent>
+				</div>
+			</div>
 		</Card>
 	{/if}
+
+	<!-- Add / request -->
+	<Card class="overflow-hidden">
+		<div class="flex items-stretch">
+			<div class="relative hidden w-40 shrink-0 overflow-hidden border-r bg-primary/5 sm:block lg:w-48">
+				<img
+					src="/cala-watching.png"
+					alt="Cala the dog patiently holding an envelope, waiting to deliver it."
+					class="absolute inset-0 h-full w-full select-none object-contain object-center p-2"
+				/>
+			</div>
+			<div class="min-w-0 flex-1">
+				<CardHeader>
+					<CardTitle level={2}>Add a friend</CardTitle>
+					<CardDescription>They need a Crub Bucks account, and must approve your request.</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{#if form?.requestError}
+						<Alert variant="destructive" class="mb-4"><AlertDescription>{form.requestError}</AlertDescription></Alert>
+					{:else if form?.requestMessage}
+						<Alert variant="success" class="mb-4"><AlertDescription>{form.requestMessage}</AlertDescription></Alert>
+					{/if}
+					<form method="POST" action="?/request" use:enhance class="flex flex-col gap-3 sm:flex-row sm:items-end">
+						<div class="flex-1 space-y-2">
+							<Label for="email">Friend's email</Label>
+							<Input id="email" name="email" type="email" placeholder="friend@example.com" required value={form?.email ?? ''} />
+						</div>
+						<Button type="submit">Send request</Button>
+					</form>
+				</CardContent>
+			</div>
+		</div>
+	</Card>
 
 	<!-- Incoming requests -->
 	{#if data.incoming.length > 0}
 		<section>
 			<h2 class="flex items-center gap-3 text-xl font-semibold tracking-tight">
-				<img
-					src="/cala-watching.png"
-					alt=""
-					aria-hidden="true"
-					width="240"
-					height="400"
-					class="h-10 w-auto select-none"
-				/>
 				Friend requests
 				<Badge>{data.incoming.length}</Badge>
 			</h2>

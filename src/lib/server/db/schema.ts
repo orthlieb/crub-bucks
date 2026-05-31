@@ -90,6 +90,11 @@ export const sessions = pgTable('sessions', {
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
 	expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+	// Whether the user ticked "remember me" on login. Drives cookie
+	// persistence: true → cookie has an expires (survives browser restart);
+	// false → no expires (session cookie, dies when browser closes). The DB
+	// expiresAt is the same in either case; this only affects the cookie.
+	remember: boolean('remember').notNull().default(false),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 	userAgent: text('user_agent'),
 	ipAddress: text('ip_address')
@@ -360,6 +365,12 @@ export const systemConfig = pgTable('system_config', {
 	maintenanceMessage: text('maintenance_message'),
 	registrationLock: boolean('registration_lock').notNull().default(false),
 	registrationLockMessage: text('registration_lock_message'),
+	// Soft cap on signups per calendar day (server local TZ). null = no cap.
+	// Used for "easing in" launches — once today's successful registrations
+	// reach this number, further attempts are rejected with the message
+	// below (or a default) until tomorrow.
+	registrationDailyLimit: integer('registration_daily_limit'),
+	registrationDailyLimitMessage: text('registration_daily_limit_message'),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 	updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' })
 });

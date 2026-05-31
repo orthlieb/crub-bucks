@@ -6,17 +6,35 @@ import { hashPassword, validatePassword } from '$lib/server/auth/password';
 import { issueAuthToken, TOKEN_EXPIRY_MS } from '$lib/server/auth/tokens';
 import { sendVerificationEmail } from '$lib/server/email';
 import { verifyCaptcha } from '$lib/server/captcha';
-import { logSecurityEvent } from '$lib/server/auth/audit';
+import { countRegistrationsToday, logSecurityEvent } from '$lib/server/auth/audit';
 import { getSystemConfig } from '$lib/server/auth/system-config';
+import {
+	DEFAULT_DAILY_FULL_MESSAGE,
+	evaluateSignupGate
+} from '$lib/server/auth/signup-gate';
 import { materializeInvitesForUser } from '$lib/server/ledger';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.user) throw redirect(302, '/app');
 	const config = await getSystemConfig();
+
+	// Surface the soft daily-cap state so the form can disable itself and
+	// show a banner before a visitor wastes time filling it in. Skip the
+	// count query when the manual lock is on — lock wins anyway, no need
+	// to hit security_events.
+	let registrationFullToday = false;
+	if (!config.registrationLock && config.registrationDailyLimit !== null) {
+		const today = await countRegistrationsToday();
+		registrationFullToday = today >= config.registrationDailyLimit;
+	}
+
 	return {
 		registrationLocked: config.registrationLock,
 		registrationLockMessage: config.registrationLockMessage,
+		registrationFullToday,
+		registrationFullTodayMessage:
+			config.registrationDailyLimitMessage || DEFAULT_DAILY_FULL_MESSAGE,
 		// Prefill from a friend-invite link (?email=).
 		prefillEmail: url.searchParams.get('email') ?? ''
 	};
@@ -32,14 +50,23 @@ export const actions: Actions = {
 		const password = String(form.get('password') ?? '');
 		const captchaToken = form.get('h-captcha-response');
 
-		// Re-check registration lock at submit time (form could have been open
-		// when an admin flipped the switch).
+		// Re-check both gates at submit time (form could have been open when
+		// an admin flipped a switch). Lock + daily cap are evaluated in a
+		// single pure helper that pins the precedence — lock wins. Skip
+		// the count query when locked, since lock would override anyway.
+		// There's a benign race on the daily cap: two concurrent submitters
+		// could both pass the check and both succeed, exceeding the cap by
+		// one. For an easing-in launch that's acceptable; tightening it
+		// would need an advisory lock or counter row.
 		const config = await getSystemConfig();
-		if (config.registrationLock) {
-			return fail(403, {
-				error:
-					config.registrationLockMessage ||
-					'Registration is currently closed. Please try again later.',
+		const countToday =
+			!config.registrationLock && config.registrationDailyLimit !== null
+				? await countRegistrationsToday()
+				: 0;
+		const gate = evaluateSignupGate(config, countToday);
+		if (!gate.allow) {
+			return fail(gate.reason === 'locked' ? 403 : 429, {
+				error: gate.message,
 				email,
 				displayName
 			});

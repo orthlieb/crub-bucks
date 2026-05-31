@@ -15,10 +15,21 @@
 			// Apply the saved (or system) theme before paint to avoid a flash.
 			// theme = 'light' | 'dark' | 'system' (absent ⇒ system).
 			try {
-				const t = localStorage.getItem('theme');
-				const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-				const dark = t === 'dark' || ((t === 'system' || !t) && systemDark);
-				if (dark) document.documentElement.classList.add('dark');
+				const apply = () => {
+					const t = localStorage.getItem('theme');
+					const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+					const dark = t === 'dark' || ((t === 'system' || !t) && systemDark);
+					document.documentElement.classList.toggle('dark', dark);
+				};
+				apply();
+				// Live-update when the OS flips light/dark mid-session — but only
+				// when the user is in "follow system" mode (no explicit override
+				// saved). If they've toggled to a specific theme elsewhere in the
+				// app, that choice wins.
+				window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+					const t = localStorage.getItem('theme');
+					if (t === 'system' || !t) apply();
+				});
 			} catch (e) {}
 		</script>
 		%sveltekit.head%

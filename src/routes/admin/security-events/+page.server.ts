@@ -18,6 +18,7 @@ const KNOWN_TYPES = [
 	'admin_unsuspend',
 	'maintenance_mode_change',
 	'registration_lock_change',
+	'registration_daily_limit_change',
 	'notification_sent',
 	'notification_deleted'
 ] as const;

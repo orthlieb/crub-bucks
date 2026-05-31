@@ -26,11 +26,9 @@
 		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
 	}
 
-	// Kibble texture only on the dashboard itself, not feed/friends/bets.
-	const onDashboard = $derived(page.url.pathname === '/app');
 </script>
 
-<div class="min-h-screen bg-background text-foreground" class:kibble-bg={onDashboard}>
+<div class="kibble-bg min-h-screen bg-background text-foreground">
 	<header class="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
 		<div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
 			<div class="flex items-center gap-4">

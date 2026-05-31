@@ -116,6 +116,82 @@
 		</CardContent>
 	</Card>
 
+	<!-- Daily registration cap -->
+	<Card>
+		<CardHeader>
+			<div class="flex items-center justify-between gap-3">
+				<div>
+					<CardTitle level={2}>Daily signup limit</CardTitle>
+					<CardDescription>
+						Soft cap on successful signups per calendar day (server time). Use this to
+						ease in a release. Once today's count hits the cap, new accounts are
+						refused until midnight. Blank = unlimited.
+					</CardDescription>
+				</div>
+				{#if cfg.registrationDailyLimit !== null}
+					{#if data.registrationsToday >= cfg.registrationDailyLimit}
+						<Badge variant="destructive">FULL</Badge>
+					{:else}
+						<Badge variant="info">
+							{data.registrationsToday} / {cfg.registrationDailyLimit}
+						</Badge>
+					{/if}
+				{:else}
+					<Badge variant="secondary">UNLIMITED</Badge>
+				{/if}
+			</div>
+		</CardHeader>
+		<CardContent>
+			<form
+				method="POST"
+				action="?/registrationDailyLimit"
+				use:enhance
+				class="space-y-3"
+			>
+				<div class="space-y-2">
+					<Label for="daily-limit">New accounts per day</Label>
+					<Input
+						id="daily-limit"
+						name="limit"
+						type="number"
+						min="0"
+						step="1"
+						value={cfg.registrationDailyLimit ?? ''}
+						placeholder="leave blank for unlimited"
+						class="max-w-48"
+					/>
+					<p class="text-xs text-muted-foreground">
+						{#if cfg.registrationDailyLimit !== null}
+							{data.registrationsToday} successful signup{data.registrationsToday === 1
+								? ''
+								: 's'} today out of {cfg.registrationDailyLimit}.
+						{:else}
+							{data.registrationsToday} successful signup{data.registrationsToday === 1
+								? ''
+								: 's'} today.
+						{/if}
+					</p>
+				</div>
+				<div class="space-y-2">
+					<Label for="daily-limit-message">Message shown when the day is full</Label>
+					<Input
+						id="daily-limit-message"
+						name="message"
+						value={cfg.registrationDailyLimitMessage ?? ''}
+						placeholder="We're letting in a limited number of new accounts per day. Please try again tomorrow."
+					/>
+				</div>
+				{#if form?.error}
+					<p class="text-sm text-destructive">{form.error}</p>
+				{/if}
+				<Button type="submit">Save</Button>
+				{#if form?.ok === 'registrationDailyLimit'}
+					<span class="ml-2 text-sm text-muted-foreground">Saved.</span>
+				{/if}
+			</form>
+		</CardContent>
+	</Card>
+
 	<p class="text-sm text-muted-foreground">
 		Looking for the broadcast banner? It moved to
 		<a href="/admin/notifications" class="text-primary hover:underline">Notifications</a> — now

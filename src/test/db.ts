@@ -5,13 +5,45 @@ import { users } from '$lib/server/db/schema';
 import { hashPassword } from '$lib/server/auth/password';
 
 /**
- * The database name the app is currently configured to use (from DATABASE_URL).
- * DB-backed suites ONLY run against a database whose name ends in `_test`, so
- * they can never touch a dev/prod database even if misconfigured.
+ * Test infrastructure for DB-backed suites.
  *
- * To run them: create a `*_test` database, migrate it, and point DATABASE_URL
- * at it for the test run — easiest via a gitignored `.env.test`:
+ * Idempotency contract
+ * --------------------
+ * Every individual test starts with an empty database. This is the
+ * strongest guarantee — stronger than "groups are idempotent" — and is
+ * what callers should rely on:
+ *
+ *   - Call `beforeEach(resetDb)` at the top of any DB-backed suite.
+ *   - That truncates every table (with CASCADE) before each test.
+ *   - Within a file, vitest runs tests sequentially by default.
+ *   - Across files, vite.config.ts's "db" project pins
+ *     `fileParallelism: false` + `pool: 'forks'` / `singleFork: true`,
+ *     so two DB suites can never race each other on the shared DB.
+ *
+ * Effect: run any DB test in isolation, in any order, repeatedly, and
+ * you get the same result. No hidden cross-test dependencies.
+ *
+ * Naming convention
+ * -----------------
+ * DB suites use the `.db.test.ts` (or `.db.spec.ts`) suffix. That's how
+ * vite.config.ts routes them into the serial "db" project. A regular
+ * `*.test.ts` file is assumed pure and may run in parallel.
+ *
+ * Database safety
+ * ---------------
+ * DB-backed suites ONLY run against a database whose name ends in
+ * `_test`, so they can never touch a dev/prod database even if
+ * misconfigured. `resetDb()` re-checks `current_database()` against
+ * the `_test` suffix on every call as a belt-and-braces guard.
+ *
+ * To run them locally: create a `*_test` database, migrate it, and
+ * point DATABASE_URL at it for the test run — easiest via a
+ * gitignored `.env.test`:
  *   DATABASE_URL="postgres://crub:crub@localhost:5432/crubbucks_test"
+ *
+ * On CI: the deploy workflow spins up a postgres:16-alpine sidecar
+ * named `crubbucks_test` and sets DATABASE_URL accordingly — see
+ * .github/workflows/deploy.yml.
  */
 function currentDbName(): string {
 	const url = env.DATABASE_URL;

@@ -17,6 +17,10 @@
 	import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_DISTINCT } from '$lib/auth/password-policy';
 
 	let { form, data }: { form: ActionData; data: PageData } = $props();
+
+	// Either condition prevents new accounts. Both disable the fields and the
+	// submit button so visitors don't waste time filling things in.
+	const signupBlocked = $derived(data.registrationLocked || data.registrationFullToday);
 </script>
 
 <div class="kibble-bg min-h-screen bg-background py-12 px-4">
@@ -42,6 +46,12 @@
 								'Registration is currently closed. Please check back later.'}
 						</AlertDescription>
 					</Alert>
+				{:else if data.registrationFullToday}
+					<Alert variant="destructive" class="mb-4">
+						<AlertDescription>
+							{data.registrationFullTodayMessage}
+						</AlertDescription>
+					</Alert>
 				{/if}
 
 				{#if form?.error}
@@ -59,7 +69,7 @@
 							autocomplete="nickname"
 							required
 							value={form?.displayName ?? ''}
-							disabled={data.registrationLocked}
+							disabled={signupBlocked}
 						/>
 					</div>
 
@@ -72,7 +82,7 @@
 							autocomplete="email"
 							required
 							value={form?.email ?? data.prefillEmail ?? ''}
-							disabled={data.registrationLocked}
+							disabled={signupBlocked}
 						/>
 					</div>
 
@@ -84,7 +94,7 @@
 							type="password"
 							autocomplete="new-password"
 							required
-							disabled={data.registrationLocked}
+							disabled={signupBlocked}
 						/>
 						<p class="text-xs text-muted-foreground">
 							At least {PASSWORD_MIN_LENGTH} characters with {PASSWORD_MIN_DISTINCT} different characters.
@@ -93,7 +103,7 @@
 
 					<Captcha />
 
-					<Button type="submit" class="w-full" disabled={data.registrationLocked}>
+					<Button type="submit" class="w-full" disabled={signupBlocked}>
 						Create account
 					</Button>
 				</form>

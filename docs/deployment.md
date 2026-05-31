@@ -69,7 +69,9 @@ Before you start the server work, line these up:
 - [ ] **Resend account** with your sending domain verified — full
       walkthrough in [Phase 0.5](#phase-05--set-up-resend-email).
       Start this early; DNS propagation can take a few hours.
-- [ ] **hCaptcha** site key + secret (free tier is fine)
+- [ ] **hCaptcha** site key + secret — full walkthrough in
+      [Phase 0.6](#phase-06--set-up-hcaptcha). Free tier is generous
+      (1 M verifications/month).
 - [ ] **SSH key pair** on your laptop (`ed25519` recommended)
 - [ ] **GitHub repository** with the code pushed
 
@@ -227,6 +229,84 @@ the bottom of the doc if you skipped 0.5.1–0.5.5 and tried
 
 ---
 
+## Phase 0.6 — Set up hCaptcha
+
+hCaptcha gates the three public unauthenticated forms — **login,
+registration, password reset** — against credential-stuffing and
+account-creation bots. Server verification is a plain `fetch` to
+`hcaptcha.com/siteverify`; no SDK.
+
+### 0.6.1 The three configuration modes
+
+The app reads `PUBLIC_HCAPTCHA_SITE_KEY` (client) and `HCAPTCHA_SECRET`
+(server). What it does in each mode:
+
+| Mode | When | Behaviour |
+|---|---|---|
+| **Both unset** | Local dev default | Widget renders nothing. Server short-circuits to "ok". Frictionless. |
+| **hCaptcha public test keys** | Local UI development, staging | Real widget renders ("This is for testing only" banner), always passes verification, no signup. |
+| **Real keys from hcaptcha.com** | **Production** | Real bot detection. |
+
+For staging boxes you'd typically use the test keys; for production
+you need real ones. Mixing — e.g. real site key but unset secret — is
+a misconfiguration and the captcha won't render.
+
+### 0.6.2 hCaptcha public test keys (staging / dev)
+
+These are documented by hCaptcha for testing. Drop into `.env`:
+
+```
+PUBLIC_HCAPTCHA_SITE_KEY="10000000-ffff-ffff-ffff-000000000001"
+HCAPTCHA_SECRET="0x0000000000000000000000000000000000000000"
+```
+
+Use them to develop the UI flow without signing up. The widget will
+display a visible **"This is for testing only — do not use in
+production"** banner, which is the point — you'll see it on any
+preview box and know to swap before going live.
+
+### 0.6.3 Create a production hCaptcha site
+
+1. Sign up at <https://www.hcaptcha.com>. Free tier covers 1 M
+   verifications / month — way more than a friends-and-family app
+   will ever use.
+2. Dashboard → **Sites → New Site**. Fields:
+   - **Hostname**: `yourdomain.com` (and `www.yourdomain.com` if you
+     use it — hCaptcha is hostname-locked).
+   - **Difficulty**: leave at **"Easy"**. The defaults are tuned for
+     low-friction human users. "Always Challenge" is overkill for
+     this app and will annoy your friends.
+3. Save. The new site's page shows two values:
+   - **Sitekey** → goes into `PUBLIC_HCAPTCHA_SITE_KEY`
+   - **Secret** → goes into `HCAPTCHA_SECRET`
+
+### 0.6.4 Put the keys in your production `.env`
+
+You'll set these in Phase 3 alongside the rest of the env vars. The
+site key is exposed to the browser (anything starting with `PUBLIC_`
+is); the secret must **never** appear in client code or repo. The
+`.env` file is gitignored and will be `chmod 600` on the VPS.
+
+### 0.6.5 Smoke test (after Phase 6)
+
+Visit `/login`, `/register`, `/forgot-password` on the live site. The
+widget should render under the form. Submit without solving it →
+server rejects with the same `Captcha failed.` error you'd get from
+forging the token. Solve it → form proceeds.
+
+If the widget doesn't render at all:
+
+- DevTools → Network — is `js.hcaptcha.com/1/api.js` loading? If
+  blocked by an ad-blocker, that's a client-side issue; the server
+  will still validate.
+- Confirm `PUBLIC_HCAPTCHA_SITE_KEY` reaches the browser: source view
+  the page, search for the key value — SvelteKit inlines `PUBLIC_`
+  env vars into the rendered HTML.
+- Check the browser console for `[hcaptcha]` errors. A wrong hostname
+  in the site config is the usual cause.
+
+---
+
 ## Phase 1 — Provision the VPS
 
 In the Ionos Cloud Panel:
@@ -347,8 +427,8 @@ What goes in each field:
 | `RESEND_API_KEY` | From your Resend dashboard |
 | `EMAIL_FROM` | `"Crub Bucks <no-reply@yourdomain.com>"` (sender on a verified domain) |
 | `PUBLIC_APP_URL` | `https://yourdomain.com` (no trailing slash) |
-| `PUBLIC_HCAPTCHA_SITE_KEY` | From your hCaptcha site config |
-| `HCAPTCHA_SECRET` | From your hCaptcha site config |
+| `PUBLIC_HCAPTCHA_SITE_KEY` | Sitekey from your hCaptcha site (Phase 0.6). Exposed to the browser. |
+| `HCAPTCHA_SECRET` | Secret from your hCaptcha site (Phase 0.6). Server-only — never put in `PUBLIC_*`. |
 | `ORIGIN` | `https://yourdomain.com` — same as `PUBLIC_APP_URL`. **Required for CSRF.** |
 | `PORT` | `3000` (matches `ecosystem.config.cjs` + Nginx config) |
 | `HOST` | `127.0.0.1` (only Nginx talks to Node; don't expose to 0.0.0.0) |
@@ -511,10 +591,18 @@ VPS and add three (or four) secrets to the GitHub repo.
 
 On every push to `main` (and on demand via the Actions tab):
 
-1. Check out the repo, install deps, run `npm run check` + `npm test`
-   + `npm run build` on a GitHub-hosted Ubuntu runner. **A failure here
-   aborts before anything touches the VPS** — broken main never deploys.
-2. SSH to the VPS as `crubbucks` and run, in `~/app`:
+1. Check out the repo, install deps, run `npm run check` on a
+   GitHub-hosted Ubuntu runner.
+2. Spin up a **sidecar `postgres:16-alpine`** service container next to
+   the runner, apply migrations to it via `npm run db:migrate`, and run
+   `npm test` against it. This makes the DB-backed tests in
+   `src/lib/server/ledger.db.test.ts` actually execute on CI — without
+   the sidecar they would silently skip (the test guard in
+   `src/test/db.ts` requires `DATABASE_URL` to end in `_test`).
+3. Run `npm run build` to confirm the production bundle compiles.
+   **Any failure in steps 1–3 aborts before anything touches the VPS**
+   — broken main never deploys.
+4. SSH to the VPS as `crubbucks` and run, in `~/app`:
    - `git fetch origin main && git reset --hard origin/main`
    - `npm ci` (production deps + drizzle-kit for the next step)
    - `npm run db:migrate`
@@ -582,7 +670,7 @@ deploys.
 git push origin main
 ```
 
-Watch the Actions tab. The workflow runs `check + test + build` on the
+Watch the Actions tab. The workflow runs `check + migrate-test-db + test + build` on the
 runner first; if that's green, it SSHes in, deploys, and probes
 `/health`. Total time on a small change is usually 2–4 minutes.
 

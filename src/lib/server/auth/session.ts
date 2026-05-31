@@ -23,18 +23,25 @@ function tokenToId(token: string): string {
 export async function createSession(
 	token: string,
 	userId: string,
-	opts: { userAgent?: string | null; ipAddress?: string | null } = {}
+	opts: {
+		userAgent?: string | null;
+		ipAddress?: string | null;
+		/** Persist the cookie across browser restarts. Default false. */
+		remember?: boolean;
+	} = {}
 ) {
 	const id = tokenToId(token);
 	const expiresAt = new Date(Date.now() + SESSION_TTL);
+	const remember = opts.remember ?? false;
 	await db.insert(sessions).values({
 		id,
 		userId,
 		expiresAt,
+		remember,
 		userAgent: opts.userAgent ?? null,
 		ipAddress: opts.ipAddress ?? null
 	});
-	return { id, userId, expiresAt };
+	return { id, userId, expiresAt, remember };
 }
 
 /**
@@ -67,8 +74,8 @@ export async function validateSessionToken(token: string) {
 		return { session: null, user: null };
 	}
 
-	// Sliding expiry: renew when within the last 15 days.
-	if (Date.now() >= row.session.expiresAt.getTime() - 15 * DAY) {
+	// Sliding expiry: renew when within the last half of the window.
+	if (Date.now() >= row.session.expiresAt.getTime() - SESSION_TTL / 2) {
 		const expiresAt = new Date(Date.now() + SESSION_TTL);
 		await db.update(sessions).set({ expiresAt }).where(eq(sessions.id, id));
 		row.session.expiresAt = expiresAt;
@@ -86,11 +93,25 @@ export async function invalidateAllSessionsForUser(userId: string) {
 	await db.delete(sessions).where(eq(sessions.userId, userId));
 }
 
-export function setSessionCookie(event: RequestEvent, token: string, expiresAt: Date) {
+/**
+ * Set the session cookie. When `remember` is true the cookie has an explicit
+ * expiry (matches the DB session expiry, so it survives browser restarts);
+ * when false we omit `expires` so the browser treats it as a session cookie
+ * and discards it when the window closes. Either way the DB row controls
+ * server-side validity.
+ */
+export function setSessionCookie(
+	event: RequestEvent,
+	token: string,
+	expiresAt: Date,
+	remember: boolean
+) {
 	event.cookies.set(SESSION_COOKIE, token, {
 		httpOnly: true,
 		sameSite: 'lax',
-		expires: expiresAt,
+		// `expires` only when "remember me" was ticked. Omitting it leaves
+		// the cookie ephemeral so closing the browser logs the user out.
+		...(remember ? { expires: expiresAt } : {}),
 		path: '/',
 		secure: !import.meta.env.DEV
 	});

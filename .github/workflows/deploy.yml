@@ -34,6 +34,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
+
+    # Sidecar Postgres so the DB-backed tests in src/lib/server/ledger.db.test.ts
+    # actually run on CI. Without this the suite would silently skip those
+    # tests because src/test/db.ts only activates when DATABASE_URL ends in
+    # `_test`. The image matches the dev docker-compose to keep behaviour
+    # identical. health-cmd + retries gate the steps that need a live DB.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: crub
+          POSTGRES_PASSWORD: crub
+          POSTGRES_DB: crubbucks_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # The DB-test guard checks the path of DATABASE_URL — must end in `_test`.
+      DATABASE_URL: postgres://crub:crub@localhost:5432/crubbucks_test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -49,6 +74,12 @@ jobs:
 
       - name: Typecheck
         run: npm run check
+
+      # Apply migrations to the sidecar Postgres so the DB-backed tests have
+      # the schema they need. Uses the same `npm run db:migrate` script the
+      # VPS deploy step runs — keeps the migrator a single code path.
+      - name: Migrate test database
+        run: npm run db:migrate
 
       - name: Run tests
         run: npm test

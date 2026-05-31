@@ -21,7 +21,7 @@
 	}
 </script>
 
-<div class="min-h-screen bg-background">
+<div class="kibble-bg min-h-screen bg-background">
 	<header class="border-b">
 		<div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
 			<div class="flex items-center gap-3">
