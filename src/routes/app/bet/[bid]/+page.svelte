@@ -50,6 +50,19 @@
 		loserOrderIds = data.participants.map((p) => p.userId).filter((u) => u !== winnerId);
 	});
 
+	// Winner / Loser mode shortcut: when there are exactly two participants,
+	// picking the winner uniquely determines the loser — auto-fill it so the
+	// user doesn't have to click the same fact twice. With three or more
+	// participants the loser is genuinely a choice (any third+ rides along
+	// at 0), so we only do this for the head-to-head case.
+	$effect(() => {
+		if (mode !== 'winner_loser') return;
+		if (data.participants.length !== 2) return;
+		if (!winnerId) return;
+		const other = data.participants.find((p) => p.userId !== winnerId);
+		if (other && loserId !== other.userId) loserId = other.userId;
+	});
+
 	function moveLoser(i: number, dir: -1 | 1) {
 		const j = i + dir;
 		if (j < 0 || j >= loserOrderIds.length) return;
@@ -370,7 +383,7 @@
 							</div>
 						</div>
 
-						{#if mode === 'winner_loser' && winnerId}
+						{#if mode === 'winner_loser' && winnerId && data.participants.length > 2}
 							<div class="space-y-2">
 								<Label>Loser (pays the pot)</Label>
 								<div class="space-y-1">
@@ -383,6 +396,12 @@
 									{/each}
 								</div>
 							</div>
+						{/if}
+						{#if mode === 'winner_loser' && winnerId && data.participants.length === 2}
+							<!-- Hidden input still needed: the action expects `loserId` in
+							     formData. The radio group above only renders for 3+ players;
+							     in head-to-head the loser is implied by the winner. -->
+							<input type="hidden" name="loserId" value={loserId} />
 						{/if}
 
 						{#if mode === 'tiered' && winnerId}

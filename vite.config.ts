@@ -36,14 +36,13 @@ export default defineConfig({
 					name: 'db',
 					environment: 'node',
 					include: ['src/**/*.db.{test,spec}.{js,ts}'],
-					// fileParallelism: false → vitest runs DB files one at a time.
-					// pool: 'forks' + singleFork: true → all tests in a single
-					// fork, so module-level state (e.g. counter for unique
-					// emails in createUser) is shared but no two processes
-					// share the DB simultaneously.
-					fileParallelism: false,
-					pool: 'forks',
-					singleFork: true
+					// fileParallelism: false → vitest runs DB files one at a time
+					// instead of in parallel workers. That's the race we needed
+					// to prevent: two suites calling resetDb() against the shared
+					// test DB simultaneously. Within a file vitest already runs
+					// tests sequentially, so beforeEach(resetDb) is enough to
+					// make every test independently idempotent.
+					fileParallelism: false
 				}
 			}
 		]

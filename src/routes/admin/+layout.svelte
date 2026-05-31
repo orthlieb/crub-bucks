@@ -41,16 +41,28 @@
 				</form>
 			</div>
 		</div>
-		<nav class="mx-auto flex max-w-6xl items-center gap-1 px-6 pb-2 text-sm">
+		<!-- Underlined tab strip. Same visual language as the /app mobile
+		     tabs for cross-area consistency. Horizontally scrollable on
+		     narrow viewports — five labels including "Security events" don't
+		     fit on a 375 px phone, so we let the row overflow and the user
+		     swipes. `whitespace-nowrap` keeps each label on one line; the
+		     2px transparent bottom border on inactive tabs reserves the
+		     same vertical space as the active tab's primary-coloured one,
+		     so the row doesn't shift as you click around. -->
+		<nav
+			class="mx-auto flex max-w-6xl items-center gap-1 overflow-x-auto px-6 text-sm"
+			aria-label="Admin sections"
+		>
 			{#each tabs as tab (tab.href)}
 				<a
 					href={tab.href}
-					class="rounded-md px-3 py-1.5 transition-colors hover:bg-accent {isActive(
+					aria-current={isActive(tab.href, tab.exact) ? 'page' : undefined}
+					class="whitespace-nowrap border-b-2 px-3 py-2 transition-colors {isActive(
 						tab.href,
 						tab.exact
 					)
-						? 'bg-accent font-medium text-accent-foreground'
-						: 'text-muted-foreground'}"
+						? 'border-primary font-medium text-foreground'
+						: 'border-transparent text-muted-foreground hover:bg-accent'}"
 				>
 					{tab.label}
 				</a>

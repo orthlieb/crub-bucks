@@ -36,6 +36,8 @@
 					<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">₡</span>
 					<span>Crub Bucks</span>
 				</a>
+				<!-- Desktop nav lives inline with the brand. The mobile tab strip
+				     below the brand row takes over under sm. -->
 				<nav class="hidden items-center gap-1 text-sm sm:flex">
 					{#each navlinks as l (l.href)}
 						<a
@@ -68,6 +70,32 @@
 				</form>
 			</div>
 		</div>
+
+		<!-- Mobile tab bar. Hidden on sm+ since the desktop nav (above) lives
+		     inline with the brand there. Equal-width tabs with an underline
+		     indicator on the active one. Sits inside the sticky header so it
+		     stays pinned as the page scrolls. -->
+		<nav class="flex border-t text-sm sm:hidden" aria-label="Primary">
+			{#each navlinks as l (l.href)}
+				<a
+					href={l.href}
+					aria-current={isActive(l.href, l.exact) ? 'page' : undefined}
+					class="relative flex flex-1 items-center justify-center gap-1.5 border-b-2 px-3 py-2.5 transition-colors {isActive(
+						l.href,
+						l.exact
+					)
+						? 'border-primary font-medium text-foreground'
+						: 'border-transparent text-muted-foreground hover:bg-accent'}"
+				>
+					{l.label}
+					{#if l.href === '/app/friends' && data.pendingFriendRequests > 0}
+						<span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground">
+							{data.pendingFriendRequests}
+						</span>
+					{/if}
+				</a>
+			{/each}
+		</nav>
 	</header>
 
 	<main class="mx-auto max-w-5xl px-6 py-8">
