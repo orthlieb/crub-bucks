@@ -14,6 +14,7 @@
 	} from '$lib/components/ui/card';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
+	import Avatar from '$lib/components/Avatar.svelte';
 	import { formatSigned } from '$lib/format';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -211,14 +212,22 @@
 						<!-- Chip with current selection. Change clears + refocuses
 						     the search input so the user can pick a different friend. -->
 						<div class="flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2 text-sm">
-							<div class="min-w-0">
-								<div class="truncate font-medium">
-									{selectedFriend.displayName}
-									{#if selectedFriend.isFavorite}
-										<span aria-hidden="true" class="text-yellow-500">★</span>
-									{/if}
+							<div class="flex min-w-0 items-center gap-3">
+								<Avatar
+									id={selectedFriend.id}
+									name={selectedFriend.displayName}
+									avatarUpdatedAt={selectedFriend.avatarUpdatedAt}
+									size={36}
+								/>
+								<div class="min-w-0">
+									<div class="truncate font-medium">
+										{selectedFriend.displayName}
+										{#if selectedFriend.isFavorite}
+											<span aria-hidden="true" class="text-yellow-500">★</span>
+										{/if}
+									</div>
+									<div class="truncate text-xs text-muted-foreground">{selectedFriend.email}</div>
 								</div>
-								<div class="truncate text-xs text-muted-foreground">{selectedFriend.email}</div>
 							</div>
 							<Button
 								type="button"
@@ -523,7 +532,7 @@
 	</section>
 </div>
 
-{#snippet friendRow(f: { id: string; displayName: string; email: string; isFavorite: boolean })}
+{#snippet friendRow(f: { id: string; displayName: string; email: string; isFavorite: boolean; avatarUpdatedAt: Date | string | null })}
 	{@const isSelected = selectedFriendId === f.id}
 	<div
 		class="group flex items-center gap-2 rounded-lg border bg-card shadow-sm transition-colors {isSelected
@@ -550,11 +559,14 @@
 		<button
 			type="button"
 			onclick={() => (selectedFriendId = isSelected ? null : f.id)}
-			class="flex-1 cursor-pointer py-3 pr-3 text-left"
+			class="flex flex-1 cursor-pointer items-center gap-3 py-3 pr-3 text-left"
 			aria-pressed={isSelected}
 		>
-			<div class="font-medium">{f.displayName}</div>
-			<div class="text-xs text-muted-foreground">{f.email}</div>
+			<Avatar id={f.id} name={f.displayName} avatarUpdatedAt={f.avatarUpdatedAt} size={36} />
+			<div class="min-w-0">
+				<div class="truncate font-medium">{f.displayName}</div>
+				<div class="truncate text-xs text-muted-foreground">{f.email}</div>
+			</div>
 		</button>
 		<!-- Unfriend, revealed on row hover (desktop) or focus-within. Always
 		     visible on touch / small viewports since there's no hover there. -->

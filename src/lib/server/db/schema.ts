@@ -10,9 +10,17 @@ import {
 	uniqueIndex,
 	index,
 	primaryKey,
-	pgEnum
+	pgEnum,
+	customType
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
+
+// Raw binary column (Postgres bytea). Holds stored avatar image bytes.
+const bytea = customType<{ data: Buffer; default: false }>({
+	dataType() {
+		return 'bytea';
+	}
+});
 
 // ---------------------------------------------------------------------------
 // Crub Bucks data model — v3 (friends + standalone bets)
@@ -76,12 +84,28 @@ export const users = pgTable(
 		// rolling counter; reset on successful login. when it crosses the
 		// threshold the login flow flips isActive=false (lockout).
 		failedLoginCount: integer('failed_login_count').notNull().default(0),
+		// null = no uploaded photo (render a generated initials avatar). When set,
+		// the user has a row in user_avatars; the timestamp also cache-busts the
+		// served image URL.
+		avatarUpdatedAt: timestamp('avatar_updated_at', { withTimezone: true }),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},
 	(t) => ({
 		emailIdx: uniqueIndex('users_email_idx').on(t.email)
 	})
 );
+
+// Uploaded avatar bytes, one row per user. Kept out of the users table so the
+// large binary blob never rides along on ordinary user/balance queries. Images
+// are downsampled to 512×512 before storage.
+export const userAvatars = pgTable('user_avatars', {
+	userId: uuid('user_id')
+		.primaryKey()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	data: bytea('data').notNull(),
+	contentType: text('content_type').notNull(),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+});
 
 export const sessions = pgTable('sessions', {
 	// session id stored as a SHA-256 hash of the token the client holds

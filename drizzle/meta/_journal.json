@@ -92,6 +92,13 @@
       "when": 1780247546695,
       "tag": "0012_registration_daily_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1780347166523,
+      "tag": "0013_avatars",
+      "breakpoints": true
     }
   ]
 }

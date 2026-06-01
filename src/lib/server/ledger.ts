@@ -447,7 +447,14 @@ export async function areFriends(a: string, b: string): Promise<boolean> {
 export async function getFriends(
 	userId: string
 ): Promise<
-	Array<{ id: string; displayName: string; email: string; since: Date | null; isFavorite: boolean }>
+	Array<{
+		id: string;
+		displayName: string;
+		email: string;
+		since: Date | null;
+		isFavorite: boolean;
+		avatarUpdatedAt: Date | null;
+	}>
 > {
 	// LEFT JOIN to friend_favorites so we can sort favorites first without a
 	// separate query. The "other side" of each friendship is computed once via
@@ -460,6 +467,7 @@ export async function getFriends(
 			otherId,
 			displayName: users.displayName,
 			email: users.email,
+			avatarUpdatedAt: users.avatarUpdatedAt,
 			favoritedAt: friendFavorites.createdAt
 		})
 		.from(friendships)
@@ -483,7 +491,8 @@ export async function getFriends(
 		displayName: r.displayName,
 		email: r.email,
 		since: r.respondedAt,
-		isFavorite: r.favoritedAt !== null
+		isFavorite: r.favoritedAt !== null,
+		avatarUpdatedAt: r.avatarUpdatedAt
 	}));
 }
 

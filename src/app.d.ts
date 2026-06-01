@@ -11,6 +11,7 @@ declare global {
 				role: 'user' | 'admin';
 				isActive: boolean;
 				emailVerifiedAt: Date | null;
+				avatarUpdatedAt: Date | null;
 			} | null;
 			session: InferSelectModel<typeof sessions> | null;
 		}
