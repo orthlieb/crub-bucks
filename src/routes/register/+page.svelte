@@ -68,6 +68,7 @@
 							name="displayName"
 							autocomplete="nickname"
 							required
+							maxlength={40}
 							value={form?.displayName ?? ''}
 							disabled={signupBlocked}
 						/>

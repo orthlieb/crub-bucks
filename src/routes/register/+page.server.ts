@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
 import { hashPassword, validatePassword } from '$lib/server/auth/password';
+import { sanitizeDisplayName, DISPLAY_NAME_MIN, DISPLAY_NAME_MAX } from '$lib/server/display-name';
 import { issueAuthToken, TOKEN_EXPIRY_MS } from '$lib/server/auth/tokens';
 import { sendVerificationEmail } from '$lib/server/email';
 import { verifyCaptcha } from '$lib/server/captcha';
@@ -46,7 +47,7 @@ export const actions: Actions = {
 		const email = String(form.get('email') ?? '')
 			.trim()
 			.toLowerCase();
-		const displayName = String(form.get('displayName') ?? '').trim();
+		const displayName = sanitizeDisplayName(String(form.get('displayName') ?? ''));
 		const password = String(form.get('password') ?? '');
 		const captchaToken = form.get('h-captcha-response');
 
@@ -89,9 +90,16 @@ export const actions: Actions = {
 		if (!email || !email.includes('@')) {
 			return fail(400, { error: 'A valid email is required.', email, displayName });
 		}
-		if (displayName.length < 2) {
+		if (displayName.length < DISPLAY_NAME_MIN) {
 			return fail(400, {
-				error: 'Display name must be at least 2 characters.',
+				error: `Display name must be at least ${DISPLAY_NAME_MIN} characters.`,
+				email,
+				displayName
+			});
+		}
+		if (displayName.length > DISPLAY_NAME_MAX) {
+			return fail(400, {
+				error: `Display name must be ${DISPLAY_NAME_MAX} characters or fewer.`,
 				email,
 				displayName
 			});
