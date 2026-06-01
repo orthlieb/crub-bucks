@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import type { LayoutData } from './$types';
-	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
-	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-	import SoundToggle from '$lib/components/SoundToggle.svelte';
+	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
 	import { isCashSoundEnabled, playCashSound, warmUpCashSound } from '$lib/sound';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
@@ -42,8 +41,22 @@
 		if (isCashSoundEnabled()) playCashSound();
 	});
 
-	$effect(() => {
+	// Lightweight poll so incoming payments (and notifications / friend-request
+	// counts) surface without a manual refresh. Re-runs only the layout loader
+	// via its `app:activity` dependency. Pauses while the tab is hidden and
+	// fires once on becoming visible again, to avoid background churn.
+	const POLL_MS = 20_000;
+	onMount(() => {
 		warmUpCashSound();
+		const tick = () => {
+			if (document.visibilityState === 'visible') invalidate('app:activity');
+		};
+		const timer = setInterval(tick, POLL_MS);
+		document.addEventListener('visibilitychange', tick);
+		return () => {
+			clearInterval(timer);
+			document.removeEventListener('visibilitychange', tick);
+		};
 	});
 
 	type AlertVariant = 'info' | 'success' | 'warning' | 'default';
@@ -147,14 +160,7 @@
 			</div>
 			<div class="flex items-center gap-2">
 				<span class="hidden text-sm text-muted-foreground sm:inline">{data.user.displayName}</span>
-				<SoundToggle />
-				<ThemeToggle />
-				{#if data.user.role === 'admin'}
-					<Button variant="outline" size="sm" href="/admin">Admin</Button>
-				{/if}
-				<form method="POST" action="/logout">
-					<Button variant="ghost" size="sm" type="submit">Log out</Button>
-				</form>
+				<SettingsDialog user={data.user} />
 			</div>
 		</div>
 
