@@ -317,81 +317,26 @@ export async function userActivity(userId: string, limit = 50): Promise<Activity
 	}));
 }
 
-export interface IncomingPayment {
-	transferId: string;
-	amount: number;
-	createdAt: Date;
-	fromName: string;
-}
-
 /**
- * The single most recent *peer* payment received by this user — a direct
- * person-to-person transfer (betId null) whose paying leg is another user's
- * wallet. Bet settlements (betId set) and the bank welcome grant (paid from a
- * non-user wallet) are excluded, so this only reflects "someone sent you
- * money". Returns null if no human has ever paid this user.
- *
- * Used to drive the client-side "cha-ching" cue: the client compares the
- * returned transferId against the last one it acknowledged.
+ * Most-recent "went live" and "cancelled" timestamps across the bets this user
+ * is part of. Drives the bet on/off sound cues — the client compares each
+ * against the last value it saw. Both null when the user has no such bets.
  */
-export async function latestIncomingPayment(userId: string): Promise<IncomingPayment | null> {
-	const walletId = await getOrCreateUserWallet(userId);
-
-	// Candidate incoming legs (money in, no bet context), newest first. We take
-	// a small window rather than just the top row so that a recent bet payout
-	// sitting above a peer payment doesn't hide it.
-	const incoming = await db
+export async function betSoundSignals(
+	userId: string
+): Promise<{ lastLiveAt: Date | null; lastCancelledAt: Date | null }> {
+	const [row] = await db
 		.select({
-			transferId: ledgerEntries.transferId,
-			delta: ledgerEntries.delta,
-			createdAt: ledgerEntries.createdAt
+			lastLiveAt: sql<Date | null>`max(${bets.wentLiveAt})`,
+			lastCancelledAt: sql<Date | null>`max(${bets.cancelledAt})`
 		})
-		.from(ledgerEntries)
-		.where(
-			and(
-				eq(ledgerEntries.walletId, walletId),
-				isNull(ledgerEntries.betId),
-				sql`${ledgerEntries.delta} > 0`
-			)
-		)
-		.orderBy(desc(ledgerEntries.createdAt))
-		.limit(20);
-
-	if (incoming.length === 0) return null;
-
-	const ids = incoming.map((r) => r.transferId);
-	// The paying legs for those transfers that come from a *user* wallet — this
-	// is what distinguishes a peer payment from the bank welcome grant.
-	const payers = await db
-		.select({
-			transferId: ledgerEntries.transferId,
-			fromName: users.displayName
-		})
-		.from(ledgerEntries)
-		.innerJoin(wallets, eq(wallets.id, ledgerEntries.walletId))
-		.innerJoin(users, eq(users.id, wallets.userId))
-		.where(
-			and(
-				inArray(ledgerEntries.transferId, ids),
-				eq(wallets.kind, 'user'),
-				sql`${ledgerEntries.delta} < 0`
-			)
-		);
-
-	const payerByTransfer = new Map(payers.map((p) => [p.transferId, p.fromName]));
-	// Newest candidate that has a human payer wins.
-	for (const r of incoming) {
-		const fromName = payerByTransfer.get(r.transferId);
-		if (fromName) {
-			return {
-				transferId: r.transferId,
-				amount: Number(r.delta),
-				createdAt: r.createdAt,
-				fromName
-			};
-		}
-	}
-	return null;
+		.from(bets)
+		.innerJoin(betParticipants, eq(betParticipants.betId, bets.id))
+		.where(eq(betParticipants.userId, userId));
+	return {
+		lastLiveAt: row?.lastLiveAt ?? null,
+		lastCancelledAt: row?.lastCancelledAt ?? null
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -1020,7 +965,10 @@ export async function acceptBet(opts: {
 
 		const wentLive = Number(remaining?.n ?? 0) === 0;
 		if (wentLive) {
-			await tx.update(bets).set({ status: 'open' }).where(eq(bets.id, betId));
+			await tx
+				.update(bets)
+				.set({ status: 'open', wentLiveAt: new Date() })
+				.where(eq(bets.id, betId));
 		}
 		return { wentLive, createdBy: bet.createdBy, title: bet.title };
 	});

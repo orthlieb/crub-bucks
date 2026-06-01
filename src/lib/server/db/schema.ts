@@ -288,6 +288,9 @@ export const bets = pgTable(
 			.notNull()
 			.references(() => users.id),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		// when the bet flipped from 'pending' to 'open' (everyone accepted).
+		// null for bets created before acceptance existed or still pending.
+		wentLiveAt: timestamp('went_live_at', { withTimezone: true }),
 		resolvedAt: timestamp('resolved_at', { withTimezone: true }),
 		resolvedBy: uuid('resolved_by').references(() => users.id),
 		// optional note the resolver leaves when settling the bet

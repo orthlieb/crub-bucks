@@ -3,27 +3,22 @@
 	import Volume2 from '@lucide/svelte/icons/volume-2';
 	import VolumeX from '@lucide/svelte/icons/volume-x';
 	import { Button } from '$lib/components/ui/button';
-	import {
-		isCashSoundEnabled,
-		setCashSoundEnabled,
-		playCashSound,
-		warmUpCashSound
-	} from '$lib/sound';
+	import { isSoundEnabled, setSoundEnabled, play, warmUpSound } from '$lib/sound';
 
 	// Default on; resolved from localStorage after mount to avoid SSR mismatch.
 	let enabled = $state(true);
 
 	onMount(() => {
-		enabled = isCashSoundEnabled();
-		warmUpCashSound();
+		enabled = isSoundEnabled();
+		warmUpSound();
 	});
 
 	function toggle() {
 		enabled = !enabled;
-		setCashSoundEnabled(enabled);
+		setSoundEnabled(enabled);
 		// Turning it on plays a quick preview — doubles as the user gesture that
-		// unlocks audio playback for the cha-ching cue.
-		if (enabled) playCashSound();
+		// unlocks audio playback for the cues.
+		if (enabled) play('cash');
 	}
 
 	const label = $derived(enabled ? 'Sound on' : 'Sound off');
@@ -33,7 +28,7 @@
 	variant="ghost"
 	size="icon"
 	onclick={toggle}
-	aria-label={`Cha-ching ${enabled ? 'on' : 'off'} (click to toggle)`}
+	aria-label={`Sound effects ${enabled ? 'on' : 'off'} (click to toggle)`}
 	title={label}
 >
 	{#if enabled}

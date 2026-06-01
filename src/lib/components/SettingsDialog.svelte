@@ -179,8 +179,8 @@
 
 			<div class="flex items-center justify-between py-3">
 				<div>
-					<div class="text-sm font-medium">Cha-ching sound</div>
-					<div class="text-xs text-muted-foreground">Play a sound when someone pays you.</div>
+					<div class="text-sm font-medium">Sound effects</div>
+					<div class="text-xs text-muted-foreground">Cues for gains, losses, bets, and friend requests.</div>
 				</div>
 				<SoundToggle />
 			</div>

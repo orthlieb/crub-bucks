@@ -1,0 +1,1 @@
+ALTER TABLE "bets" ADD COLUMN "went_live_at" timestamp with time zone;
