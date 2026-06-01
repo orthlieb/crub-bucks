@@ -18,8 +18,15 @@ import { bets, betParticipants, ledgerEntries, wallets, users } from './db/schem
  * structured fields.
  */
 
-export interface FeedPerson {
+/** A person referenced in the feed, carrying what the <Avatar> needs. */
+export interface FeedUser {
+	id: string;
 	name: string;
+	avatarUpdatedAt: Date | null;
+}
+
+/** A feed person with an associated amount (bet winners / losers). */
+export interface FeedPerson extends FeedUser {
 	amount: number;
 }
 
@@ -30,8 +37,8 @@ export type FeedItem =
 			at: Date;
 			betId: string;
 			title: string;
-			creator: string;
-			participants: string[];
+			creator: FeedUser;
+			participants: FeedUser[];
 	  }
 	| {
 			id: string;
@@ -49,14 +56,14 @@ export type FeedItem =
 			at: Date;
 			betId: string;
 			title: string;
-			cancelledBy: string;
+			cancelledBy: FeedUser;
 	  }
 	| {
 			id: string;
 			type: 'payment';
 			at: Date;
-			from: string;
-			to: string;
+			from: FeedUser;
+			to: FeedUser;
 			amount: number;
 			memo: string | null;
 			icon: string | null;
@@ -77,7 +84,9 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 			resolutionNote: bets.resolutionNote,
 			cancelledAt: bets.cancelledAt,
 			cancelledBy: bets.cancelledBy,
-			creatorName: users.displayName
+			creatorId: bets.createdBy,
+			creatorName: users.displayName,
+			creatorAvatarUpdatedAt: users.avatarUpdatedAt
 		})
 		.from(bets)
 		.innerJoin(users, eq(users.id, bets.createdBy))
@@ -91,6 +100,7 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 				betId: betParticipants.betId,
 				userId: betParticipants.userId,
 				displayName: users.displayName,
+				avatarUpdatedAt: users.avatarUpdatedAt,
 				outcome: betParticipants.outcome,
 				settledDelta: betParticipants.settledDelta
 			})
@@ -111,14 +121,24 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 			// "Mine" filter: skip bets the user isn't part of.
 			if (userId && !ps.some((p) => p.userId === userId)) continue;
 
+			const creator: FeedUser = {
+				id: b.creatorId,
+				name: b.creatorName,
+				avatarUpdatedAt: b.creatorAvatarUpdatedAt
+			};
+
 			items.push({
 				id: `bet_created:${b.id}`,
 				type: 'bet_created',
 				at: b.createdAt,
 				betId: b.id,
 				title: b.title,
-				creator: b.creatorName,
-				participants: ps.map((p) => p.displayName)
+				creator,
+				participants: ps.map((p) => ({
+					id: p.userId,
+					name: p.displayName,
+					avatarUpdatedAt: p.avatarUpdatedAt
+				}))
 			});
 
 			if (b.status === 'resolved' && b.resolvedAt) {
@@ -130,24 +150,41 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 					title: b.title,
 					winners: ps
 						.filter((p) => p.outcome === 'won')
-						.map((p) => ({ name: p.displayName, amount: Number(p.settledDelta ?? 0) })),
+						.map((p) => ({
+							id: p.userId,
+							name: p.displayName,
+							avatarUpdatedAt: p.avatarUpdatedAt,
+							amount: Number(p.settledDelta ?? 0)
+						})),
 					losers: ps
 						.filter((p) => p.outcome === 'lost')
-						.map((p) => ({ name: p.displayName, amount: Math.abs(Number(p.settledDelta ?? 0)) })),
+						.map((p) => ({
+							id: p.userId,
+							name: p.displayName,
+							avatarUpdatedAt: p.avatarUpdatedAt,
+							amount: Math.abs(Number(p.settledDelta ?? 0))
+						})),
 					note: b.resolutionNote
 				});
 			}
 
 			if (b.status === 'cancelled') {
 				// Fall back to createdAt for rows cancelled before cancelledAt existed.
-				const canceller = ps.find((p) => p.userId === b.cancelledBy)?.displayName;
+				const cancellerPart = ps.find((p) => p.userId === b.cancelledBy);
+				const cancelledBy: FeedUser = cancellerPart
+					? {
+							id: cancellerPart.userId,
+							name: cancellerPart.displayName,
+							avatarUpdatedAt: cancellerPart.avatarUpdatedAt
+						}
+					: creator;
 				items.push({
 					id: `bet_cancelled:${b.id}`,
 					type: 'bet_cancelled',
 					at: b.cancelledAt ?? b.createdAt,
 					betId: b.id,
 					title: b.title,
-					cancelledBy: canceller ?? b.creatorName
+					cancelledBy
 				});
 			}
 		}
@@ -163,7 +200,8 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 			icon: ledgerEntries.icon,
 			kind: wallets.kind,
 			userId: users.id,
-			userName: users.displayName
+			userName: users.displayName,
+			userAvatarUpdatedAt: users.avatarUpdatedAt
 		})
 		.from(ledgerEntries)
 		.innerJoin(wallets, eq(wallets.id, ledgerEntries.walletId))
@@ -178,14 +216,26 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 			createdAt: Date;
 			memo: string | null;
 			icon: string | null;
-			legs: { delta: number; kind: string; userId: string | null; name: string | null }[];
+			legs: {
+				delta: number;
+				kind: string;
+				userId: string | null;
+				name: string | null;
+				avatarUpdatedAt: Date | null;
+			}[];
 		}
 	>();
 	for (const r of payRows) {
 		const entry =
 			byTransfer.get(r.transferId) ??
 			{ createdAt: r.createdAt, memo: r.memo, icon: r.icon, legs: [] };
-		entry.legs.push({ delta: Number(r.delta), kind: r.kind, userId: r.userId, name: r.userName });
+		entry.legs.push({
+			delta: Number(r.delta),
+			kind: r.kind,
+			userId: r.userId,
+			name: r.userName,
+			avatarUpdatedAt: r.userAvatarUpdatedAt
+		});
 		byTransfer.set(r.transferId, entry);
 	}
 
@@ -195,15 +245,16 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 		if (t.legs.some((l) => l.kind !== 'user')) continue;
 		const fromLeg = t.legs.find((l) => l.delta < 0);
 		const toLeg = t.legs.find((l) => l.delta > 0);
-		if (!fromLeg || !toLeg || !fromLeg.name || !toLeg.name) continue;
+		if (!fromLeg || !toLeg || !fromLeg.name || !toLeg.name || !fromLeg.userId || !toLeg.userId)
+			continue;
 		// "Mine" filter: skip payments the user isn't part of.
 		if (userId && fromLeg.userId !== userId && toLeg.userId !== userId) continue;
 		items.push({
 			id: `payment:${transferId}`,
 			type: 'payment',
 			at: t.createdAt,
-			from: fromLeg.name,
-			to: toLeg.name,
+			from: { id: fromLeg.userId, name: fromLeg.name, avatarUpdatedAt: fromLeg.avatarUpdatedAt },
+			to: { id: toLeg.userId, name: toLeg.name, avatarUpdatedAt: toLeg.avatarUpdatedAt },
 			amount: Math.abs(fromLeg.delta),
 			memo: t.memo,
 			icon: t.icon

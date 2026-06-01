@@ -1,14 +1,63 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import type { LayoutData } from './$types';
-	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
-	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
+	import { isCashSoundEnabled, playCashSound, warmUpCashSound } from '$lib/sound';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
+
+	// --- "Cha-ching" when someone sends you money ----------------------------
+	// The layout loader hands us the most recent peer payment received. We ding
+	// once when a transfer we haven't acknowledged on this device appears. The
+	// first observation on a device is seeded silently unless the payment is
+	// fresh, so logging in doesn't replay historical payments.
+	const LAST_PAID_KEY = 'cb:lastPaidSeen';
+	const FRESH_MS = 60_000;
+
+	$effect(() => {
+		const p = data.lastPayment;
+		if (!p) return;
+		let seen: string | null = null;
+		try {
+			seen = localStorage.getItem(LAST_PAID_KEY);
+		} catch {
+			return; // no storage ⇒ can't dedupe; stay quiet rather than ding repeatedly
+		}
+		if (seen === p.transferId) return; // already acknowledged
+		try {
+			localStorage.setItem(LAST_PAID_KEY, p.transferId);
+		} catch {
+			// ignore
+		}
+		const fresh = Date.now() - new Date(p.createdAt).getTime() < FRESH_MS;
+		// First time we've ever seen a payment on this device and it's old →
+		// seed silently. Genuinely new (or fresh) payments ring.
+		if (seen === null && !fresh) return;
+		if (isCashSoundEnabled()) playCashSound();
+	});
+
+	// Lightweight poll so incoming payments (and notifications / friend-request
+	// counts) surface without a manual refresh. Re-runs only the layout loader
+	// via its `app:activity` dependency. Pauses while the tab is hidden and
+	// fires once on becoming visible again, to avoid background churn.
+	const POLL_MS = 20_000;
+	onMount(() => {
+		warmUpCashSound();
+		const tick = () => {
+			if (document.visibilityState === 'visible') invalidate('app:activity');
+		};
+		const timer = setInterval(tick, POLL_MS);
+		document.addEventListener('visibilitychange', tick);
+		return () => {
+			clearInterval(timer);
+			document.removeEventListener('visibilitychange', tick);
+		};
+	});
 
 	type AlertVariant = 'info' | 'success' | 'warning' | 'default';
 	function alertVariantFor(level: 'info' | 'success' | 'warning'): AlertVariant {
@@ -111,13 +160,7 @@
 			</div>
 			<div class="flex items-center gap-2">
 				<span class="hidden text-sm text-muted-foreground sm:inline">{data.user.displayName}</span>
-				<ThemeToggle />
-				{#if data.user.role === 'admin'}
-					<Button variant="outline" size="sm" href="/admin">Admin</Button>
-				{/if}
-				<form method="POST" action="/logout">
-					<Button variant="ghost" size="sm" type="submit">Log out</Button>
-				</form>
+				<SettingsDialog user={data.user} />
 			</div>
 		</div>
 
