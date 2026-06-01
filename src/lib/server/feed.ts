@@ -118,6 +118,10 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 		for (const b of betList) {
 			const ps = partsByBet.get(b.id) ?? [];
 
+			// Pending bets aren't public yet — they only surface once accepted
+			// (live) or if they get declined (which records a cancellation).
+			if (b.status === 'pending') continue;
+
 			// "Mine" filter: skip bets the user isn't part of.
 			if (userId && !ps.some((p) => p.userId === userId)) continue;
 

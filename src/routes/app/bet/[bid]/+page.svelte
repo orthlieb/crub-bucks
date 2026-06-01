@@ -24,6 +24,10 @@
 	const mode = $derived(data.bet.mode);
 	const pool = $derived(Number(data.bet.pool ?? 0));
 	const open = $derived(data.bet.status === 'open');
+	const pending = $derived(data.bet.status === 'pending');
+	const settled = $derived(data.bet.status === 'resolved' || data.bet.status === 'cancelled');
+	const myPart = $derived(data.participants.find((p) => p.userId === data.myUserId));
+	const iAccepted = $derived(!!myPart?.acceptedAt);
 
 	function fmtDate(d: Date | string | null): string {
 		if (!d) return '—';
@@ -165,7 +169,9 @@
 							? 'default'
 							: data.bet.status === 'resolved'
 								? 'info'
-								: 'destructive'}>{data.bet.status}</Badge
+								: data.bet.status === 'pending'
+									? 'secondary'
+									: 'destructive'}>{data.bet.status}</Badge
 					>
 					<Badge variant="secondary">{modeLabel[mode]}</Badge>
 					{#if mode !== 'custom'}<span>pot {fmt(pool)} ₡</span>{/if}
@@ -228,9 +234,69 @@
 		{/if}
 	{/if}
 
+	<!-- Pending acceptance: the bet isn't live until everyone accepts; a single
+	     decline calls it off. -->
+	{#if pending}
+		<Card>
+			<CardHeader>
+				<CardTitle level={2}>Waiting for everyone to accept</CardTitle>
+				<CardDescription>
+					This bet goes live once all {data.participants.length} participants accept. If anyone declines, it's called off.
+				</CardDescription>
+			</CardHeader>
+			<CardContent class="space-y-4">
+				{#if form?.error}
+					<Alert variant="destructive"><AlertDescription>{form.error}</AlertDescription></Alert>
+				{/if}
+				<ul class="space-y-1">
+					{#each data.participants as p (p.userId)}
+						<li class="flex items-center justify-between rounded-md border p-2 text-sm">
+							<span>
+								{p.displayName}{#if p.userId === data.myUserId}<span class="ml-1 text-xs text-muted-foreground">(you)</span>{/if}{#if p.userId === data.bet.createdBy}<span class="ml-1 text-xs text-muted-foreground">· creator</span>{/if}
+							</span>
+							{#if p.acceptedAt}<Badge variant="success">accepted</Badge>{:else}<Badge variant="secondary">awaiting</Badge>{/if}
+						</li>
+					{/each}
+				</ul>
+
+				{#if !iAccepted}
+					<div class="flex gap-2">
+						<form method="POST" action="?/accept" use:enhance>
+							<Button type="submit">Accept bet</Button>
+						</form>
+						<form
+							method="POST"
+							action="?/decline"
+							use:enhance
+							onsubmit={(e) => {
+								if (!confirm('Decline and call off this bet for everyone?')) e.preventDefault();
+							}}
+						>
+							<Button type="submit" variant="outline">Decline</Button>
+						</form>
+					</div>
+				{:else}
+					<div class="flex flex-wrap items-center justify-between gap-2">
+						<p class="text-sm text-muted-foreground">You've accepted — waiting on the others.</p>
+						<form
+							method="POST"
+							action="?/cancel"
+							use:enhance
+							onsubmit={(e) => {
+								if (!confirm('Call off this bet?')) e.preventDefault();
+							}}
+						>
+							<Button type="submit" variant="outline">Cancel bet</Button>
+						</form>
+					</div>
+				{/if}
+			</CardContent>
+		</Card>
+	{/if}
+
 	<!-- Results table — only once the bet is settled. While it's open, the
 	     Resolve card below is the single participant list (no duplication). -->
-	{#if !open}
+	{#if settled}
 		<Card>
 			<CardHeader>
 				<CardTitle level={2}>Results</CardTitle>

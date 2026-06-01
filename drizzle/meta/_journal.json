@@ -99,6 +99,13 @@
       "when": 1780347166523,
       "tag": "0013_avatars",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1780353757866,
+      "tag": "0014_bet_acceptance",
+      "breakpoints": true
     }
   ]
 }

@@ -48,7 +48,7 @@ export const authTokenPurposeEnum = pgEnum('auth_token_purpose', [
 	'verify_email',
 	'reset_password'
 ]);
-export const betStatusEnum = pgEnum('bet_status', ['open', 'resolved', 'cancelled']);
+export const betStatusEnum = pgEnum('bet_status', ['pending', 'open', 'resolved', 'cancelled']);
 // 'none' = participant was in the bet but settled to zero (e.g. winner_loser extras)
 export const betOutcomeEnum = pgEnum('bet_outcome', ['pending', 'won', 'lost', 'none']);
 export const betModeEnum = pgEnum('bet_mode', [
@@ -321,6 +321,10 @@ export const betParticipants = pgTable(
 		outcome: betOutcomeEnum('outcome').notNull().default('pending'),
 		settledDelta: bigint('settled_delta', { mode: 'number' }),
 		lossRank: integer('loss_rank'),
+		// When this participant accepted the bet invitation. Null = invited but
+		// not yet accepted. A bet goes live (status 'open') once every
+		// participant has a non-null accepted_at. The creator is auto-accepted.
+		acceptedAt: timestamp('accepted_at', { withTimezone: true }),
 		// 'pot' mode only: this participant's total contribution to the pot
 		// (initial stake + any re-buys they've added while the bet is open).
 		boughtIn: bigint('bought_in', { mode: 'number' })
