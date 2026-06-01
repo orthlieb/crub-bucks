@@ -7,8 +7,44 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import SoundToggle from '$lib/components/SoundToggle.svelte';
+	import { isCashSoundEnabled, playCashSound, warmUpCashSound } from '$lib/sound';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
+
+	// --- "Cha-ching" when someone sends you money ----------------------------
+	// The layout loader hands us the most recent peer payment received. We ding
+	// once when a transfer we haven't acknowledged on this device appears. The
+	// first observation on a device is seeded silently unless the payment is
+	// fresh, so logging in doesn't replay historical payments.
+	const LAST_PAID_KEY = 'cb:lastPaidSeen';
+	const FRESH_MS = 60_000;
+
+	$effect(() => {
+		const p = data.lastPayment;
+		if (!p) return;
+		let seen: string | null = null;
+		try {
+			seen = localStorage.getItem(LAST_PAID_KEY);
+		} catch {
+			return; // no storage ⇒ can't dedupe; stay quiet rather than ding repeatedly
+		}
+		if (seen === p.transferId) return; // already acknowledged
+		try {
+			localStorage.setItem(LAST_PAID_KEY, p.transferId);
+		} catch {
+			// ignore
+		}
+		const fresh = Date.now() - new Date(p.createdAt).getTime() < FRESH_MS;
+		// First time we've ever seen a payment on this device and it's old →
+		// seed silently. Genuinely new (or fresh) payments ring.
+		if (seen === null && !fresh) return;
+		if (isCashSoundEnabled()) playCashSound();
+	});
+
+	$effect(() => {
+		warmUpCashSound();
+	});
 
 	type AlertVariant = 'info' | 'success' | 'warning' | 'default';
 	function alertVariantFor(level: 'info' | 'success' | 'warning'): AlertVariant {
@@ -111,6 +147,7 @@
 			</div>
 			<div class="flex items-center gap-2">
 				<span class="hidden text-sm text-muted-foreground sm:inline">{data.user.displayName}</span>
+				<SoundToggle />
 				<ThemeToggle />
 				{#if data.user.role === 'admin'}
 					<Button variant="outline" size="sm" href="/admin">Admin</Button>

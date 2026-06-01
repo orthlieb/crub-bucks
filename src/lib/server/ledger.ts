@@ -317,6 +317,83 @@ export async function userActivity(userId: string, limit = 50): Promise<Activity
 	}));
 }
 
+export interface IncomingPayment {
+	transferId: string;
+	amount: number;
+	createdAt: Date;
+	fromName: string;
+}
+
+/**
+ * The single most recent *peer* payment received by this user — a direct
+ * person-to-person transfer (betId null) whose paying leg is another user's
+ * wallet. Bet settlements (betId set) and the bank welcome grant (paid from a
+ * non-user wallet) are excluded, so this only reflects "someone sent you
+ * money". Returns null if no human has ever paid this user.
+ *
+ * Used to drive the client-side "cha-ching" cue: the client compares the
+ * returned transferId against the last one it acknowledged.
+ */
+export async function latestIncomingPayment(userId: string): Promise<IncomingPayment | null> {
+	const walletId = await getOrCreateUserWallet(userId);
+
+	// Candidate incoming legs (money in, no bet context), newest first. We take
+	// a small window rather than just the top row so that a recent bet payout
+	// sitting above a peer payment doesn't hide it.
+	const incoming = await db
+		.select({
+			transferId: ledgerEntries.transferId,
+			delta: ledgerEntries.delta,
+			createdAt: ledgerEntries.createdAt
+		})
+		.from(ledgerEntries)
+		.where(
+			and(
+				eq(ledgerEntries.walletId, walletId),
+				isNull(ledgerEntries.betId),
+				sql`${ledgerEntries.delta} > 0`
+			)
+		)
+		.orderBy(desc(ledgerEntries.createdAt))
+		.limit(20);
+
+	if (incoming.length === 0) return null;
+
+	const ids = incoming.map((r) => r.transferId);
+	// The paying legs for those transfers that come from a *user* wallet — this
+	// is what distinguishes a peer payment from the bank welcome grant.
+	const payers = await db
+		.select({
+			transferId: ledgerEntries.transferId,
+			fromName: users.displayName
+		})
+		.from(ledgerEntries)
+		.innerJoin(wallets, eq(wallets.id, ledgerEntries.walletId))
+		.innerJoin(users, eq(users.id, wallets.userId))
+		.where(
+			and(
+				inArray(ledgerEntries.transferId, ids),
+				eq(wallets.kind, 'user'),
+				sql`${ledgerEntries.delta} < 0`
+			)
+		);
+
+	const payerByTransfer = new Map(payers.map((p) => [p.transferId, p.fromName]));
+	// Newest candidate that has a human payer wins.
+	for (const r of incoming) {
+		const fromName = payerByTransfer.get(r.transferId);
+		if (fromName) {
+			return {
+				transferId: r.transferId,
+				amount: Number(r.delta),
+				createdAt: r.createdAt,
+				fromName
+			};
+		}
+	}
+	return null;
+}
+
 // ---------------------------------------------------------------------------
 // Integrity guard
 // ---------------------------------------------------------------------------
