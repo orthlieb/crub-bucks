@@ -48,7 +48,9 @@
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Feed</h1>
 			<p class="mt-1 text-muted-foreground">
-				{data.mine ? 'Just the bets and payments you’re in.' : "What everyone's been up to."}
+				{data.mine
+				? 'Just the bets and payments you’re in.'
+				: 'Bets and payments from you and your friends.'}
 			</p>
 		</div>
 		<div class="text-right">
@@ -67,7 +69,7 @@
 				: 'bg-accent font-medium text-foreground'}"
 			aria-current={data.mine ? undefined : 'page'}
 		>
-			Everyone
+			Friends
 		</a>
 		<a
 			href="/app/feed?mine=1"
@@ -93,7 +95,7 @@
 				{#if data.mine}
 					You're not in anything yet. Start a bet or pay a friend.
 				{:else}
-					Nothing's happened yet. Make a bet or pay a friend to kick things off.
+					No activity from you or your friends yet. Make a bet or pay a friend to kick things off.
 				{/if}
 			</CardContent>
 		</Card>
