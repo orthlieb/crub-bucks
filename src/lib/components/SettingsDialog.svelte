@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import SoundToggle from '$lib/components/SoundToggle.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
@@ -16,6 +17,47 @@
 	let fileInput: HTMLInputElement;
 	let busy = $state(false);
 	let errorMsg = $state('');
+
+	// --- Display name editing ------------------------------------------------
+	// Populated from the current name whenever the dialog opens (onOpenChange).
+	let name = $state('');
+	let nameSaved = $state(false);
+	const canSaveName = $derived(name.trim().length >= 2 && name.trim() !== user.displayName);
+
+	// Reset the field to the current name each time the dialog opens.
+	function onOpenChange(isOpen: boolean) {
+		if (isOpen) {
+			name = user.displayName;
+			errorMsg = '';
+			nameSaved = false;
+		}
+	}
+
+	async function saveName() {
+		const next = name.trim().replace(/\s+/g, ' ');
+		if (next === user.displayName || next.length < 2) return;
+		busy = true;
+		errorMsg = '';
+		nameSaved = false;
+		try {
+			const res = await fetch('/app/profile', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ displayName: next })
+			});
+			if (!res.ok) {
+				const data = await res.json().catch(() => null);
+				throw new Error(data?.message ?? `Couldn't save (${res.status})`);
+			}
+			name = next;
+			nameSaved = true;
+			await invalidateAll(); // refresh the name across the app (header, feed, …)
+		} catch (err) {
+			errorMsg = err instanceof Error ? err.message : 'Could not save name.';
+		} finally {
+			busy = false;
+		}
+	}
 
 	async function onPick(e: Event) {
 		const input = e.currentTarget as HTMLInputElement;
@@ -59,7 +101,7 @@
 	}
 </script>
 
-<Dialog.Root>
+<Dialog.Root {onOpenChange}>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
 			<button
@@ -99,6 +141,29 @@
 				onchange={onPick}
 			/>
 		</div>
+		<!-- Display name -->
+		<div class="space-y-2 border-t pt-3">
+			<label for="display-name" class="text-sm font-medium">Display name</label>
+			<div class="flex gap-2">
+				<Input
+					id="display-name"
+					bind:value={name}
+					maxlength={40}
+					disabled={busy}
+					class="flex-1"
+					autocomplete="off"
+					onkeydown={(e: KeyboardEvent) => {
+						if (e.key === 'Enter' && canSaveName) {
+							e.preventDefault();
+							saveName();
+						}
+					}}
+				/>
+				<Button size="sm" disabled={busy || !canSaveName} onclick={saveName}>Save</Button>
+			</div>
+			{#if nameSaved}<p class="text-xs text-success">Saved.</p>{/if}
+		</div>
+
 		{#if errorMsg}
 			<p class="text-sm text-destructive">{errorMsg}</p>
 		{/if}
