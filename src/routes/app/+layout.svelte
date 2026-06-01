@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { LayoutData } from './$types';
 	import { Button } from '$lib/components/ui/button';
@@ -24,6 +25,55 @@
 	function isActive(href: string, exact?: boolean): boolean {
 		if (exact) return page.url.pathname === href;
 		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
+	}
+
+	// --- Swipe between tabs (mobile only) ------------------------------------
+	// A horizontal swipe on the page body moves to the adjacent primary tab,
+	// mirroring the mobile tab strip. Tapping the tabs still works; this is a
+	// progressive enhancement layered on top.
+	function currentTabIndex(): number {
+		// Walk in order so a sub-page like /app/feed/123 resolves to "Feed"
+		// rather than the exact-match "Dashboard".
+		let idx = 0;
+		navlinks.forEach((l, i) => {
+			if (isActive(l.href, l.exact)) idx = i;
+		});
+		return idx;
+	}
+
+	const SWIPE_MIN_PX = 60; // horizontal distance to count as a swipe
+	let touchStartX = 0;
+	let touchStartY = 0;
+	let tracking = false;
+
+	function onTouchStart(e: TouchEvent) {
+		// Only one finger, only on narrow viewports (the tab strip's breakpoint),
+		// and not inside something that opts out (e.g. a horizontally scrollable
+		// region marked data-no-swipe).
+		if (e.touches.length !== 1 || !window.matchMedia('(max-width: 639px)').matches) {
+			tracking = false;
+			return;
+		}
+		if (e.target instanceof Element && e.target.closest('[data-no-swipe]')) {
+			tracking = false;
+			return;
+		}
+		tracking = true;
+		touchStartX = e.touches[0].clientX;
+		touchStartY = e.touches[0].clientY;
+	}
+
+	function onTouchEnd(e: TouchEvent) {
+		if (!tracking) return;
+		tracking = false;
+		const t = e.changedTouches[0];
+		const dx = t.clientX - touchStartX;
+		const dy = t.clientY - touchStartY;
+		// Decisive, predominantly horizontal gesture only — don't hijack scrolls.
+		if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+		const next = currentTabIndex() + (dx < 0 ? 1 : -1); // swipe left ⇒ next tab
+		if (next < 0 || next >= navlinks.length) return;
+		goto(navlinks[next].href);
 	}
 
 </script>
@@ -98,7 +148,11 @@
 		</nav>
 	</header>
 
-	<main class="mx-auto max-w-5xl px-6 py-8">
+	<main
+		class="mx-auto max-w-5xl px-6 py-8"
+		ontouchstart={onTouchStart}
+		ontouchend={onTouchEnd}
+	>
 		{#if data.notifications.length > 0}
 			<div class="mb-6 space-y-2">
 				{#each data.notifications as n (n.id)}
