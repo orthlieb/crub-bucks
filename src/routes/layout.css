@@ -128,6 +128,14 @@
 		color: var(--color-foreground);
 		font-family: var(--font-sans);
 		-webkit-font-smoothing: antialiased;
+		/* Keep iOS from inflating text in landscape (we control sizing). */
+		-webkit-text-size-adjust: 100%;
+		text-size-adjust: 100%;
+		/* With viewport-fit=cover the page extends under the notch and the
+		   home indicator; pad the body so no chrome hides behind them. The
+		   solid body background fills the inset gaps to match the theme. */
+		padding: env(safe-area-inset-top) env(safe-area-inset-right)
+			env(safe-area-inset-bottom) env(safe-area-inset-left);
 	}
 }
 
