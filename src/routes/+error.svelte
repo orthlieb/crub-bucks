@@ -28,7 +28,7 @@
 	<h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{headline}</h1>
 	<p class="mt-3 max-w-md text-muted-foreground">{message}</p>
 	<div class="mt-6 flex flex-wrap justify-center gap-3">
-		<Button href="/app">Back to dashboard</Button>
+		<Button href="/app">Back to your bets</Button>
 		<Button variant="outline" href="/">Home</Button>
 	</div>
 </div>

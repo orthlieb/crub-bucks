@@ -61,7 +61,7 @@ Stack: **SvelteKit + TypeScript + Drizzle ORM + Postgres** (Node adapter), with
 - `/about`        — about page
 - `/register`, `/verify-email/[token]`, `/login`, `/forgot-password`,
   `/reset-password/[token]`, `/logout`
-- `/app`          — dashboard (balance, your bets, recent activity)
+- `/app`          — bets (balance, your bets, recent activity)
 - `/app/feed`     — public activity feed (bets + payments)
 - `/app/friends`  — friend requests (send/approve/deny), friends list, pay a friend
 - `/app/bet/new`  — create a bet (pick from friends)
@@ -164,7 +164,7 @@ src/
     maintenance/                shown when maintenance_mode=true
     app/                        authenticated app
       +layout.*                 topbar (admin link if applicable)
-      +page.*                   dashboard
+      +page.*                   bets (home)
       group/[id]/               group page + bet routes
     admin/                      admin panel
   lib/

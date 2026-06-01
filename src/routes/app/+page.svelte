@@ -23,7 +23,7 @@
 <div class="space-y-8">
 	<header class="flex flex-wrap items-end justify-between gap-4">
 		<div>
-			<h1 class="text-3xl font-bold tracking-tight">Your dashboard</h1>
+			<h1 class="text-3xl font-bold tracking-tight">Your bets</h1>
 			<p class="mt-1 italic text-muted-foreground">{data.tagline}</p>
 		</div>
 		<div class="text-right">

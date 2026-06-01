@@ -52,7 +52,7 @@
 
 				<div class="mt-8 flex flex-wrap gap-3">
 					{#if data.user}
-						<Button size="lg" href="/app">Go to dashboard</Button>
+						<Button size="lg" href="/app">Go to your bets</Button>
 					{:else}
 						<Button size="lg" href="/register">Get started</Button>
 						<Button size="lg" variant="outline" href="/login">I have an account</Button>

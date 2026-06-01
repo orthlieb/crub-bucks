@@ -152,7 +152,7 @@
 
 <div class="space-y-6">
 	<header>
-		<a href="/app" class="text-sm text-muted-foreground hover:text-foreground">← Dashboard</a>
+		<a href="/app" class="text-sm text-muted-foreground hover:text-foreground">← Bets</a>
 		<div class="mt-1 flex items-start gap-4">
 			<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border bg-muted/40 text-4xl leading-none sm:h-20 sm:w-20 sm:text-5xl">
 				{data.bet.icon ?? '💰'}

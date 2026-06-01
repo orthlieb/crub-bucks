@@ -162,7 +162,7 @@
 <div class="space-y-8">
 	<header class="flex flex-wrap items-end justify-between gap-4">
 		<div>
-			<a href="/app" class="text-sm text-muted-foreground hover:text-foreground">← Dashboard</a>
+			<a href="/app" class="text-sm text-muted-foreground hover:text-foreground">← Bets</a>
 			<h1 class="mt-1 text-3xl font-bold tracking-tight">Friends</h1>
 			<p class="mt-1 text-muted-foreground">Send a request by email; they approve before you're connected.</p>
 		</div>

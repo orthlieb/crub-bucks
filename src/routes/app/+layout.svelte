@@ -66,7 +66,7 @@
 	}
 
 	const navlinks = [
-		{ href: '/app', label: 'Dashboard', exact: true },
+		{ href: '/app', label: 'Bets', exact: true },
 		{ href: '/app/feed', label: 'Feed' },
 		{ href: '/app/friends', label: 'Friends' }
 	];
@@ -82,7 +82,7 @@
 	// progressive enhancement layered on top.
 	function currentTabIndex(): number {
 		// Walk in order so a sub-page like /app/feed/123 resolves to "Feed"
-		// rather than the exact-match "Dashboard".
+		// rather than the exact-match "Bets".
 		let idx = 0;
 		navlinks.forEach((l, i) => {
 			if (isActive(l.href, l.exact)) idx = i;
