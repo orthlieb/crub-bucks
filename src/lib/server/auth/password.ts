@@ -33,13 +33,15 @@ export function verifyPassword(password: string, stored: string): boolean {
 
 // ---------------------------------------------------------------------------
 // Password policy
-// Mirrors ironledger: at least 12 characters, at least 5 distinct characters.
-// (HIBP breach checking is a planned follow-on; today's policy is local-only.)
+// Mirrors ironledger: at least 12 characters, at least 5 distinct characters,
+// and not a common / easily-guessed password (local denylist — see
+// common-passwords.ts). HIBP breach checking remains a possible follow-on.
 // The constants live in a client-safe module so form copy can render them.
 // ---------------------------------------------------------------------------
 
 export { PASSWORD_MIN_LENGTH, PASSWORD_MIN_DISTINCT } from '$lib/auth/password-policy';
 import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_DISTINCT } from '$lib/auth/password-policy';
+import { isCommonPassword } from './common-passwords';
 
 export interface PasswordValidationResult {
 	ok: boolean;
@@ -56,6 +58,12 @@ export function validatePassword(password: string): PasswordValidationResult {
 		return {
 			ok: false,
 			message: `Password must include at least ${PASSWORD_MIN_DISTINCT} different characters`
+		};
+	}
+	if (isCommonPassword(password)) {
+		return {
+			ok: false,
+			message: 'That password is too common or guessable — please choose another'
 		};
 	}
 	return { ok: true };

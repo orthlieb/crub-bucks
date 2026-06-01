@@ -25,6 +25,35 @@ describe('validatePassword', () => {
 		expect(validatePassword('correct-horse-battery').ok).toBe(true);
 	});
 
+	it('rejects common / guessable passwords (12+ chars)', () => {
+		for (const pw of [
+			'password1234',
+			'P@ssw0rd1234',
+			'iloveyou2024!',
+			'qwertyuiop123',
+			'123456789012',
+			'qwerty!!!!!!!',
+			'letmein-letmein',
+			'administrator',
+			'welcome12345'
+		]) {
+			const res = validatePassword(pw);
+			expect(res.ok, pw).toBe(false);
+			expect(res.message, pw).toMatch(/common|guess/i);
+		}
+	});
+
+	it('still accepts strong passphrases that merely contain a common word', () => {
+		for (const pw of [
+			'correct-horse-battery',
+			'velvet-thunder-pickle-9',
+			'mypasswordvault-x7y',
+			'summit-falcon-river-22'
+		]) {
+			expect(validatePassword(pw).ok, pw).toBe(true);
+		}
+	});
+
 	it('rejects non-string input', () => {
 		// @ts-expect-error testing runtime guard
 		expect(validatePassword(undefined).ok).toBe(false);
