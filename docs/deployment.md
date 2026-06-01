@@ -348,17 +348,58 @@ apt update && apt upgrade -y && apt autoremove -y
 # Create the app user
 adduser --disabled-password --gecos "" crubbucks
 usermod -aG sudo crubbucks
-mkdir -p /home/crubbucks/.ssh
-cp /root/.ssh/authorized_keys /home/crubbucks/.ssh/
-chown -R crubbucks:crubbucks /home/crubbucks/.ssh
-chmod 700 /home/crubbucks/.ssh
-chmod 600 /home/crubbucks/.ssh/authorized_keys
 
-# Disable password SSH and root SSH (key-only, non-root)
-sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
-systemctl restart ssh
+# Set a password so the user can sudo (the --disabled-password above only
+# disables password-based LOGIN, not sudo). Pick a strong one and save it.
+passwd crubbucks
 
+# Copy your SSH key over with install(1) to set owner + mode atomically.
+# install is safer than mkdir + cp + chown + chmod when the script could
+# be interrupted halfway through.
+install -d -m 700 -o crubbucks -g crubbucks /home/crubbucks/.ssh
+install -m 600 -o crubbucks -g crubbucks \
+    /root/.ssh/authorized_keys \
+    /home/crubbucks/.ssh/authorized_keys
+
+# CRITICAL: open the home dir for Nginx (www-data) traversal. Default
+# from `adduser` is 750, which blocks www-data from reading
+# /home/crubbucks/app/build/client/*. Without this Nginx returns 403 for
+# every static asset (Cala images, /_app/* bundles, etc).
+chmod 755 /home/crubbucks
+```
+
+Now harden sshd. **Don't edit `/etc/ssh/sshd_config` directly** — Ubuntu
+ships drop-in files in `/etc/ssh/sshd_config.d/` that are processed BEFORE
+the main config, and `50-cloud-init.conf` sets `PasswordAuthentication
+yes`. sshd uses the **first** occurrence of each directive, so the main
+config's `no` gets ignored. Use a `01-` prefix drop-in to win:
+
+```bash
+tee /etc/ssh/sshd_config.d/01-hardening.conf > /dev/null <<'EOF'
+# Loads before /etc/ssh/sshd_config.d/50-cloud-init.conf (which would
+# otherwise enable PasswordAuthentication). sshd takes the FIRST
+# occurrence of each directive — alphabetical order is what matters.
+PasswordAuthentication no
+PermitRootLogin no
+PubkeyAuthentication yes
+ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
+EOF
+
+# Validate syntax BEFORE reloading (a typo here locks you out).
+sshd -t
+
+# Confirm the effective config matches what we want
+sshd -T | grep -iE 'passwordauthentication|permitrootlogin|pubkeyauthentication'
+# Expected:
+#   passwordauthentication no
+#   permitrootlogin no
+#   pubkeyauthentication yes
+
+systemctl reload ssh
+```
+
+```bash
 # Firewall: SSH, HTTP, HTTPS only
 apt install -y ufw
 ufw default deny incoming
@@ -368,9 +409,20 @@ ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
 
-# fail2ban for SSH brute-force protection
+# fail2ban for SSH brute-force protection (botnets start hammering port
+# 22 within minutes of a VPS coming online — enable this BEFORE you
+# leave the box unattended overnight).
 apt install -y fail2ban
 systemctl enable --now fail2ban
+```
+
+**Verify from a second laptop terminal before closing the root session.**
+Keep the root session as a recovery escape hatch until you've confirmed:
+
+```bash
+ssh crubbucks@VPS_IP    # should work, key auth
+ssh root@VPS_IP         # should fail INSTANTLY: "Permission denied (publickey)."
+                         # with no password prompt before the rejection
 ```
 
 From here on, log in as the app user:
@@ -1082,6 +1134,128 @@ A future Postgres major-version upgrade *can* reset
 `listen_addresses` to the package default. Phase 8 covers re-binding
 to localhost; bake it into your post-apt routine to re-run
 `sudo ss -lntp | grep 5432` after every `apt upgrade postgresql-*`.
+
+### Nginx 403s for every static asset; Cala images don't render
+
+Symptom: app renders text fine, every PNG/JPG/CSS bundle returns 403
+or doesn't appear at all. Cause: `/home/crubbucks` is mode **750**
+(adduser's default), which blocks `www-data` from traversing into the
+home directory. Fix:
+
+```bash
+sudo chmod 755 /home/crubbucks
+```
+
+Files **inside** are already world-readable (default umask is 022), so
+only the home dir's traverse bit needs opening. This is covered in
+Phase 1.1; if you skipped it or restored the dir from backup, redo.
+Confirm with:
+
+```bash
+sudo -u www-data test -r ~/app/build/client/cala-money.png && echo OK || echo BLOCKED
+```
+
+### `Invalid ORIGIN: ''. ORIGIN must be a valid URL`
+
+SvelteKit's `adapter-node` refuses to start when `ORIGIN` is set to an
+**empty string**. Unset is OK (the CSRF check is skipped), valid URL
+is OK, but `ORIGIN=""` crashes the boot. In `.env.example` we leave
+the line commented out for exactly this reason. After Phase 5 (TLS),
+uncomment and point at `https://yourdomain.com` — not `""`.
+
+### `nginx: unknown directive "http2"` on Ubuntu 24.04
+
+Ubuntu 24.04 ships Nginx 1.24, which uses the legacy `listen 443 ssl
+http2;` syntax. The newer `http2 on;` directive (Nginx 1.25+) won't
+parse. The shipped `infra/nginx/crubbucks.conf` uses the legacy form
+deliberately — it works on both 1.24 and 1.25+.
+
+### PM2's `env_file` silently doesn't load on PM2 7.x
+
+`env_file: '/path/to/.env'` in `ecosystem.config.cjs` was unreliable in
+PM2 7.0.x — Node would start without `process.env.DATABASE_URL`, etc.
+We use Node 22's native `--env-file` instead, via PM2's `node_args`:
+
+```js
+node_args: '--env-file=/home/crubbucks/app/.env',
+```
+
+This is in the shipped config. Symptom if you reverted to `env_file`:
+`/health` returns `{"ok":false,"error":"database unreachable"}` even
+though psql with the same connection string works. Node literally
+never saw the env var.
+
+### `PUBLIC_HCAPTCHA_SITE_KEY` change has no effect after `pm2 reload`
+
+SvelteKit's `PUBLIC_*` env vars are **inlined into the client bundle
+at build time**, not read at runtime. Changing the value in `.env`
+and reloading PM2 won't update the browser bundle. After any change
+to a `PUBLIC_*` variable:
+
+```bash
+npm run build && pm2 reload crub-bucks
+```
+
+Server-side vars (`HCAPTCHA_SECRET`, `DATABASE_URL`, etc.) ARE
+runtime-read via `--env-file`, so reload alone picks them up.
+
+### `npm ci` fails with `Missing: ... from lock file`
+
+Likely an npm version mismatch between whoever generated the lock file
+locally and the VPS / CI. Node 22's bundled npm is 10.x; if the lock
+file was generated with npm 11+, it can include esbuild's optional
+platform binaries in a way npm 10 reads as "missing." Workaround on
+the VPS:
+
+```bash
+npm install --no-audit --no-fund   # regenerates lock-file locally
+```
+
+The proper fix is regenerating `package-lock.json` with Node 22/npm 10
+locally (via nvm) and committing — tracked in the project's task list.
+
+### `Connection closed by authenticating user … [preauth]` with no other log line
+
+Your client gave up mid-authentication, BEFORE sshd reached a verdict.
+Common causes, in order:
+
+- **You Ctrl-C'd at the passphrase prompt** — SSH doesn't echo
+  characters when entering a passphrase, so it looks like nothing is
+  happening. Type your passphrase and press Enter; don't interrupt.
+- **Your key file isn't named `id_ed25519` / `id_rsa`** — `ssh user@host`
+  only auto-tries default key names. Add an alias to `~/.ssh/config`:
+  ```
+  Host myserver
+    HostName 1.2.3.4
+    User crubbucks
+    IdentityFile ~/.ssh/my-custom-key
+    IdentitiesOnly yes
+  ```
+- **Server-side perms on `.ssh/` are wrong** — sshd silently refuses
+  keys when `/home/$user` is group-writable, `.ssh/` isn't `700`, or
+  `authorized_keys` isn't owned by `$user`. Fix:
+  ```bash
+  sudo chown -R crubbucks:crubbucks /home/crubbucks/.ssh
+  sudo chmod 700 /home/crubbucks/.ssh
+  sudo chmod 600 /home/crubbucks/.ssh/authorized_keys
+  ```
+
+For a definitive answer, tail the server log while reconnecting:
+`sudo journalctl -u ssh -f` — sshd prints `Authentication refused: …`
+or `Failed publickey for …` with the exact reason.
+
+### `dig: command not found` on macOS
+
+macOS Sonoma+ (15+) ships without `dig`. Use `host` instead — it's still
+installed by default:
+
+```bash
+host -t CNAME resend._domainkey.send.yourdomain.com
+host -t TXT  send.yourdomain.com
+host -t MX   send.yourdomain.com
+```
+
+Or install full bind via Homebrew: `brew install bind`.
 
 ---
 

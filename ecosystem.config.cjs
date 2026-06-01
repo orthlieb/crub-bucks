@@ -2,7 +2,7 @@
  * PM2 ecosystem config — production process management for Crub Bucks.
  *
  * Start with:   cd ~/app && pm2 start ecosystem.config.cjs
- * Reload with:  cd ~/app && pm2 reload ecosystem.config.cjs --update-env
+ * Reload with:  cd ~/app && pm2 reload crub-bucks
  * Logs with:    pm2 logs crub-bucks
  * Monitor with: pm2 monit
  *
@@ -13,9 +13,11 @@
  *   - PM2 + nvm requires an interactive login shell. Always
  *       su - crubbucks
  *     (with the leading dash) so .bashrc / nvm initialize.
- *   - reload must be run from the directory containing this file.
- *     `pm2 reload crub-bucks --update-env` alone won't pick up env_file
- *     changes — use the full reload form with the config path.
+ *   - We load .env via Node's built-in `--env-file` flag (Node 20.6+)
+ *     rather than PM2's `env_file` directive. PM2's env_file has been
+ *     flaky in 7.x (silently doesn't load) and `--env-file` survives
+ *     `pm2 save` + `pm2 resurrect` cleanly. Edit .env then reload —
+ *     Node re-reads the file on each process start.
  */
 
 module.exports = {
@@ -25,7 +27,11 @@ module.exports = {
 			// adapter-node writes a Node HTTP server to ./build/index.js
 			script: 'build/index.js',
 			cwd: '/home/crubbucks/app',
-			env_file: '/home/crubbucks/app/.env',
+
+			// Load production env vars via Node's native --env-file flag
+			// (Node 20.6+). See note above about why this beats PM2's
+			// env_file directive on PM2 7.x.
+			node_args: '--env-file=/home/crubbucks/app/.env',
 
 			// SvelteKit SSR is single-threaded per process. One worker is
 			// enough for a friends-and-family scale app; switch to cluster
