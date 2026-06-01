@@ -21,11 +21,13 @@ export async function sendVerificationEmail(opts: {
 	displayName: string;
 	token: string;
 }): Promise<void> {
-	const verifyUrl = `${getAppUrl()}/verify-email/${encodeURIComponent(opts.token)}`;
+	const appUrl = getAppUrl();
+	const verifyUrl = `${appUrl}/verify-email/${encodeURIComponent(opts.token)}`;
 	const msg = verifyEmailTemplate({
 		displayName: opts.displayName,
 		verifyUrl,
-		expiresInHours: VERIFY_EXPIRES_HOURS
+		expiresInHours: VERIFY_EXPIRES_HOURS,
+		appUrl
 	});
 	await getEmailTransport().send({ to: opts.to, ...msg });
 }
@@ -35,11 +37,13 @@ export async function sendPasswordResetEmail(opts: {
 	displayName: string;
 	token: string;
 }): Promise<void> {
-	const resetUrl = `${getAppUrl()}/reset-password/${encodeURIComponent(opts.token)}`;
+	const appUrl = getAppUrl();
+	const resetUrl = `${appUrl}/reset-password/${encodeURIComponent(opts.token)}`;
 	const msg = passwordResetTemplate({
 		displayName: opts.displayName,
 		resetUrl,
-		expiresInHours: RESET_EXPIRES_HOURS
+		expiresInHours: RESET_EXPIRES_HOURS,
+		appUrl
 	});
 	await getEmailTransport().send({ to: opts.to, ...msg });
 }
@@ -48,8 +52,9 @@ export async function sendFriendInviteEmail(opts: {
 	to: string;
 	inviterName: string;
 }): Promise<void> {
-	const joinUrl = `${getAppUrl()}/register?email=${encodeURIComponent(opts.to)}`;
-	const msg = friendInviteTemplate({ inviterName: opts.inviterName, joinUrl });
+	const appUrl = getAppUrl();
+	const joinUrl = `${appUrl}/register?email=${encodeURIComponent(opts.to)}`;
+	const msg = friendInviteTemplate({ inviterName: opts.inviterName, joinUrl, appUrl });
 	await getEmailTransport().send({ to: opts.to, ...msg });
 }
 

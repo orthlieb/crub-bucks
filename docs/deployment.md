@@ -1,8 +1,10 @@
 # Crub Bucks — Deployment Guide
 
 Step-by-step setup for deploying Crub Bucks to an **Ionos VPS** with a
-**managed Ionos Postgres** database, **Nginx** as the TLS-terminating
-reverse proxy, and **PM2** supervising the Node process.
+**self-hosted PostgreSQL 16** instance on the same box, **Nginx** as
+the TLS-terminating reverse proxy, and **PM2** supervising the Node
+process. The database lives on `127.0.0.1` — never exposed to the
+public Internet — and the deploy step (Phase 10) backs it up daily.
 
 Companion files in this repo:
 
@@ -27,32 +29,51 @@ Internet
 └────┬────┘
      │ 127.0.0.1:3000
      ▼
-┌──────────────┐         ┌──────────────────────────────┐
-│ Node (PM2)   │ ──TLS──▶│  Ionos Managed Postgres 16   │
-│ SvelteKit    │         │  sslmode=require             │
-│ adapter-node │         └──────────────────────────────┘
-└──────────────┘
+┌──────────────┐         ┌─────────────────────────────┐
+│ Node (PM2)   │ ──loop─▶│  PostgreSQL 16  127.0.0.1   │
+│ SvelteKit    │   back  │  unix socket / TCP loopback │
+│ adapter-node │         │  bound to localhost only    │
+└──────────────┘         └─────────────────────────────┘
+                                       │
+                                       ▼
+                              ┌──────────────────────┐
+                              │  pg_dump cron (3 AM) │
+                              │  /var/backups/crub   │
+                              │  + optional off-box  │
+                              └──────────────────────┘
 ```
 
 - One Node process running the SvelteKit `adapter-node` build (single
   worker — plenty for a friends-and-family scale app)
-- Postgres is managed elsewhere; no DB on the app server
+- PostgreSQL 16 lives on the same VPS, bound to `127.0.0.1` — never
+  reachable from the public Internet, no TLS overhead since traffic
+  never leaves the box
+- Daily `pg_dump` cron snapshots the database to `/var/backups/`;
+  optional off-box copy (S3 / Backblaze / IONOS Object Storage) is
+  the safety net if the entire VPS is ever lost
 - No Redis, no separate API process, no message queue
 
 ---
 
 ## Machine sizing
 
+Running Postgres on the same box raises the floor — both the DB and
+the Node build need to coexist with OS overhead.
+
 | Tier | Specs | Verdict |
 |---|---|---|
-| **VPS Linux S** | 1 vCPU / 1 GB RAM / 10 GB SSD | Works since Postgres is off-box. Tight during `npm ci` (can OOM). Add 1 GB swap and you're fine. |
-| **VPS Linux M** ⭐ | 2 vCPU / 4 GB RAM / 80 GB NVMe | **Recommended.** Comfortable headroom for build, logs, and a few months of growth. |
-| Cloud Server custom | 1 vCPU / 2 GB RAM | Cheapest balanced option. Sweet spot if you want to stretch. |
+| VPS Linux S | 1 vCPU / 1 GB RAM / 10 GB SSD | **Don't.** Postgres + Node + Nginx + Ubuntu base ≈ 900 MB resident before you've served a request; `npm ci` will OOM during deploy. |
+| **VPS Linux M** ⭐ | 2 vCPU / 4 GB RAM / 80 GB NVMe | **Recommended.** Postgres (default tuning) ≈ 300 MB, Node 150–300 MB, Nginx 30 MB, OS 250 MB — leaves 3 GB free for OS cache + build bursts. |
+| VPS Linux L | 4 vCPU / 8 GB RAM / 160 GB NVMe | Pick this if you expect to grow past 100 active users or want a bigger Postgres `shared_buffers` and OS page cache without thinking about it. |
 
-The Node process idles around 150 MB and peaks around 300 MB. Nginx is
-~30 MB. With a managed DB, anything ≥ 2 GB RAM is comfortable.
+The Node process idles around 150 MB and peaks around 300 MB; Nginx
+~30 MB; Postgres 16 with defaults around 200–400 MB resident
+(grows with connection count + `shared_buffers`). On a 4 GB box
+the steady-state usage is ~1 GB and the rest is OS cache — which is
+what makes Postgres fast on commodity hardware.
 
-Pick **Ubuntu 24.04 LTS** as the image — the commands below assume it.
+Pick **Ubuntu 24.04 LTS** as the image — it ships Postgres 16 in
+`main`, and the commands below assume it.
 
 ---
 
@@ -61,9 +82,6 @@ Pick **Ubuntu 24.04 LTS** as the image — the commands below assume it.
 Before you start the server work, line these up:
 
 - [ ] Ionos account with VPS / Cloud Server quota
-- [ ] **Managed Ionos Postgres** instance provisioned in the same region
-      as the VPS — capture the connection details (host, port, user,
-      password, database name)
 - [ ] **Domain name** with DNS access (or willingness to wait on DNS
       propagation)
 - [ ] **Resend account** with your sending domain verified — full
@@ -77,29 +95,31 @@ Before you start the server work, line these up:
 
 ---
 
-## Phase 0 — Provision the managed Postgres
+## Phase 0 — Plan the database
 
-In the Ionos Cloud Panel:
+PostgreSQL 16 will run on the **same VPS** as the Node process,
+bound to `127.0.0.1` only — never reachable from the Internet. The
+actual install happens in Phase 1.4 after the VPS is up; this section
+is just orientation.
 
-1. Create a **Managed Database → PostgreSQL 16** instance
-2. Choose the smallest cluster size (1 node, 2 vCPU, 4 GB RAM is plenty)
-3. Same region as where you'll put the VPS (lower latency, no egress fees)
-4. Network: **same VLAN as the VPS** if possible, otherwise note the
-   public hostname
-5. Create a database named `crubbucks`
-6. Note down the **connection string**, which will look like:
-   ```
-   postgres://USER:PASS@db-xxx.de-fra.ionos.com:5432/crubbucks
-   ```
-7. Append `?sslmode=require` — Ionos managed PG refuses plaintext:
-   ```
-   postgres://USER:PASS@db-xxx.de-fra.ionos.com:5432/crubbucks?sslmode=require
-   ```
+What you're signing up for vs. a managed cluster:
 
-Make sure your VPS IP is on the database's **firewall allowlist** once
-the VPS is up (Phase 1). You can leave it open to `0.0.0.0/0` for the
-initial connection from your laptop too, but lock it down to the VPS
-IP afterward.
+| You own | Managed would handle |
+|---|---|
+| `apt upgrade postgresql-16` on patch days | Maintenance windows handled |
+| Daily `pg_dump` cron + retention (Phase 10) | Automatic snapshots |
+| Tuning `shared_buffers` / `work_mem` if you outgrow defaults | Pre-tuned for the cluster size |
+| Restoring from `pg_dump` after a disaster | Point-in-time recovery |
+
+For a friends-and-family play-currency app the defaults are fine and
+the ops load is "10 minutes a quarter" once it's set up. The savings
+vs. a managed cluster pay for everything else on the VPS.
+
+If at any point you want to move to managed Ionos Postgres later, the
+migration path is straightforward: `pg_dump` from the VPS, restore
+into the managed cluster, swap `DATABASE_URL` in `.env`, restart PM2.
+The schema, code, and CI are agnostic — only the connection string
+changes (with `?sslmode=require` appended for managed).
 
 ---
 
@@ -359,10 +379,61 @@ From here on, log in as the app user:
 ssh crubbucks@VPS_IP
 ```
 
-### 1.2 Install Nginx, Certbot, Postgres client
+### 1.2 Install Nginx, Certbot, PostgreSQL 16
 
 ```bash
-sudo apt install -y nginx certbot python3-certbot-nginx postgresql-client-16
+sudo apt install -y nginx certbot python3-certbot-nginx postgresql-16
+```
+
+Ubuntu 24.04 ships Postgres 16 in `main`. The package starts a
+`postgres` cluster automatically, bound to `127.0.0.1:5432` by
+default (Debian/Ubuntu policy — your VPS firewall already blocks
+external 5432 from the previous step, belt-and-braces).
+
+Confirm it's listening locally only:
+
+```bash
+sudo ss -lntp | grep 5432
+# Expect:  LISTEN  0  244  127.0.0.1:5432  ...
+# (NOT  0.0.0.0:5432  — that would mean it's externally reachable)
+```
+
+If `pg_hba.conf` or `postgresql.conf` ever change to listen on a
+public IP, re-bind to localhost only:
+
+```bash
+sudo sed -i "s/^#*listen_addresses.*/listen_addresses = 'localhost'/" \
+    /etc/postgresql/16/main/postgresql.conf
+sudo systemctl restart postgresql
+```
+
+#### Create the app's database and role
+
+Postgres ships with a `postgres` superuser whose login is the
+`postgres` system account. We create a dedicated non-superuser role
+for the app and a database it owns. **Pick a strong password** —
+local-only or not, a leaked DB password is still a vulnerability.
+
+```bash
+# Generate a 32-byte URL-safe random password and save it for the .env step.
+DB_PASS=$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)
+echo "Save this — Phase 3 puts it in DATABASE_URL:"
+echo "  $DB_PASS"
+
+sudo -u postgres psql <<EOF
+CREATE ROLE crubbucks WITH LOGIN PASSWORD '$DB_PASS';
+CREATE DATABASE crubbucks OWNER crubbucks ENCODING 'UTF8';
+EOF
+```
+
+The role can connect from `localhost` only because that's all
+Postgres listens on; no further `pg_hba.conf` edits are needed.
+
+Verify the app user can connect:
+
+```bash
+PGPASSWORD="$DB_PASS" psql -h 127.0.0.1 -U crubbucks -d crubbucks -c '\conninfo'
+# Expect: You are connected to database "crubbucks" as user "crubbucks" on host "127.0.0.1" ...
 ```
 
 ### 1.3 Install Node 22 via nvm (as the `crubbucks` user)
@@ -423,7 +494,7 @@ What goes in each field:
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | The connection string from Phase 0, **with `?sslmode=require`** |
+| `DATABASE_URL` | `postgres://crubbucks:DB_PASS@127.0.0.1:5432/crubbucks` using the password from Phase 1.2. Loopback, so no `sslmode=require` needed (and no TLS overhead). |
 | `RESEND_API_KEY` | From your Resend dashboard |
 | `EMAIL_FROM` | `"Crub Bucks <no-reply@yourdomain.com>"` (sender on a verified domain) |
 | `PUBLIC_APP_URL` | `https://yourdomain.com` (no trailing slash) |
@@ -457,8 +528,17 @@ npm run db:migrate
 You should see the eight `0000_init.sql` … `0008_drop_bet_description.sql`
 files apply one at a time, ending with `Migrations complete.`
 
-If `psql` errors with "no pg_hba.conf entry" or "SSL required", your
-`DATABASE_URL` is missing `?sslmode=require`.
+If migrations error with `password authentication failed`, the
+password in `DATABASE_URL` doesn't match the one set in Phase 1.2 —
+re-generate via:
+
+```bash
+sudo -u postgres psql -c "ALTER ROLE crubbucks WITH PASSWORD 'NEW_PASS';"
+```
+
+and update `.env`. If it errors with `connection refused`,
+`sudo systemctl status postgresql` will tell you if the service is
+down.
 
 ---
 
@@ -550,9 +630,11 @@ promoted by hand.
 
 1. Sign up through the registration page like any user
 2. Verify your email (click the link Resend delivers)
-3. From the VPS, connect to the managed DB:
+3. From the VPS, connect to the local Postgres:
    ```bash
    psql "$DATABASE_URL"
+   # or, as the postgres superuser (bypasses the password):
+   sudo -u postgres psql -d crubbucks
    ```
 4. Promote yourself:
    ```sql
@@ -567,16 +649,77 @@ psql needed.
 
 ---
 
-## Phase 8 — Lock down the managed DB
+## Phase 8 — Verify Postgres is locked down
 
-In the Ionos Cloud Panel, set the database firewall to only accept
-connections from:
+Postgres should only ever be reachable from inside the VPS. Confirm
+the three layers that keep it that way:
 
-- The VPS public IP
-- Your laptop's IP (optional, for one-off psql sessions)
+### Layer 1 — Postgres bind address
 
-Block everything else. This is the single biggest hardening step after
-HTTPS.
+```bash
+sudo ss -lntp | grep 5432
+# Expect:  LISTEN  0  244  127.0.0.1:5432  ...
+# If you see  0.0.0.0:5432 or *:5432 — STOP.
+```
+
+`0.0.0.0` means Postgres is listening on every interface. Fix in
+`/etc/postgresql/16/main/postgresql.conf`:
+
+```
+listen_addresses = 'localhost'
+```
+
+Then `sudo systemctl restart postgresql`.
+
+### Layer 2 — ufw firewall
+
+Phase 1.1 already set this, but verify:
+
+```bash
+sudo ufw status verbose
+# Expect: 22/tcp, 80/tcp, 443/tcp allowed. NO entry for 5432.
+```
+
+If 5432 is allowed, remove it:
+
+```bash
+sudo ufw delete allow 5432/tcp
+```
+
+### Layer 3 — pg_hba.conf
+
+By default Ubuntu's pg_hba.conf allows password (`scram-sha-256`)
+auth on `host` lines for `127.0.0.1/32` and `::1/128` only. View it:
+
+```bash
+sudo cat /etc/postgresql/16/main/pg_hba.conf | grep -v '^#' | grep -v '^$'
+```
+
+A typical safe configuration:
+
+```
+local   all   postgres                peer
+local   all   all                     peer
+host    all   all   127.0.0.1/32      scram-sha-256
+host    all   all   ::1/128           scram-sha-256
+```
+
+If you see a `host ... 0.0.0.0/0 ...` line, remove it. That would
+allow connection from anywhere assuming the firewall and bind
+address let traffic through.
+
+### Belt-and-braces test
+
+From your **laptop**, try to connect to the VPS's public IP on 5432:
+
+```bash
+nc -vz VPS_PUBLIC_IP 5432
+# Expect: nc: connect to VPS_PUBLIC_IP port 5432 (tcp) failed: Connection refused
+# (or "timed out" if ufw drops silently)
+```
+
+If that succeeds, Postgres is exposed to the Internet and you should
+re-check all three layers immediately.
 
 ---
 
@@ -707,19 +850,126 @@ state), open the Actions tab → Deploy workflow → "Run workflow" on the
 
 ## Phase 10 — Backups
 
-**Ionos Managed Postgres takes daily snapshots automatically** — verify
-the retention window in the Cloud Panel (default is 7 days; can be
-extended).
+With Postgres on the same box as the app, **backups are your job**.
+The risk model has two tiers:
 
-For belt-and-suspenders, you can also dump to a separate location:
+1. **Data corruption inside the DB** (bad migration, fat-fingered
+   `DELETE`) — covered by an on-box rotated dump.
+2. **Whole-VPS loss** (hardware failure, accidental termination,
+   ransomware) — covered by an **off-box** copy of those dumps.
+
+Phase 10 sets up both.
+
+### 10.1 On-box dumps (daily, rotated)
+
+Create the backup directory:
 
 ```bash
-# As crubbucks, dump to a local file
-pg_dump "$DATABASE_URL" | gzip > ~/backups/$(date +%Y%m%d).sql.gz
+sudo mkdir -p /var/backups/crubbucks
+sudo chown crubbucks:crubbucks /var/backups/crubbucks
+sudo chmod 700 /var/backups/crubbucks
 ```
 
-Wire that into cron (and optionally push to Ionos Object Storage) once
-you have real users.
+Create `/home/crubbucks/bin/backup-db.sh`:
+
+```bash
+mkdir -p ~/bin
+cat > ~/bin/backup-db.sh <<'EOF'
+#!/usr/bin/env bash
+# Daily pg_dump with 14-day local retention.
+# DATABASE_URL is sourced from ~/app/.env so the password isn't in this script.
+set -euo pipefail
+
+OUT_DIR=/var/backups/crubbucks
+DATE=$(date +%Y%m%d-%H%M%S)
+OUT="$OUT_DIR/crubbucks-$DATE.sql.gz"
+
+# Pull DATABASE_URL out of the app's .env without exporting other vars.
+DATABASE_URL=$(grep -E '^DATABASE_URL=' ~/app/.env | cut -d= -f2- | tr -d '"')
+
+# Custom format (-Fc) is smaller and restorable selectively. Gzip is
+# belt-and-braces; pg_dump custom is already compressed but gzip wraps
+# nicely for find/rsync downstream.
+pg_dump "$DATABASE_URL" -Fc | gzip > "$OUT"
+
+# Verify the file is non-empty and at least minimally sane.
+if [ ! -s "$OUT" ]; then
+    echo "Backup produced an empty file: $OUT" >&2
+    exit 1
+fi
+
+# Rotate: keep the last 14 dumps.
+find "$OUT_DIR" -name 'crubbucks-*.sql.gz' -type f -mtime +14 -delete
+
+echo "[backup] $OUT  ($(du -h "$OUT" | cut -f1))"
+EOF
+chmod +x ~/bin/backup-db.sh
+```
+
+Wire it into cron (as the `crubbucks` user) to run nightly at 3 AM
+local time:
+
+```bash
+( crontab -l 2>/dev/null; echo "0 3 * * * /home/crubbucks/bin/backup-db.sh >> /var/log/crubbucks-backup.log 2>&1" ) | crontab -
+sudo touch /var/log/crubbucks-backup.log
+sudo chown crubbucks:crubbucks /var/log/crubbucks-backup.log
+```
+
+Test it once manually:
+
+```bash
+~/bin/backup-db.sh
+ls -lh /var/backups/crubbucks/
+```
+
+### 10.2 Off-box copy (weekly, to cloud storage)
+
+Pick any S3-compatible store: **IONOS Object Storage**, **Backblaze B2**
+(cheap), or **AWS S3**. The pattern is the same — install `rclone`
+once, configure a remote, push.
+
+```bash
+# As crubbucks
+curl -s https://rclone.org/install.sh | sudo bash
+rclone config
+# Walks you through adding a remote. Pick "S3 compatible" for IONOS
+# Object Storage / Backblaze. Name the remote "backups".
+```
+
+Then a weekly cron sync:
+
+```bash
+( crontab -l; echo "0 4 * * 0 rclone sync /var/backups/crubbucks backups:crubbucks-backups/ >> /var/log/crubbucks-backup.log 2>&1" ) | crontab -
+```
+
+The remote bucket should have **lifecycle rules** that delete objects
+older than ~90 days, otherwise you'll grow forever.
+
+### 10.3 Restoring
+
+To restore the most recent dump:
+
+```bash
+# Stop the app so no writes race the restore.
+pm2 stop crub-bucks
+
+# Drop + recreate the database. CAUTION — destroys the current data.
+sudo -u postgres psql <<EOF
+DROP DATABASE crubbucks;
+CREATE DATABASE crubbucks OWNER crubbucks ENCODING 'UTF8';
+EOF
+
+# Restore the latest dump. `-Fc` dumps need pg_restore, not psql.
+LATEST=$(ls -t /var/backups/crubbucks/crubbucks-*.sql.gz | head -1)
+gunzip -c "$LATEST" | pg_restore -d "$DATABASE_URL" --no-owner --no-acl
+
+pm2 start crub-bucks
+```
+
+**Test the restore quarterly.** Untested backups aren't backups.
+Easiest way: spin up a small throwaway VPS, apt-install postgres,
+download a dump from the off-box copy, restore, point a local copy
+of the app at it and confirm `/health` returns 200.
 
 ---
 
@@ -817,11 +1067,21 @@ sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-### Managed DB connections fail with `no encryption`
+### `pg_dump: error: connection to server ... failed`
 
-`DATABASE_URL` must include `?sslmode=require`. Ionos managed Postgres
-refuses plaintext. `postgres-js` (which the app uses) negotiates TLS
-when this flag is set.
+The backup cron runs as the `crubbucks` user and reads `DATABASE_URL`
+from `~/app/.env`. If the password there got out of sync with the
+role's actual password (e.g. you ran an `ALTER ROLE ... PASSWORD`
+without updating `.env`), the cron will fail silently — only the log
+will tell you. Tail `/var/log/crubbucks-backup.log` after the first
+3 AM run to confirm it's working, then check it once a week.
+
+### Postgres bound to `0.0.0.0` after an apt upgrade
+
+A future Postgres major-version upgrade *can* reset
+`listen_addresses` to the package default. Phase 8 covers re-binding
+to localhost; bake it into your post-apt routine to re-run
+`sudo ss -lntp | grep 5432` after every `apt upgrade postgresql-*`.
 
 ---
 
@@ -848,11 +1108,14 @@ curl -sf -o /dev/null -w "%{http_code}\n" https://yourdomain.com/health  # → 2
 
 | Item | Approx. monthly |
 |---|---|
-| Ionos VPS Linux M (2 vCPU / 4 GB / 80 GB) | ~€9–13 |
-| Ionos Managed Postgres (smallest cluster) | ~€10–20 |
+| Ionos VPS Linux M (2 vCPU / 4 GB / 80 GB) — runs app + Postgres | ~€9–13 |
 | Domain | ~€1 |
+| Off-box backup storage (Backblaze B2 / IONOS Object Storage, ~5 GB) | ~€1 |
 | Resend (free tier covers 3 000 emails/mo) | €0 |
-| hCaptcha | €0 |
-| **Total** | **~€20–35 / mo** |
+| hCaptcha (free tier covers 1 M verifications/mo) | €0 |
+| **Total** | **~€11–15 / mo** |
 
-Numbers are illustrative — check Ionos's current pricing for your region.
+Numbers are illustrative — check current pricing for your region.
+Co-locating Postgres on the VPS saves the ~€10–20/mo of a managed
+cluster; the trade is the ops work documented in Phase 8 + Phase 10
+(maybe 10 minutes/quarter once set up).
