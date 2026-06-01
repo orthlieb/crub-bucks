@@ -120,7 +120,7 @@
 			<p class="mt-2 text-muted-foreground">It takes about a minute to set up.</p>
 			<div class="mt-6 flex justify-center gap-3">
 				{#if data.user}
-					<Button size="lg" href="/app">Go to dashboard</Button>
+					<Button size="lg" href="/app">Go to your bets</Button>
 				{:else}
 					<Button size="lg" href="/register">Create an account</Button>
 					<Button size="lg" variant="outline" href="/login">I have an account</Button>

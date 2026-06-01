@@ -171,7 +171,7 @@
 
 <div class="space-y-6">
 	<header>
-		<a href="/app" class="text-sm text-muted-foreground hover:text-foreground">← Dashboard</a>
+		<a href="/app" class="text-sm text-muted-foreground hover:text-foreground">← Bets</a>
 		<h1 class="mt-1 text-3xl font-bold tracking-tight">Create a bet</h1>
 		<p class="mt-1 text-muted-foreground">Pick a type, set the pot, and choose who's in.</p>
 	</header>
