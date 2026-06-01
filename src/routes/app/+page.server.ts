@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { bets, betParticipants } from '$lib/server/db/schema';
 import { userBalance, getFriends, getOrCreateUserWallet } from '$lib/server/ledger';
@@ -33,9 +33,25 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// cancelled), falling back to created_at for old rows.
 	const finishedAt = sql<Date>`coalesce(${bets.resolvedAt}, ${bets.cancelledAt}, ${bets.createdAt})`;
 
-	const [balance, friends, openRows, settledRows] = await Promise.all([
+	const [balance, friends, pendingRows, openRows, settledRows] = await Promise.all([
 		userBalance(userId),
 		getFriends(userId),
+		// Pending bets the user is part of — awaiting acceptance. We also grab
+		// this participant's own acceptedAt so the UI can flag "needs your reply".
+		db
+			.select({
+				id: bets.id,
+				title: bets.title,
+				icon: bets.icon,
+				status: bets.status,
+				createdAt: bets.createdAt,
+				resolvedAt: bets.resolvedAt,
+				myAcceptedAt: betParticipants.acceptedAt
+			})
+			.from(bets)
+			.innerJoin(betParticipants, eq(betParticipants.betId, bets.id))
+			.where(and(eq(betParticipants.userId, userId), eq(bets.status, 'pending')))
+			.orderBy(desc(bets.createdAt)),
 		db
 			.select({
 				id: bets.id,
@@ -60,12 +76,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 			})
 			.from(bets)
 			.innerJoin(betParticipants, eq(betParticipants.betId, bets.id))
-			.where(and(eq(betParticipants.userId, userId), ne(bets.status, 'open')))
+			.where(
+				and(
+					eq(betParticipants.userId, userId),
+					inArray(bets.status, ['resolved', 'cancelled'])
+				)
+			)
 			.orderBy(desc(finishedAt))
 			.limit(SETTLED_LIMIT + 1)
 	]);
 
-	const allBetIds = [...openRows.map((b) => b.id), ...settledRows.map((b) => b.id)];
+	const allBetIds = [
+		...pendingRows.map((b) => b.id),
+		...openRows.map((b) => b.id),
+		...settledRows.map((b) => b.id)
+	];
 	const participantCounts = new Map<string, number>();
 	if (allBetIds.length > 0) {
 		const partRows = await db
@@ -77,6 +102,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}
 	}
 
+	const pendingBets = pendingRows.map((b) => ({
+		...b,
+		participantCount: participantCounts.get(b.id) ?? 0,
+		// Does this bet need the current user to respond?
+		needsMyResponse: b.myAcceptedAt === null
+	}));
 	const openBets = openRows.map((b) => ({
 		...b,
 		participantCount: participantCounts.get(b.id) ?? 0
@@ -91,6 +122,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		tagline,
 		balance,
 		friends,
+		pendingBets,
 		openBets,
 		settledBets,
 		hasMoreSettled

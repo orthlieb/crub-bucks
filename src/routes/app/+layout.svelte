@@ -7,38 +7,70 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
-	import { isCashSoundEnabled, playCashSound, warmUpCashSound } from '$lib/sound';
+	import { isSoundEnabled, play, warmUpSound, type SoundName } from '$lib/sound';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
 
-	// --- "Cha-ching" when someone sends you money ----------------------------
-	// The layout loader hands us the most recent peer payment received. We ding
-	// once when a transfer we haven't acknowledged on this device appears. The
-	// first observation on a device is seeded silently unless the payment is
-	// fresh, so logging in doesn't replay historical payments.
-	const LAST_PAID_KEY = 'cb:lastPaidSeen';
+	// --- Sound cues ----------------------------------------------------------
+	// The polled layout data carries a few "latest event" signals. We play a cue
+	// once when a signal changes from what this device last saw. The first
+	// observation on a device is seeded silently unless the event is fresh, so
+	// logging in doesn't replay history.
 	const FRESH_MS = 60_000;
 
-	$effect(() => {
-		const p = data.lastPayment;
-		if (!p) return;
-		let seen: string | null = null;
+	function readLS(key: string): string | null {
 		try {
-			seen = localStorage.getItem(LAST_PAID_KEY);
+			return localStorage.getItem(key);
 		} catch {
-			return; // no storage ⇒ can't dedupe; stay quiet rather than ding repeatedly
+			return null;
 		}
-		if (seen === p.transferId) return; // already acknowledged
+	}
+	function writeLS(key: string, val: string): void {
 		try {
-			localStorage.setItem(LAST_PAID_KEY, p.transferId);
+			localStorage.setItem(key, val);
 		} catch {
-			// ignore
+			// ignore (private mode, etc.)
 		}
-		const fresh = Date.now() - new Date(p.createdAt).getTime() < FRESH_MS;
-		// First time we've ever seen a payment on this device and it's old →
-		// seed silently. Genuinely new (or fresh) payments ring.
+	}
+
+	// Fire a cue when `token` differs from the last value stored under `key`.
+	// First observation is silent unless `atMs` is within FRESH_MS.
+	function cueOnChange(
+		key: string,
+		token: string | null,
+		atMs: number | null,
+		pick: SoundName | (() => SoundName | null)
+	): void {
+		if (!token) return;
+		const seen = readLS(key);
+		if (seen === token) return;
+		writeLS(key, token);
+		const fresh = atMs !== null && Date.now() - atMs < FRESH_MS;
 		if (seen === null && !fresh) return;
-		if (isCashSoundEnabled()) playCashSound();
+		const name = typeof pick === 'function' ? pick() : pick;
+		if (name && isSoundEnabled()) play(name);
+	}
+
+	// Gained CB (cash) / lost CB (slide), plus bet went-live (yes) / cancelled (no).
+	$effect(() => {
+		const s = data.sound;
+		const actAt = s.lastActivityAt ? new Date(s.lastActivityAt).getTime() : null;
+		cueOnChange('cb:lastActivity', s.lastTransferId, actAt, () =>
+			s.lastDelta > 0 ? 'cash' : s.lastDelta < 0 ? 'slide' : null
+		);
+		const liveAt = s.lastBetLiveAt ? new Date(s.lastBetLiveAt).getTime() : null;
+		cueOnChange('cb:lastBetLive', liveAt ? String(liveAt) : null, liveAt, 'yes');
+		const cancAt = s.lastBetCancelledAt ? new Date(s.lastBetCancelledAt).getTime() : null;
+		cueOnChange('cb:lastBetCancelled', cancAt ? String(cancAt) : null, cancAt, 'no');
+	});
+
+	// Friend request received → "hello there" (only on an increase in the count).
+	$effect(() => {
+		const count = data.pendingFriendRequests;
+		const seen = readLS('cb:friendReqCount');
+		writeLS('cb:friendReqCount', String(count));
+		if (seen === null) return; // seed silently
+		if (count > Number(seen) && isSoundEnabled()) play('hello');
 	});
 
 	// Lightweight poll so incoming payments (and notifications / friend-request
@@ -47,7 +79,7 @@
 	// fires once on becoming visible again, to avoid background churn.
 	const POLL_MS = 20_000;
 	onMount(() => {
-		warmUpCashSound();
+		warmUpSound();
 		const tick = () => {
 			if (document.visibilityState === 'visible') invalidate('app:activity');
 		};

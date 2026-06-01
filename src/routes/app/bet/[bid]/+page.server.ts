@@ -2,7 +2,15 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { bets, betParticipants, users } from '$lib/server/db/schema';
-import { resolveBet, cancelBet, isBetParticipant, rebuy, LedgerError } from '$lib/server/ledger';
+import {
+	resolveBet,
+	cancelBet,
+	acceptBet,
+	declineBet,
+	isBetParticipant,
+	rebuy,
+	LedgerError
+} from '$lib/server/ledger';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -39,7 +47,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			outcome: betParticipants.outcome,
 			settledDelta: betParticipants.settledDelta,
 			lossRank: betParticipants.lossRank,
-			boughtIn: betParticipants.boughtIn
+			boughtIn: betParticipants.boughtIn,
+			acceptedAt: betParticipants.acceptedAt
 		})
 		.from(betParticipants)
 		.innerJoin(users, eq(users.id, betParticipants.userId))
@@ -126,6 +135,34 @@ export const actions: Actions = {
 
 		try {
 			await cancelBet({ betId, cancelledBy: userId });
+		} catch (e) {
+			if (e instanceof LedgerError) return fail(400, { error: e.message });
+			throw e;
+		}
+		throw redirect(303, `/app/bet/${betId}`);
+	},
+
+	accept: async ({ params, locals }) => {
+		const userId = locals.user!.id;
+		const betId = params.bid;
+		if (!(await isBetParticipant(betId, userId))) throw error(403, 'Not a participant');
+
+		try {
+			await acceptBet({ betId, userId });
+		} catch (e) {
+			if (e instanceof LedgerError) return fail(400, { error: e.message });
+			throw e;
+		}
+		throw redirect(303, `/app/bet/${betId}`);
+	},
+
+	decline: async ({ params, locals }) => {
+		const userId = locals.user!.id;
+		const betId = params.bid;
+		if (!(await isBetParticipant(betId, userId))) throw error(403, 'Not a participant');
+
+		try {
+			await declineBet({ betId, userId });
 		} catch (e) {
 			if (e instanceof LedgerError) return fail(400, { error: e.message });
 			throw e;

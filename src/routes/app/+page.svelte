@@ -47,6 +47,41 @@
 		</Card>
 	{/if}
 
+	<!-- Pending acceptance -->
+	{#if data.pendingBets.length > 0}
+		<section>
+			<h2 class="text-xl font-semibold tracking-tight">Awaiting acceptance</h2>
+			<div class="mt-3 space-y-2">
+				{#each data.pendingBets as b (b.id)}
+					<a
+						href={`/app/bet/${b.id}`}
+						class="flex items-stretch overflow-hidden rounded-lg border bg-card shadow-sm transition-colors hover:bg-accent {b.needsMyResponse
+							? 'border-primary/60'
+							: ''}"
+					>
+						<div class="flex w-16 shrink-0 items-center justify-center border-r bg-muted/40 text-3xl leading-none sm:w-20 sm:text-4xl">
+							{b.icon ?? '💰'}
+						</div>
+						<div class="flex flex-1 items-center justify-between gap-3 p-4">
+							<div>
+								<div class="font-semibold">{b.title}</div>
+								<div class="mt-1 text-xs text-muted-foreground">
+									{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
+									{fmtDate(b.createdAt)}
+								</div>
+							</div>
+							{#if b.needsMyResponse}
+								<Badge variant="gold" class="w-28 justify-center uppercase">Your reply</Badge>
+							{:else}
+								<Badge variant="secondary" class="w-28 justify-center uppercase">Pending</Badge>
+							{/if}
+						</div>
+					</a>
+				{/each}
+			</div>
+		</section>
+	{/if}
+
 	<!-- Open bets -->
 	<section>
 		<h2 class="text-xl font-semibold tracking-tight">Open bets</h2>

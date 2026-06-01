@@ -23,6 +23,8 @@ import {
 	createBet,
 	resolveBet,
 	rebuy,
+	acceptBet,
+	declineBet,
 	materializeInvitesForUser,
 	LedgerError
 } from '$lib/server/ledger';
@@ -30,6 +32,14 @@ import { hasTestDb, resetDb, createUser } from '../../test/db';
 
 // Only run when a test database is configured (TEST_DATABASE_URL).
 const suite = hasTestDb ? describe : describe.skip;
+
+// Bets now start 'pending'; bring one live by accepting on behalf of every
+// non-creator participant (the creator is auto-accepted at creation).
+async function goLive(betId: string, participantIds: string[], creatorId: string) {
+	for (const uid of participantIds) {
+		if (uid !== creatorId) await acceptBet({ betId, userId: uid });
+	}
+}
 
 suite('ledger workflows (DB)', () => {
 	beforeEach(async () => {
@@ -184,6 +194,7 @@ suite('ledger workflows (DB)', () => {
 					{ userId: b.id, payoutIfWin: 10, lossIfLose: 10 }
 				]
 			});
+			await goLive(betId, [a.id, b.id], a.id);
 			await resolveBet({ betId, outcomes: { [a.id]: 'won', [b.id]: 'lost' }, resolvedBy: a.id });
 			expect(await userBalance(a.id)).toBe(110);
 			expect(await userBalance(b.id)).toBe(90);
@@ -201,6 +212,7 @@ suite('ledger workflows (DB)', () => {
 					{ userId: b.id, payoutIfWin: 5, lossIfLose: 5 }
 				]
 			});
+			await goLive(betId, [a.id, b.id], a.id);
 			await expect(
 				resolveBet({ betId, outcomes: { [a.id]: 'won', [b.id]: 'lost' }, resolvedBy: a.id })
 			).rejects.toThrow(/balance/i);
@@ -217,10 +229,88 @@ suite('ledger workflows (DB)', () => {
 					{ userId: b.id, payoutIfWin: 10, lossIfLose: 10 }
 				]
 			});
+			await goLive(betId, [a.id, b.id], a.id);
 			await resolveBet({ betId, outcomes: { [a.id]: 'won', [b.id]: 'lost' }, resolvedBy: a.id });
 			await expect(
 				resolveBet({ betId, outcomes: { [a.id]: 'won', [b.id]: 'lost' }, resolvedBy: a.id })
 			).rejects.toThrow(/already/i);
+		});
+	});
+
+	describe('bet acceptance', () => {
+		async function friends() {
+			const a = await createUser();
+			const b = await createUser();
+			await db.insert(friendships).values({
+				requesterId: a.id,
+				addresseeId: b.id,
+				status: 'accepted',
+				respondedAt: new Date()
+			});
+			await grantWelcomeIfNeeded(a.id);
+			await grantWelcomeIfNeeded(b.id);
+			return { a, b };
+		}
+
+		function customBet(a: { id: string }, b: { id: string }, title: string) {
+			return createBet({
+				mode: 'custom',
+				title,
+				createdBy: a.id,
+				participants: [
+					{ userId: a.id, payoutIfWin: 10, lossIfLose: 10 },
+					{ userId: b.id, payoutIfWin: 10, lossIfLose: 10 }
+				]
+			});
+		}
+
+		it('starts pending; creator auto-accepts, invitee does not', async () => {
+			const { a, b } = await friends();
+			const betId = await customBet(a, b, 'Pending');
+			const [row] = await db.select().from(bets).where(eq(bets.id, betId));
+			expect(row.status).toBe('pending');
+			const ps = await db
+				.select()
+				.from(betParticipants)
+				.where(eq(betParticipants.betId, betId));
+			expect(ps.find((p) => p.userId === a.id)!.acceptedAt).not.toBeNull();
+			expect(ps.find((p) => p.userId === b.id)!.acceptedAt).toBeNull();
+		});
+
+		it('is not resolvable until everyone accepts, then goes live', async () => {
+			const { a, b } = await friends();
+			const betId = await customBet(a, b, 'Accept me');
+			await expect(
+				resolveBet({ betId, outcomes: { [a.id]: 'won', [b.id]: 'lost' }, resolvedBy: a.id })
+			).rejects.toThrow(/pending/i);
+
+			const res = await acceptBet({ betId, userId: b.id });
+			expect(res.wentLive).toBe(true);
+			const [live] = await db.select().from(bets).where(eq(bets.id, betId));
+			expect(live.status).toBe('open');
+
+			await resolveBet({ betId, outcomes: { [a.id]: 'won', [b.id]: 'lost' }, resolvedBy: a.id });
+			expect(await userBalance(a.id)).toBe(110);
+			expect(await assertZeroSum()).toBe(true);
+		});
+
+		it('a decline cancels the whole bet and moves no money', async () => {
+			const { a, b } = await friends();
+			const betId = await customBet(a, b, 'Decline me');
+			await declineBet({ betId, userId: b.id });
+			const [row] = await db.select().from(bets).where(eq(bets.id, betId));
+			expect(row.status).toBe('cancelled');
+			expect(row.cancelledBy).toBe(b.id);
+			expect(await userBalance(a.id)).toBe(100);
+			expect(await userBalance(b.id)).toBe(100);
+		});
+
+		it('cannot accept or decline a bet that is already live', async () => {
+			const { a, b } = await friends();
+			const betId = await customBet(a, b, 'Already live');
+			await acceptBet({ betId, userId: b.id }); // goes live
+			await expect(acceptBet({ betId, userId: b.id })).rejects.toThrow(/already/i);
+			await expect(declineBet({ betId, userId: b.id })).rejects.toThrow(/already/i);
 		});
 	});
 
@@ -256,6 +346,7 @@ suite('ledger workflows (DB)', () => {
 				pool: 30,
 				participantIds: [a.id, b.id, c.id]
 			});
+			await goLive(betId, [a.id, b.id, c.id], a.id);
 			await resolveBet({ betId, winnerId: a.id, resolvedBy: a.id });
 			expect(await userBalance(a.id)).toBe(130); // +30
 			expect(await userBalance(b.id)).toBe(85); // -15
@@ -272,6 +363,7 @@ suite('ledger workflows (DB)', () => {
 				pool: 20,
 				participantIds: [a.id, b.id, c.id]
 			});
+			await goLive(betId, [a.id, b.id, c.id], a.id);
 			await resolveBet({ betId, winnerId: a.id, loserId: b.id, resolvedBy: a.id });
 			expect(await userBalance(a.id)).toBe(120); // +20
 			expect(await userBalance(b.id)).toBe(80); // -20
@@ -288,6 +380,7 @@ suite('ledger workflows (DB)', () => {
 				pool: 30,
 				participantIds: [a.id, b.id, c.id]
 			});
+			await goLive(betId, [a.id, b.id, c.id], a.id);
 			// b = first loser (pays least), c = last loser (pays most)
 			await resolveBet({ betId, winnerId: a.id, loserOrder: [b.id, c.id], resolvedBy: a.id });
 			expect(await userBalance(a.id)).toBe(130); // +30
@@ -345,6 +438,7 @@ suite('ledger workflows (DB)', () => {
 				stake: 50,
 				participantIds: [a.id, b.id, c.id]
 			});
+			await goLive(betId, [a.id, b.id, c.id], a.id);
 			await rebuy({ betId, userId: b.id, amount: 50, requestedBy: b.id });
 			const [row] = await db.select().from(bets).where(eq(bets.id, betId));
 			expect(Number(row.pool)).toBe(200);
@@ -369,6 +463,7 @@ suite('ledger workflows (DB)', () => {
 				stake: 50,
 				participantIds: [a.id, b.id, c.id]
 			});
+			await goLive(betId, [a.id, b.id, c.id], a.id);
 			// pool = 150; allocate 100 / 50 / 0 → nets +50 / 0 / -50
 			await resolveBet({
 				betId,
@@ -390,6 +485,7 @@ suite('ledger workflows (DB)', () => {
 				stake: 50,
 				participantIds: [a.id, b.id, c.id]
 			});
+			await goLive(betId, [a.id, b.id, c.id], a.id);
 			await expect(
 				resolveBet({
 					betId,

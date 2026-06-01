@@ -317,81 +317,26 @@ export async function userActivity(userId: string, limit = 50): Promise<Activity
 	}));
 }
 
-export interface IncomingPayment {
-	transferId: string;
-	amount: number;
-	createdAt: Date;
-	fromName: string;
-}
-
 /**
- * The single most recent *peer* payment received by this user — a direct
- * person-to-person transfer (betId null) whose paying leg is another user's
- * wallet. Bet settlements (betId set) and the bank welcome grant (paid from a
- * non-user wallet) are excluded, so this only reflects "someone sent you
- * money". Returns null if no human has ever paid this user.
- *
- * Used to drive the client-side "cha-ching" cue: the client compares the
- * returned transferId against the last one it acknowledged.
+ * Most-recent "went live" and "cancelled" timestamps across the bets this user
+ * is part of. Drives the bet on/off sound cues — the client compares each
+ * against the last value it saw. Both null when the user has no such bets.
  */
-export async function latestIncomingPayment(userId: string): Promise<IncomingPayment | null> {
-	const walletId = await getOrCreateUserWallet(userId);
-
-	// Candidate incoming legs (money in, no bet context), newest first. We take
-	// a small window rather than just the top row so that a recent bet payout
-	// sitting above a peer payment doesn't hide it.
-	const incoming = await db
+export async function betSoundSignals(
+	userId: string
+): Promise<{ lastLiveAt: Date | null; lastCancelledAt: Date | null }> {
+	const [row] = await db
 		.select({
-			transferId: ledgerEntries.transferId,
-			delta: ledgerEntries.delta,
-			createdAt: ledgerEntries.createdAt
+			lastLiveAt: sql<Date | null>`max(${bets.wentLiveAt})`,
+			lastCancelledAt: sql<Date | null>`max(${bets.cancelledAt})`
 		})
-		.from(ledgerEntries)
-		.where(
-			and(
-				eq(ledgerEntries.walletId, walletId),
-				isNull(ledgerEntries.betId),
-				sql`${ledgerEntries.delta} > 0`
-			)
-		)
-		.orderBy(desc(ledgerEntries.createdAt))
-		.limit(20);
-
-	if (incoming.length === 0) return null;
-
-	const ids = incoming.map((r) => r.transferId);
-	// The paying legs for those transfers that come from a *user* wallet — this
-	// is what distinguishes a peer payment from the bank welcome grant.
-	const payers = await db
-		.select({
-			transferId: ledgerEntries.transferId,
-			fromName: users.displayName
-		})
-		.from(ledgerEntries)
-		.innerJoin(wallets, eq(wallets.id, ledgerEntries.walletId))
-		.innerJoin(users, eq(users.id, wallets.userId))
-		.where(
-			and(
-				inArray(ledgerEntries.transferId, ids),
-				eq(wallets.kind, 'user'),
-				sql`${ledgerEntries.delta} < 0`
-			)
-		);
-
-	const payerByTransfer = new Map(payers.map((p) => [p.transferId, p.fromName]));
-	// Newest candidate that has a human payer wins.
-	for (const r of incoming) {
-		const fromName = payerByTransfer.get(r.transferId);
-		if (fromName) {
-			return {
-				transferId: r.transferId,
-				amount: Number(r.delta),
-				createdAt: r.createdAt,
-				fromName
-			};
-		}
-	}
-	return null;
+		.from(bets)
+		.innerJoin(betParticipants, eq(betParticipants.betId, bets.id))
+		.where(eq(betParticipants.userId, userId));
+	return {
+		lastLiveAt: row?.lastLiveAt ?? null,
+		lastCancelledAt: row?.lastCancelledAt ?? null
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -906,14 +851,19 @@ export async function createBet(opts: {
 		if (stranger) throw new LedgerError('You can only add your friends to a bet.');
 	}
 
-	return db.transaction(async (tx) => {
+	// Bets start as 'pending': the creator is auto-accepted, everyone else is
+	// invited and must accept before the bet goes live (status 'open').
+	const now = new Date();
+	const acceptedAtFor = (uid: string) => (uid === createdBy ? now : null);
+
+	const betId = await db.transaction(async (tx) => {
 		const [bet] = await tx
 			.insert(bets)
 			.values({
 				title: title.trim(),
 				icon,
 				createdBy,
-				status: 'open',
+				status: 'pending',
 				mode,
 				pool,
 				stake
@@ -927,19 +877,159 @@ export async function createBet(opts: {
 						userId: p.userId,
 						payoutIfWin: p.payoutIfWin,
 						lossIfLose: p.lossIfLose,
-						outcome: 'pending' as const
+						outcome: 'pending' as const,
+						acceptedAt: acceptedAtFor(p.userId)
 					}))
 				: mode === 'pot'
 					? ids.map((id) => ({
 							betId: bet.id,
 							userId: id,
 							outcome: 'pending' as const,
-							boughtIn: stake!
+							boughtIn: stake!,
+							acceptedAt: acceptedAtFor(id)
 						}))
-					: ids.map((id) => ({ betId: bet.id, userId: id, outcome: 'pending' as const }));
+					: ids.map((id) => ({
+							betId: bet.id,
+							userId: id,
+							outcome: 'pending' as const,
+							acceptedAt: acceptedAtFor(id)
+						}));
 		await tx.insert(betParticipants).values(rows);
 		return bet.id;
 	});
+
+	// Ping each invited participant to accept or decline. Best-effort — a failed
+	// notification shouldn't undo a created bet.
+	if (others.length > 0) {
+		const [creator] = await db
+			.select({ displayName: users.displayName })
+			.from(users)
+			.where(eq(users.id, createdBy))
+			.limit(1);
+		const who = creator?.displayName ?? 'A friend';
+		for (const uid of others) {
+			await createNotification({
+				level: 'info',
+				title: `${who} invited you to a bet`,
+				body: `"${title.trim()}" — open it to accept or decline.`,
+				userId: uid
+			}).catch(() => {});
+		}
+	}
+
+	return betId;
+}
+
+/**
+ * A participant accepts a pending bet. When the last outstanding invitee
+ * accepts, the bet flips to 'open' (live). Idempotent: re-accepting is a no-op.
+ * Returns whether this acceptance made the bet go live, plus the creator/title
+ * so the caller can notify.
+ */
+export async function acceptBet(opts: {
+	betId: string;
+	userId: string;
+}): Promise<{ wentLive: boolean; createdBy: string; title: string }> {
+	const { betId, userId } = opts;
+	const result = await db.transaction(async (tx) => {
+		// Lock the bet row so concurrent accepts on the same bet serialize —
+		// otherwise two simultaneous accepts could each miss the other's
+		// not-yet-committed acceptance and leave a fully-accepted bet stuck.
+		const [bet] = await tx
+			.select({ status: bets.status, createdBy: bets.createdBy, title: bets.title })
+			.from(bets)
+			.where(eq(bets.id, betId))
+			.limit(1)
+			.for('update');
+		if (!bet) throw new LedgerError('Bet not found');
+		if (bet.status !== 'pending') throw new LedgerError(`Bet is already ${bet.status}`);
+
+		const [part] = await tx
+			.select({ acceptedAt: betParticipants.acceptedAt })
+			.from(betParticipants)
+			.where(and(eq(betParticipants.betId, betId), eq(betParticipants.userId, userId)))
+			.limit(1);
+		if (!part) throw new LedgerError("You're not a participant in this bet");
+
+		if (!part.acceptedAt) {
+			await tx
+				.update(betParticipants)
+				.set({ acceptedAt: new Date() })
+				.where(and(eq(betParticipants.betId, betId), eq(betParticipants.userId, userId)));
+		}
+
+		const [remaining] = await tx
+			.select({ n: sql<number>`count(*)::int` })
+			.from(betParticipants)
+			.where(and(eq(betParticipants.betId, betId), isNull(betParticipants.acceptedAt)));
+
+		const wentLive = Number(remaining?.n ?? 0) === 0;
+		if (wentLive) {
+			await tx
+				.update(bets)
+				.set({ status: 'open', wentLiveAt: new Date() })
+				.where(eq(bets.id, betId));
+		}
+		return { wentLive, createdBy: bet.createdBy, title: bet.title };
+	});
+
+	// Let the creator know their bet is live.
+	if (result.wentLive) {
+		await createNotification({
+			level: 'success',
+			title: 'Your bet is live',
+			body: `Everyone accepted "${result.title}". Time to play.`,
+			userId: result.createdBy
+		}).catch(() => {});
+	}
+	return result;
+}
+
+/**
+ * A participant declines a pending bet, which calls the whole thing off
+ * (status 'cancelled', cancelledBy = the decliner). Returns the creator/title
+ * so the caller can notify.
+ */
+export async function declineBet(opts: {
+	betId: string;
+	userId: string;
+}): Promise<{ createdBy: string; title: string }> {
+	const { betId, userId } = opts;
+	const result = await db.transaction(async (tx) => {
+		// Lock the bet row so a decline and a concurrent accept can't race.
+		const [bet] = await tx
+			.select({ status: bets.status, createdBy: bets.createdBy, title: bets.title })
+			.from(bets)
+			.where(eq(bets.id, betId))
+			.limit(1)
+			.for('update');
+		if (!bet) throw new LedgerError('Bet not found');
+		if (bet.status !== 'pending') throw new LedgerError(`Bet is already ${bet.status}`);
+
+		const [part] = await tx
+			.select({ userId: betParticipants.userId })
+			.from(betParticipants)
+			.where(and(eq(betParticipants.betId, betId), eq(betParticipants.userId, userId)))
+			.limit(1);
+		if (!part) throw new LedgerError("You're not a participant in this bet");
+
+		await tx
+			.update(bets)
+			.set({ status: 'cancelled', cancelledAt: new Date(), cancelledBy: userId })
+			.where(eq(bets.id, betId));
+		return { createdBy: bet.createdBy, title: bet.title };
+	});
+
+	// Tell the creator their bet was called off (unless they're the decliner).
+	if (result.createdBy !== userId) {
+		await createNotification({
+			level: 'warning',
+			title: 'A bet was declined',
+			body: `"${result.title}" was called off because someone declined.`,
+			userId: result.createdBy
+		}).catch(() => {});
+	}
+	return result;
 }
 
 /**
@@ -1170,7 +1260,10 @@ export async function cancelBet(opts: { betId: string; cancelledBy: string }): P
 			.where(eq(bets.id, betId))
 			.limit(1);
 		if (!bet) throw new LedgerError('Bet not found');
-		if (bet.status !== 'open') throw new LedgerError(`Bet is already ${bet.status}`);
+		// A pending (not-yet-live) bet can also be called off by a participant.
+		if (bet.status !== 'open' && bet.status !== 'pending') {
+			throw new LedgerError(`Bet is already ${bet.status}`);
+		}
 		await tx
 			.update(bets)
 			.set({ status: 'cancelled', cancelledAt: new Date(), cancelledBy })
