@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { page as pageState } from '$app/state';
 	import type { ActionData, PageData } from './$types';
 	import {
 		Table,
@@ -26,14 +29,78 @@
 			day: 'numeric'
 		});
 	}
+
+	// URL-driven filters + pagination. Changing a filter resets to page 1.
+	// Seeded from the loaded query once (avoids a typing race on re-load).
+	let q = $state('');
+	onMount(() => {
+		q = data.q;
+	});
+	let searchTimer: ReturnType<typeof setTimeout>;
+
+	function navigate(updates: Record<string, string>, resetPage = true) {
+		const sp = new URLSearchParams(pageState.url.searchParams);
+		for (const [k, v] of Object.entries(updates)) {
+			if (v) sp.set(k, v);
+			else sp.delete(k);
+		}
+		if (resetPage) sp.delete('page');
+		const qs = sp.toString();
+		goto(qs ? `?${qs}` : '?', { keepFocus: true, noScroll: true });
+	}
+
+	function onSearchInput() {
+		clearTimeout(searchTimer);
+		const v = q;
+		searchTimer = setTimeout(() => navigate({ q: v }), 300);
+	}
+
+	const selectClass =
+		'h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+
+	const totalPages = $derived(Math.max(1, Math.ceil(data.total / data.pageSize)));
+	const from = $derived(data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1);
+	const to = $derived(Math.min(data.page * data.pageSize, data.total));
 </script>
 
 <div class="space-y-6">
-	<header>
-		<h1 class="text-3xl font-bold tracking-tight">Users</h1>
-		<p class="mt-1 text-muted-foreground">
-			{data.users.length.toLocaleString()} total
-		</p>
+	<header class="space-y-3">
+		<div>
+			<h1 class="text-3xl font-bold tracking-tight">Users</h1>
+			<p class="mt-1 text-muted-foreground">{data.total.toLocaleString()} total</p>
+		</div>
+		<div class="flex flex-wrap items-center gap-2">
+			<Input
+				type="search"
+				placeholder="Search name or email…"
+				bind:value={q}
+				oninput={onSearchInput}
+				aria-label="Search users"
+				autocomplete="off"
+				class="w-full sm:max-w-xs"
+			/>
+			<select
+				class={selectClass}
+				value={data.role}
+				onchange={(e) => navigate({ role: e.currentTarget.value })}
+				aria-label="Filter by role"
+			>
+				<option value="">All roles</option>
+				<option value="user">User</option>
+				<option value="admin">Admin</option>
+			</select>
+			<select
+				class={selectClass}
+				value={data.status}
+				onchange={(e) => navigate({ status: e.currentTarget.value })}
+				aria-label="Filter by status"
+			>
+				<option value="">All statuses</option>
+				<option value="active">Active</option>
+				<option value="suspended">Suspended</option>
+				<option value="unverified">Unverified</option>
+			</select>
+		</div>
 	</header>
 
 	{#if form && 'error' in form && form.error}
@@ -129,9 +196,38 @@
 								</div>
 							</TableCell>
 						</TableRow>
+					{:else}
+						<TableRow>
+							<TableCell colspan={7} class="py-8 text-center text-sm text-muted-foreground">
+								No users match these filters.
+							</TableCell>
+						</TableRow>
 					{/each}
 				</TableBody>
 			</Table>
 		</CardContent>
 	</Card>
+
+	<div class="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+		<span>{from}–{to} of {data.total.toLocaleString()}</span>
+		<div class="flex items-center gap-2">
+			<Button
+				variant="outline"
+				size="sm"
+				disabled={data.page <= 1}
+				onclick={() => navigate({ page: String(data.page - 1) }, false)}
+			>
+				Prev
+			</Button>
+			<span>Page {data.page} of {totalPages}</span>
+			<Button
+				variant="outline"
+				size="sm"
+				disabled={data.page >= totalPages}
+				onclick={() => navigate({ page: String(data.page + 1) }, false)}
+			>
+				Next
+			</Button>
+		</div>
+	</div>
 </div>

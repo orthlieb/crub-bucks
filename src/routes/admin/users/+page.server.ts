@@ -1,14 +1,44 @@
 import { error, fail } from '@sveltejs/kit';
-import { desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
 import { invalidateAllSessionsForUser } from '$lib/server/auth/session';
 import { logSecurityEvent } from '$lib/server/auth/audit';
-import { adminSetBalance, allUserBalances, LedgerError } from '$lib/server/ledger';
+import { adminSetBalance, userBalancesFor, LedgerError } from '$lib/server/ledger';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-	const [rows, balances] = await Promise.all([
+const PAGE_SIZE = 25;
+const ROLES = ['user', 'admin'] as const;
+const STATUSES = ['active', 'suspended', 'unverified'] as const;
+
+export const load: PageServerLoad = async ({ url }) => {
+	const q = (url.searchParams.get('q') ?? '').trim();
+	const roleParam = url.searchParams.get('role') ?? '';
+	const statusParam = url.searchParams.get('status') ?? '';
+	const role = (ROLES as readonly string[]).includes(roleParam) ? roleParam : '';
+	const status = (STATUSES as readonly string[]).includes(statusParam) ? statusParam : '';
+	const page = Math.max(1, Number(url.searchParams.get('page')) || 1);
+
+	const conds: SQL[] = [];
+	if (q) {
+		const like = `%${q.toLowerCase()}%`;
+		conds.push(
+			sql`(lower(${users.email}) like ${like} or lower(${users.displayName}) like ${like})`
+		);
+	}
+	if (role === 'user' || role === 'admin') conds.push(eq(users.role, role));
+	if (status === 'active') {
+		conds.push(eq(users.isActive, true));
+		conds.push(sql`${users.emailVerifiedAt} is not null`);
+	} else if (status === 'suspended') {
+		conds.push(eq(users.isActive, false));
+	} else if (status === 'unverified') {
+		conds.push(sql`${users.emailVerifiedAt} is null`);
+	}
+	const where = conds.length ? and(...conds) : undefined;
+
+	const [[totalRow], rows] = await Promise.all([
+		db.select({ n: count() }).from(users).where(where),
 		db
 			.select({
 				id: users.id,
@@ -22,10 +52,24 @@ export const load: PageServerLoad = async () => {
 				failedLoginCount: users.failedLoginCount
 			})
 			.from(users)
-			.orderBy(desc(users.createdAt)),
-		allUserBalances()
+			.where(where)
+			.orderBy(desc(users.createdAt))
+			.limit(PAGE_SIZE)
+			.offset((page - 1) * PAGE_SIZE)
 	]);
-	return { users: rows.map((u) => ({ ...u, balance: balances.get(u.id) ?? 0 })) };
+
+	// Balances only for the visible page (not the whole ledger).
+	const balances = await userBalancesFor(rows.map((u) => u.id));
+
+	return {
+		users: rows.map((u) => ({ ...u, balance: balances.get(u.id) ?? 0 })),
+		total: Number(totalRow?.n ?? 0),
+		page,
+		pageSize: PAGE_SIZE,
+		q,
+		role,
+		status
+	};
 };
 
 async function loadUser(id: string) {

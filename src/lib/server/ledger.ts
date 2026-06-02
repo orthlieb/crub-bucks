@@ -246,8 +246,10 @@ export async function adminSetBalance(opts: {
 	});
 }
 
-/** Map of userId → balance across all user wallets (admin overview). */
-export async function allUserBalances(): Promise<Map<string, number>> {
+/** Balances for a specific set of users (page-scoped — admin user lists). */
+export async function userBalancesFor(userIds: string[]): Promise<Map<string, number>> {
+	const m = new Map<string, number>();
+	if (userIds.length === 0) return m;
 	const rows = await db
 		.select({
 			userId: wallets.userId,
@@ -255,9 +257,8 @@ export async function allUserBalances(): Promise<Map<string, number>> {
 		})
 		.from(wallets)
 		.leftJoin(ledgerEntries, eq(ledgerEntries.walletId, wallets.id))
-		.where(eq(wallets.kind, 'user'))
+		.where(and(eq(wallets.kind, 'user'), inArray(wallets.userId, userIds)))
 		.groupBy(wallets.userId);
-	const m = new Map<string, number>();
 	for (const r of rows) if (r.userId) m.set(r.userId, Number(r.balance ?? 0));
 	return m;
 }
