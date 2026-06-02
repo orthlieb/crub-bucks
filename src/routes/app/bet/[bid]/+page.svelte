@@ -199,10 +199,10 @@
 						alt="Cala celebrating a win"
 						width="160"
 						height="214"
-						class="h-32 w-auto shrink-0 select-none"
+						class="max-h-28 max-w-[40%] select-none sm:max-h-32"
 						draggable="false"
 					/>
-					<div>
+					<div class="min-w-0 flex-1">
 						<div class="text-xs font-semibold uppercase tracking-wide text-success">You won</div>
 						<div class="text-3xl font-bold tabular-nums text-success">
 							+{fmt(me.settledDelta ?? 0)} ₡
@@ -219,10 +219,10 @@
 						alt="Cala flopped over after a loss"
 						width="220"
 						height="123"
-						class="h-32 w-auto shrink-0 select-none"
+						class="max-h-28 max-w-[40%] select-none sm:max-h-32"
 						draggable="false"
 					/>
-					<div>
+					<div class="min-w-0 flex-1">
 						<div class="text-xs font-semibold uppercase tracking-wide text-destructive">Oof — you lost</div>
 						<div class="text-3xl font-bold tabular-nums text-destructive">
 							−{fmt(Math.abs(me.settledDelta ?? 0))} ₡
