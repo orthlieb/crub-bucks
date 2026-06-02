@@ -16,8 +16,9 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { formatAmount } from '$lib/format';
-	import { evenSplitDeltas, winnerLoserDeltas, tieredDeltas } from '$lib/ledger-math';
+	import { evenSplitDeltas, winnerLoserDeltas, tieredDeltas, type BetMode } from '$lib/ledger-math';
 	import GripVertical from '@lucide/svelte/icons/grip-vertical';
+	import BetModeIcon from '$lib/components/icons/BetModeIcon.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	const fmt = (n: number) => formatAmount(n, data.locale);
@@ -173,7 +174,7 @@
 									? 'secondary'
 									: 'destructive'}>{data.bet.status}</Badge
 					>
-					<Badge variant="secondary">{modeLabel[mode]}</Badge>
+					<Badge variant="secondary" class="gap-1"><BetModeIcon mode={mode as BetMode} size={12} />{modeLabel[mode]}</Badge>
 					{#if mode !== 'custom'}<span>pot {fmt(pool)} ₡</span>{/if}
 					<span>· by {data.creatorName} · {fmtDate(data.bet.createdAt)}</span>
 					{#if data.bet.resolvedAt}<span>· resolved {fmtDate(data.bet.resolvedAt)}</span>{/if}
