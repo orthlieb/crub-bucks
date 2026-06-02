@@ -12,6 +12,7 @@ import {
 } from './db/schema';
 import { sendFriendInviteEmail } from './email';
 import { createNotification } from './notifications';
+import { bumpStats } from './stats';
 import {
 	planSettlement,
 	evenSplitDeltas,
@@ -135,7 +136,7 @@ async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<string> {
 	}
 
 	const ws = await tx
-		.select({ id: wallets.id })
+		.select({ id: wallets.id, kind: wallets.kind })
 		.from(wallets)
 		.where(inArray(wallets.id, [fromWalletId, toWalletId]));
 	if (ws.length !== 2) {
@@ -147,6 +148,15 @@ async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<string> {
 		{ transferId, walletId: fromWalletId, delta: -amount, memo, icon, createdBy, betId },
 		{ transferId, walletId: toWalletId, delta: amount, memo, icon, createdBy, betId }
 	]);
+
+	// Keep the Bank-total stat current: this transfer's net effect on the Bank
+	// wallet (single source of truth — every transfer flows through here). At
+	// most one leg is the Bank.
+	const fromBank = ws.find((w) => w.id === fromWalletId)?.kind === 'bank';
+	const toBank = ws.find((w) => w.id === toWalletId)?.kind === 'bank';
+	if (fromBank) await bumpStats(tx, { bankTotal: -amount });
+	else if (toBank) await bumpStats(tx, { bankTotal: amount });
+
 	return transferId;
 }
 
@@ -1019,6 +1029,7 @@ export async function acceptBet(opts: {
 				.update(bets)
 				.set({ status: 'open', wentLiveAt: new Date() })
 				.where(eq(bets.id, betId));
+			await bumpStats(tx, { betsOpen: 1 });
 		}
 		return { wentLive, createdBy: bet.createdBy, title: bet.title };
 	});
@@ -1297,6 +1308,11 @@ export async function resolveBet(opts: {
 			.set({ status: 'resolved', resolvedAt: new Date(), resolvedBy, resolutionNote: note })
 			.where(eq(bets.id, betId));
 
+		// Stats: this bet leaves the open pool and joins the resolved count; the
+		// CB moved by the settlement adds to the lifetime wagered total.
+		const totalMoved = plan.reduce((sum, t) => sum + t.amount, 0);
+		await bumpStats(tx, { betsOpen: -1, betsResolved: 1, bucksWagered: totalMoved });
+
 		return { transferIds };
 	});
 }
@@ -1318,6 +1334,8 @@ export async function cancelBet(opts: { betId: string; cancelledBy: string }): P
 			.update(bets)
 			.set({ status: 'cancelled', cancelledAt: new Date(), cancelledBy })
 			.where(eq(bets.id, betId));
+		// Only live bets are counted in betsOpen; pending ones aren't.
+		if (bet.status === 'open') await bumpStats(tx, { betsOpen: -1 });
 	});
 }
 

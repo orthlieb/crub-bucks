@@ -15,8 +15,10 @@
 		{ label: 'Verified', value: fmt(stats.verifiedUsers) },
 		{ label: 'Active sessions', value: fmt(stats.activeSessions) },
 		{ label: 'Open bets', value: fmt(stats.openBets) },
+		{ label: 'Resolved bets', value: fmt(stats.resolvedBets) },
+		{ label: 'Wagered (₡)', value: fmt(stats.wagered) },
 		{ label: 'Failed logins (24h)', value: fmt(stats.failedLogins24h) },
-		{ label: 'Bank balance (₡)', value: fmt(stats.bankBalance) }
+		{ label: 'In circulation (₡)', value: fmt(-stats.bankBalance) }
 	]);
 </script>
 

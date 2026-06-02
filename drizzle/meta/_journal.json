@@ -113,6 +113,13 @@
       "when": 1780354737227,
       "tag": "0015_bet_went_live",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1780412912473,
+      "tag": "0016_app_stats",
+      "breakpoints": true
     }
   ]
 }

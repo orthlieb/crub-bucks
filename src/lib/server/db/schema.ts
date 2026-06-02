@@ -520,3 +520,17 @@ export const authTokensRelations = relations(authTokens, ({ one }) => ({
 export const securityEventsRelations = relations(securityEvents, ({ one }) => ({
 	user: one(users, { fields: [securityEvents.userId], references: [users.id] })
 }));
+
+// ---------------------------------------------------------------------------
+// Global stats (denormalised counters)
+// A single row (id = 1) maintained incrementally inside the same transaction
+// as the mutations that change it (see $lib/server/stats). recomputeStats()
+// can rebuild it from source data if it ever drifts.
+// ---------------------------------------------------------------------------
+export const appStats = pgTable('app_stats', {
+	id: integer('id').primaryKey(),
+	betsOpen: bigint('bets_open', { mode: 'number' }).notNull().default(0),
+	betsResolved: bigint('bets_resolved', { mode: 'number' }).notNull().default(0),
+	bucksWagered: bigint('bucks_wagered', { mode: 'number' }).notNull().default(0),
+	bankTotal: bigint('bank_total', { mode: 'number' }).notNull().default(0)
+});
