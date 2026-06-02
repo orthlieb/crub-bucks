@@ -62,7 +62,7 @@
 		     line under the text. -->
 		<div class="flex items-start gap-3">
 			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted/40 text-xl leading-none"
+				class="flex h-9 w-9 shrink-0 items-center justify-center text-xl leading-none"
 				aria-hidden="true"
 			>
 				{item.icon ?? '💰'}
