@@ -29,7 +29,6 @@
 
 <script lang="ts">
 	import { Card, CardContent } from '$lib/components/ui/card';
-	import { Badge } from '$lib/components/ui/badge';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { formatAmount } from '$lib/format';
 
@@ -40,6 +39,24 @@
 	}: { item: FeedItem; locale: string; linkBets?: boolean } = $props();
 
 	const fmt = (n: number) => formatAmount(n, locale);
+
+	// Per-state styling for the icon box: a light tint of the state colour with
+	// the state label sitting at the bottom of the box.
+	const STATE: Record<FeedItem['type'], { label: string; box: string; text: string }> = {
+		bet_created: {
+			label: 'Bet',
+			box: 'bg-amber-400/15',
+			text: 'text-amber-700 dark:text-amber-300'
+		},
+		bet_resolved: {
+			label: 'Resolved',
+			box: 'bg-blue-500/15',
+			text: 'text-blue-700 dark:text-blue-300'
+		},
+		bet_cancelled: { label: 'Cancelled', box: 'bg-destructive/10', text: 'text-destructive' },
+		payment: { label: 'Payment', box: 'bg-success/10', text: 'text-success' }
+	};
+	const state = $derived(STATE[item.type]);
 
 	function fmtDate(d: Date | string): string {
 		const date = typeof d === 'string' ? new Date(d) : d;
@@ -61,24 +78,26 @@
 		     avatars (instigator first). On mobile the avatars drop to their own
 		     line under the text. -->
 		<div class="flex items-start gap-3">
-			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center text-xl leading-none"
-				aria-hidden="true"
-			>
-				{item.icon ?? '💰'}
+			<div class="flex w-16 shrink-0 flex-col overflow-hidden rounded-md {state.box} sm:w-20">
+				<div class="flex flex-1 items-center justify-center pt-2 text-3xl leading-none sm:text-4xl">
+					{item.icon ?? '💰'}
+				</div>
+				<div
+					class="py-1 text-center text-[10px] font-semibold uppercase tracking-wide {state.text}"
+				>
+					{state.label}
+				</div>
 			</div>
 
 			<div class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
 				<div class="min-w-0 flex-1 break-words text-sm leading-relaxed">
 					{#if item.type === 'bet_created'}
-						<Badge variant="gold" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">bet</Badge>
 						<strong>{item.creator.name}</strong> started a bet
 						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
 						{#if item.participants.length > 1}
 							<span class="text-muted-foreground"> with {nameList(item.participants.filter((p) => p.id !== item.creator.id).map((p) => p.name))}</span>
 						{/if}.
 					{:else if item.type === 'bet_resolved'}
-						<Badge variant="info" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">resolved</Badge>
 						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
 						settled —
 						{#if item.winners.length > 0}
@@ -91,11 +110,9 @@
 							<span class="text-destructive">−{fmt(item.losers.reduce((s, l) => s + l.amount, 0))} ₡</span>
 						{/if}.{#if item.note}<span class="text-muted-foreground"> — {item.note}</span>{/if}
 					{:else if item.type === 'bet_cancelled'}
-						<Badge variant="destructive" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">cancelled</Badge>
 						<strong>{item.cancelledBy.name}</strong> called off the bet
 						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}.
 					{:else if item.type === 'payment'}
-						<Badge variant="success" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">payment</Badge>
 						<strong>{item.from.name}</strong> paid <strong>{item.to.name}</strong>
 						<span class="text-foreground">{fmt(item.amount)} ₡</span>{#if item.memo}<span class="text-muted-foreground"> — {item.memo}</span>{/if}.
 					{/if}
