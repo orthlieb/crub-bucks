@@ -15,11 +15,8 @@
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { formatSigned } from '$lib/format';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
-
-	const fmtAmount = (n: number) => formatSigned(n, data.locale);
 
 	// Client-side filter over the already-loaded friends list. Case-insensitive
 	// substring match on display name OR email. Friends are capped at 99 so
@@ -152,26 +149,13 @@
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape' && pickerOpen) pickerOpen = false;
 	}
-	function balanceClass(n: number): string {
-		if (n > 0) return 'text-success';
-		if (n < 0) return 'text-destructive';
-		return 'text-muted-foreground';
-	}
 </script>
 
 <div class="space-y-8">
-	<header class="flex flex-wrap items-end justify-between gap-4">
-		<div>
-			<a href="/app" class="text-sm text-muted-foreground hover:text-foreground">← Bets</a>
-			<h1 class="mt-1 text-3xl font-bold tracking-tight">Friends</h1>
-			<p class="mt-1 text-muted-foreground">Send a request by email; they approve before you're connected.</p>
-		</div>
-		<div class="text-right">
-			<div class="text-xs uppercase tracking-wide text-muted-foreground">Your balance</div>
-			<div class="text-2xl font-bold tabular-nums {balanceClass(data.balance)}">
-				{fmtAmount(data.balance)}&nbsp;<span class="text-sm text-muted-foreground">CB</span>
-			</div>
-		</div>
+	<header>
+		<a href="/app" class="text-sm text-muted-foreground hover:text-foreground">← Bets</a>
+		<h1 class="mt-1 text-3xl font-bold tracking-tight">Friends</h1>
+		<p class="mt-1 text-muted-foreground">Send a request by email; they approve before you're connected.</p>
 	</header>
 
 	<!-- Pay a friend (or unfriend). Picks from the same `selectedFriendId`

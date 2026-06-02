@@ -12,7 +12,6 @@ import {
 	unfriend,
 	transferBetweenUsers,
 	areFriends,
-	userBalance,
 	setFavorite,
 	LedgerError
 } from '$lib/server/ledger';
@@ -20,14 +19,13 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.user!.id;
-	const [friends, incoming, outgoing, invites, balance] = await Promise.all([
+	const [friends, incoming, outgoing, invites] = await Promise.all([
 		getFriends(userId),
 		getIncomingRequests(userId),
 		getOutgoingRequests(userId),
-		getPendingInvites(userId),
-		userBalance(userId)
+		getPendingInvites(userId)
 	]);
-	return { friends, incoming, outgoing, invites, balance };
+	return { friends, incoming, outgoing, invites };
 };
 
 export const actions: Actions = {

@@ -3,16 +3,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
-	import { formatSigned } from '$lib/format';
 
 	let { data }: { data: PageData } = $props();
 
-	const fmtAmount = (n: number) => formatSigned(n, data.locale);
-	function balanceClass(n: number): string {
-		if (n > 0) return 'text-success';
-		if (n < 0) return 'text-destructive';
-		return 'text-muted-foreground';
-	}
 	function fmtDate(d: Date | string | null): string {
 		if (!d) return '—';
 		const date = typeof d === 'string' ? new Date(d) : d;
@@ -21,17 +14,9 @@
 </script>
 
 <div class="space-y-8">
-	<header class="flex flex-wrap items-end justify-between gap-4">
-		<div>
-			<h1 class="text-3xl font-bold tracking-tight">Your bets</h1>
-			<p class="mt-1 italic text-muted-foreground">{data.tagline}</p>
-		</div>
-		<div class="text-right">
-			<div class="text-xs uppercase tracking-wide text-muted-foreground">Balance</div>
-			<div class="text-3xl font-bold tabular-nums {balanceClass(data.balance)}">
-				{fmtAmount(data.balance)}&nbsp;<span class="text-base text-muted-foreground">CB</span>
-			</div>
-		</div>
+	<header>
+		<h1 class="text-3xl font-bold tracking-tight">Your bets</h1>
+		<p class="mt-1 italic text-muted-foreground">{data.tagline}</p>
 	</header>
 
 	<div class="flex flex-wrap gap-2">

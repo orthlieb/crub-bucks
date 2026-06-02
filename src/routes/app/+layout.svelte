@@ -8,8 +8,18 @@
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
 	import { isSoundEnabled, play, warmUpSound, type SoundName } from '$lib/sound';
+	import { formatAmount } from '$lib/format';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
+
+	// Header balance, sign-coloured. Updates live with the layout poll.
+	const balanceClass = $derived(
+		data.balance > 0
+			? 'text-success'
+			: data.balance < 0
+				? 'text-destructive'
+				: 'text-muted-foreground'
+	);
 
 	// --- Sound cues ----------------------------------------------------------
 	// The polled layout data carries a few "latest event" signals. We play a cue
@@ -168,6 +178,7 @@
 				<a href="/app" class="flex items-center gap-2 font-semibold tracking-tight">
 					<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">₡</span>
 					<span>Crub Bucks</span>
+					<span class="tabular-nums {balanceClass}">{formatAmount(data.balance, data.locale)} ₡</span>
 				</a>
 				<!-- Desktop nav lives inline with the brand. The mobile tab strip
 				     below the brand row takes over under sm. -->

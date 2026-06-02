@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { countIncomingRequests, userActivity, betSoundSignals } from '$lib/server/ledger';
+import { countIncomingRequests, userActivity, betSoundSignals, userBalance } from '$lib/server/ledger';
 import { listActiveForUser } from '$lib/server/notifications';
 import type { LayoutServerLoad } from './$types';
 
@@ -8,14 +8,16 @@ export const load: LayoutServerLoad = async ({ locals, depends }) => {
 	// Lets the client poll just this loader (sound cues / notifications / friend
 	// request count) via invalidate('app:activity') without re-running page loads.
 	depends('app:activity');
-	const [pendingFriendRequests, notifications, activity, betSignals] = await Promise.all([
+	const [pendingFriendRequests, notifications, activity, betSignals, balance] = await Promise.all([
 		countIncomingRequests(locals.user.id).catch(() => 0),
 		listActiveForUser(locals.user.id).catch(() => []),
 		// Newest ledger entry for this user — drives the gain (cash) / lose (slide)
 		// cues. The client decides whether it's new to them.
 		userActivity(locals.user.id, 1).catch(() => []),
 		// Newest "went live" / "cancelled" bet timestamps — drive the yes/no cues.
-		betSoundSignals(locals.user.id).catch(() => ({ lastLiveAt: null, lastCancelledAt: null }))
+		betSoundSignals(locals.user.id).catch(() => ({ lastLiveAt: null, lastCancelledAt: null })),
+		// Shown in the header next to the brand.
+		userBalance(locals.user.id).catch(() => 0)
 	]);
 
 	const latest = activity[0] ?? null;
@@ -29,5 +31,5 @@ export const load: LayoutServerLoad = async ({ locals, depends }) => {
 		lastBetCancelledAt: betSignals.lastCancelledAt
 	};
 
-	return { user: locals.user, pendingFriendRequests, notifications, sound };
+	return { user: locals.user, pendingFriendRequests, notifications, sound, balance };
 };
