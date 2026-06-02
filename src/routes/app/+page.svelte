@@ -71,9 +71,9 @@
 								</div>
 							</div>
 							{#if b.needsMyResponse}
-								<Badge variant="gold" class="w-24 justify-center uppercase">reply</Badge>
+								<Badge variant="gold" class="w-24 shrink-0 justify-center uppercase">reply</Badge>
 							{:else}
-								<Badge variant="secondary" class="w-24 justify-center uppercase">Pending</Badge>
+								<Badge variant="secondary" class="w-24 shrink-0 justify-center uppercase">Pending</Badge>
 							{/if}
 						</div>
 					</a>
@@ -116,7 +116,7 @@
 									{fmtDate(b.createdAt)}
 								</div>
 							</div>
-							<Badge class="w-24 justify-center uppercase">open</Badge>
+							<Badge class="w-24 shrink-0 justify-center uppercase">open</Badge>
 						</div>
 					</a>
 				{/each}
@@ -150,7 +150,7 @@
 									{b.status === 'resolved' ? `resolved ${fmtDate(b.resolvedAt)}` : 'cancelled'}
 								</div>
 							</div>
-							<Badge variant={b.status === 'resolved' ? 'info' : 'destructive'} class="w-24 justify-center uppercase">{b.status}</Badge>
+							<Badge variant={b.status === 'resolved' ? 'info' : 'destructive'} class="w-24 shrink-0 justify-center uppercase">{b.status}</Badge>
 						</div>
 					</a>
 				{/each}

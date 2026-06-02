@@ -73,12 +73,12 @@
 
 <Card>
 	<CardContent class="py-4">
-		<div class="flex items-start justify-between gap-3">
-			<div class="flex min-w-0 flex-1 items-start gap-3">
-				{#if a}
-					<Avatar id={a.id} name={a.name} avatarUpdatedAt={a.avatarUpdatedAt} size={36} class="mt-0.5" />
-				{/if}
-				<div class="min-w-0 flex-1 break-words text-sm leading-relaxed">
+		<div class="flex items-start gap-3">
+			{#if a}
+				<Avatar id={a.id} name={a.name} avatarUpdatedAt={a.avatarUpdatedAt} size={36} class="mt-0.5" />
+			{/if}
+			<div class="min-w-0 flex-1">
+				<div class="break-words text-sm leading-relaxed">
 					{#if item.type === 'bet_created'}
 						<Badge variant="gold" class="mr-2 w-24 justify-center align-middle uppercase">bet</Badge>
 						<strong>{item.creator.name}</strong> started a bet
@@ -110,8 +110,8 @@
 						<span class="text-foreground">{fmt(item.amount)} ₡</span>{#if item.memo}<span class="text-muted-foreground"> — {item.memo}</span>{/if}.
 					{/if}
 				</div>
+				<time class="mt-1 block text-xs text-muted-foreground">{fmtDate(item.at)}</time>
 			</div>
-			<time class="shrink-0 text-xs text-muted-foreground">{fmtDate(item.at)}</time>
 		</div>
 	</CardContent>
 </Card>
