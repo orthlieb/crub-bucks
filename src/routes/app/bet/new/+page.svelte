@@ -14,6 +14,7 @@
 	} from '$lib/components/ui/card';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
+	import BetModeIcon from '$lib/components/icons/BetModeIcon.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -188,15 +189,16 @@
 				<!-- Type picker -->
 				<div class="space-y-2">
 					<Label>Type</Label>
-					<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+					<div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
 						{#each Object.entries(modeInfo) as [m, info] (m)}
 							<button
 								type="button"
 								onclick={() => (mode = m as Mode)}
-								class="rounded-md border p-3 text-left text-sm transition-colors {mode === m
+								class="flex flex-col items-start gap-1 rounded-md border p-3 text-left text-sm transition-colors {mode === m
 									? 'border-primary bg-accent'
 									: 'hover:bg-accent'}"
 							>
+								<BetModeIcon mode={m as Mode} size={18} class="text-muted-foreground" />
 								<div class="font-medium">{info.label}</div>
 							</button>
 						{/each}
