@@ -15,8 +15,9 @@ import { notificationDismissals, notifications, users } from './db/schema';
  *   - system-generated (createdBy NULL) — e.g. the welcome grant message,
  *     created right after the 100 ₡ grant is issued
  *
- * Dismissals stack up indefinitely. We don't garbage-collect, but the table
- * stays small in practice (it's bounded by users × active notifications).
+ * Garbage collection: a notification is deleted once everyone who can see it
+ * has dismissed it (the single recipient for a targeted one; all active users
+ * for a broadcast). Its dismissal rows cascade away with it.
  */
 
 export type NotificationLevel = 'info' | 'success' | 'warning';
@@ -105,7 +106,9 @@ export async function listActiveForUser(userId: string): Promise<Notification[]>
 
 /**
  * User dismisses a notification for themselves. Idempotent — repeat dismisses
- * are a no-op. For broadcasts this only hides it for the calling user.
+ * are a no-op. For broadcasts this hides it for the calling user; the row is
+ * then deleted once every active user has dismissed it (a targeted notification
+ * is deleted as soon as its single recipient dismisses).
  * Returns false if the notification doesn't exist or isn't visible to them.
  */
 export async function dismissForUser(notificationId: string, userId: string): Promise<boolean> {
@@ -122,6 +125,30 @@ export async function dismissForUser(notificationId: string, userId: string): Pr
 		.insert(notificationDismissals)
 		.values({ notificationId, userId })
 		.onConflictDoNothing();
+
+	// Garbage-collect once everyone who can see it has dismissed it. Deleting the
+	// notification cascades its dismissal rows away (FK onDelete: cascade).
+	if (n.userId !== null) {
+		// Targeted: the only viewer just dismissed it.
+		await db.delete(notifications).where(eq(notifications.id, notificationId));
+	} else {
+		// Broadcast: delete once no active user is left without a dismissal.
+		// (Suspended users can't log in to dismiss, so they don't block cleanup.)
+		const [row] = await db
+			.select({ remaining: sql<number>`count(*)::int` })
+			.from(users)
+			.leftJoin(
+				notificationDismissals,
+				and(
+					eq(notificationDismissals.userId, users.id),
+					eq(notificationDismissals.notificationId, notificationId)
+				)
+			)
+			.where(and(eq(users.isActive, true), isNull(notificationDismissals.notificationId)));
+		if (Number(row?.remaining ?? 0) === 0) {
+			await db.delete(notifications).where(eq(notifications.id, notificationId));
+		}
+	}
 	return true;
 }
 
