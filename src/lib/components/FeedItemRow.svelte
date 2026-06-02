@@ -30,6 +30,7 @@
 <script lang="ts">
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import BetStateIcon, { type BetTone } from '$lib/components/BetStateIcon.svelte';
 	import { formatAmount } from '$lib/format';
 
 	let {
@@ -40,21 +41,12 @@
 
 	const fmt = (n: number) => formatAmount(n, locale);
 
-	// Per-state styling for the icon box: a light tint of the state colour with
-	// the state label sitting at the bottom of the box.
-	const STATE: Record<FeedItem['type'], { label: string; box: string; text: string }> = {
-		bet_created: {
-			label: 'Bet',
-			box: 'bg-amber-400/15',
-			text: 'text-amber-700 dark:text-amber-300'
-		},
-		bet_resolved: {
-			label: 'Resolved',
-			box: 'bg-blue-500/15',
-			text: 'text-blue-700 dark:text-blue-300'
-		},
-		bet_cancelled: { label: 'Cancelled', box: 'bg-destructive/10', text: 'text-destructive' },
-		payment: { label: 'Payment', box: 'bg-success/10', text: 'text-success' }
+	// State → icon-box label + tone.
+	const STATE: Record<FeedItem['type'], { label: string; tone: BetTone }> = {
+		bet_created: { label: 'Bet', tone: 'amber' },
+		bet_resolved: { label: 'Resolved', tone: 'blue' },
+		bet_cancelled: { label: 'Cancelled', tone: 'red' },
+		payment: { label: 'Payment', tone: 'green' }
 	};
 	const state = $derived(STATE[item.type]);
 
@@ -78,16 +70,7 @@
 		     avatars (instigator first). On mobile the avatars drop to their own
 		     line under the text. -->
 		<div class="flex items-start gap-3">
-			<div class="flex w-16 shrink-0 flex-col overflow-hidden rounded-md {state.box} sm:w-20">
-				<div class="flex flex-1 items-center justify-center pt-2 text-3xl leading-none sm:text-4xl">
-					{item.icon ?? '💰'}
-				</div>
-				<div
-					class="py-1 text-center text-[10px] font-semibold uppercase tracking-wide {state.text}"
-				>
-					{state.label}
-				</div>
-			</div>
+			<BetStateIcon icon={item.icon} label={state.label} tone={state.tone} />
 
 			<div class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
 				<div class="min-w-0 flex-1 break-words text-sm leading-relaxed">
