@@ -194,11 +194,11 @@
 							<button
 								type="button"
 								onclick={() => (mode = m as Mode)}
-								class="flex flex-col items-start gap-1 rounded-md border p-3 text-left text-sm transition-colors {mode === m
+								class="flex items-center gap-2 rounded-md border p-3 text-left text-sm transition-colors {mode === m
 									? 'border-primary bg-accent'
 									: 'hover:bg-accent'}"
 							>
-								<BetModeIcon mode={m as Mode} size={18} class="text-muted-foreground" />
+								<BetModeIcon mode={m as Mode} size={18} class="shrink-0 text-muted-foreground" />
 								<div class="font-medium">{info.label}</div>
 							</button>
 						{/each}
