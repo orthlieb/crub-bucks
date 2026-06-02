@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { bets, betParticipants } from '$lib/server/db/schema';
+import { bets, betParticipants, users } from '$lib/server/db/schema';
 import { userBalance, getFriends, getOrCreateUserWallet } from '$lib/server/ledger';
 import type { PageServerLoad } from './$types';
 
@@ -46,6 +46,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 				status: bets.status,
 				createdAt: bets.createdAt,
 				resolvedAt: bets.resolvedAt,
+				createdBy: bets.createdBy,
 				myAcceptedAt: betParticipants.acceptedAt
 			})
 			.from(bets)
@@ -59,7 +60,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 				icon: bets.icon,
 				status: bets.status,
 				createdAt: bets.createdAt,
-				resolvedAt: bets.resolvedAt
+				resolvedAt: bets.resolvedAt,
+				createdBy: bets.createdBy
 			})
 			.from(bets)
 			.innerJoin(betParticipants, eq(betParticipants.betId, bets.id))
@@ -72,7 +74,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 				icon: bets.icon,
 				status: bets.status,
 				createdAt: bets.createdAt,
-				resolvedAt: bets.resolvedAt
+				resolvedAt: bets.resolvedAt,
+				createdBy: bets.createdBy
 			})
 			.from(bets)
 			.innerJoin(betParticipants, eq(betParticipants.betId, bets.id))
@@ -91,32 +94,45 @@ export const load: PageServerLoad = async ({ locals }) => {
 		...openRows.map((b) => b.id),
 		...settledRows.map((b) => b.id)
 	];
-	const participantCounts = new Map<string, number>();
+	// Participants (with avatar info) for the listed bets.
+	const peopleByBet = new Map<
+		string,
+		{ id: string; name: string; avatarUpdatedAt: Date | null }[]
+	>();
 	if (allBetIds.length > 0) {
 		const partRows = await db
-			.select({ betId: betParticipants.betId })
+			.select({
+				betId: betParticipants.betId,
+				userId: users.id,
+				name: users.displayName,
+				avatarUpdatedAt: users.avatarUpdatedAt
+			})
 			.from(betParticipants)
+			.innerJoin(users, eq(users.id, betParticipants.userId))
 			.where(inArray(betParticipants.betId, allBetIds));
 		for (const r of partRows) {
-			participantCounts.set(r.betId, (participantCounts.get(r.betId) ?? 0) + 1);
+			const arr = peopleByBet.get(r.betId) ?? [];
+			arr.push({ id: r.userId, name: r.name, avatarUpdatedAt: r.avatarUpdatedAt });
+			peopleByBet.set(r.betId, arr);
 		}
 	}
 
+	// Attach participant count + avatar list (creator/instigator first).
+	function decorate<T extends { id: string; createdBy: string }>(b: T) {
+		const ps = peopleByBet.get(b.id) ?? [];
+		const creator = ps.find((p) => p.id === b.createdBy);
+		const people = creator ? [creator, ...ps.filter((p) => p.id !== b.createdBy)] : ps;
+		return { ...b, participantCount: ps.length, people };
+	}
+
 	const pendingBets = pendingRows.map((b) => ({
-		...b,
-		participantCount: participantCounts.get(b.id) ?? 0,
+		...decorate(b),
 		// Does this bet need the current user to respond?
 		needsMyResponse: b.myAcceptedAt === null
 	}));
-	const openBets = openRows.map((b) => ({
-		...b,
-		participantCount: participantCounts.get(b.id) ?? 0
-	}));
+	const openBets = openRows.map(decorate);
 	const hasMoreSettled = settledRows.length > SETTLED_LIMIT;
-	const settledBets = settledRows.slice(0, SETTLED_LIMIT).map((b) => ({
-		...b,
-		participantCount: participantCounts.get(b.id) ?? 0
-	}));
+	const settledBets = settledRows.slice(0, SETTLED_LIMIT).map(decorate);
 
 	return {
 		tagline,

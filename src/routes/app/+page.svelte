@@ -3,6 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import BetStateIcon from '$lib/components/BetStateIcon.svelte';
+	import Avatar from '$lib/components/Avatar.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -56,6 +57,11 @@
 								{fmtDate(b.createdAt)}
 							</div>
 						</div>
+						<div class="flex max-w-[45%] flex-wrap justify-end gap-1">
+							{#each b.people as p (p.id)}
+								<Avatar id={p.id} name={p.name} avatarUpdatedAt={p.avatarUpdatedAt} size={24} />
+							{/each}
+						</div>
 					</a>
 				{/each}
 			</div>
@@ -93,6 +99,11 @@
 								{fmtDate(b.createdAt)}
 							</div>
 						</div>
+						<div class="flex max-w-[45%] flex-wrap justify-end gap-1">
+							{#each b.people as p (p.id)}
+								<Avatar id={p.id} name={p.name} avatarUpdatedAt={p.avatarUpdatedAt} size={24} />
+							{/each}
+						</div>
 					</a>
 				{/each}
 			</div>
@@ -125,6 +136,11 @@
 								{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
 								{b.status === 'resolved' ? `resolved ${fmtDate(b.resolvedAt)}` : 'cancelled'}
 							</div>
+						</div>
+						<div class="flex max-w-[45%] flex-wrap justify-end gap-1">
+							{#each b.people as p (p.id)}
+								<Avatar id={p.id} name={p.name} avatarUpdatedAt={p.avatarUpdatedAt} size={24} />
+							{/each}
 						</div>
 					</a>
 				{/each}
