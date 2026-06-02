@@ -574,7 +574,7 @@
 			method="POST"
 			action="?/unfriend"
 			use:enhance
-			class="pr-3 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+			class="ml-auto shrink-0 pr-3 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
 			onsubmit={(e) => {
 				if (!confirm(`Unfriend ${f.displayName}?`)) e.preventDefault();
 			}}
