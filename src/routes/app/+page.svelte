@@ -2,8 +2,7 @@
 	import type { PageData } from './$types';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent } from '$lib/components/ui/card';
-	import BetStateIcon from '$lib/components/BetStateIcon.svelte';
-	import Avatar from '$lib/components/Avatar.svelte';
+	import BetCard from '$lib/components/BetCard.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -39,30 +38,20 @@
 			<h2 class="text-xl font-semibold tracking-tight">Awaiting acceptance</h2>
 			<div class="mt-3 space-y-2">
 				{#each data.pendingBets as b (b.id)}
-					<a
+					<BetCard
 						href={`/app/bet/${b.id}`}
-						class="flex items-center gap-3 rounded-lg border bg-card p-3 shadow-sm transition-colors hover:bg-accent {b.needsMyResponse
-							? 'border-primary/60'
-							: ''}"
+						icon={b.icon}
+						label={b.needsMyResponse ? 'Reply' : 'Pending'}
+						tone="amber"
+						people={b.people}
+						class={b.needsMyResponse ? 'border-primary/60' : ''}
 					>
-						<BetStateIcon
-							icon={b.icon}
-							label={b.needsMyResponse ? 'Reply' : 'Pending'}
-							tone="amber"
-						/>
-						<div class="min-w-0 flex-1">
-							<div class="truncate font-semibold">{b.title}</div>
-							<div class="mt-1 text-xs text-muted-foreground">
-								{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
-								{fmtDate(b.createdAt)}
-							</div>
+						<div class="truncate font-semibold">{b.title}</div>
+						<div class="mt-1 text-xs text-muted-foreground">
+							{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
+							{fmtDate(b.createdAt)}
 						</div>
-						<div class="flex max-w-[45%] flex-wrap justify-end gap-1">
-							{#each b.people as p (p.id)}
-								<Avatar id={p.id} name={p.name} avatarUpdatedAt={p.avatarUpdatedAt} size={24} />
-							{/each}
-						</div>
-					</a>
+					</BetCard>
 				{/each}
 			</div>
 		</section>
@@ -87,24 +76,19 @@
 		{:else}
 			<div class="mt-3 space-y-2">
 				{#each data.openBets as b (b.id)}
-					<a
+					<BetCard
 						href={`/app/bet/${b.id}`}
-						class="flex items-center gap-3 rounded-lg border bg-card p-3 shadow-sm transition-colors hover:bg-accent"
+						icon={b.icon}
+						label="Open"
+						tone="violet"
+						people={b.people}
 					>
-						<BetStateIcon icon={b.icon} label="Open" tone="violet" />
-						<div class="min-w-0 flex-1">
-							<div class="truncate font-semibold">{b.title}</div>
-							<div class="mt-1 text-xs text-muted-foreground">
-								{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
-								{fmtDate(b.createdAt)}
-							</div>
+						<div class="truncate font-semibold">{b.title}</div>
+						<div class="mt-1 text-xs text-muted-foreground">
+							{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
+							{fmtDate(b.createdAt)}
 						</div>
-						<div class="flex max-w-[45%] flex-wrap justify-end gap-1">
-							{#each b.people as p (p.id)}
-								<Avatar id={p.id} name={p.name} avatarUpdatedAt={p.avatarUpdatedAt} size={24} />
-							{/each}
-						</div>
-					</a>
+					</BetCard>
 				{/each}
 			</div>
 		{/if}
@@ -121,28 +105,19 @@
 			</div>
 			<div class="mt-3 space-y-2">
 				{#each data.settledBets as b (b.id)}
-					<a
+					<BetCard
 						href={`/app/bet/${b.id}`}
-						class="flex items-center gap-3 rounded-lg border bg-card p-3 shadow-sm transition-colors hover:bg-accent"
+						icon={b.icon}
+						label={b.status === 'resolved' ? 'Resolved' : 'Cancelled'}
+						tone={b.status === 'resolved' ? 'blue' : 'red'}
+						people={b.people}
 					>
-						<BetStateIcon
-							icon={b.icon}
-							label={b.status === 'resolved' ? 'Resolved' : 'Cancelled'}
-							tone={b.status === 'resolved' ? 'blue' : 'red'}
-						/>
-						<div class="min-w-0 flex-1">
-							<div class="truncate font-medium">{b.title}</div>
-							<div class="mt-1 text-xs text-muted-foreground">
-								{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
-								{b.status === 'resolved' ? `resolved ${fmtDate(b.resolvedAt)}` : 'cancelled'}
-							</div>
+						<div class="truncate font-medium">{b.title}</div>
+						<div class="mt-1 text-xs text-muted-foreground">
+							{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
+							{b.status === 'resolved' ? `resolved ${fmtDate(b.resolvedAt)}` : 'cancelled'}
 						</div>
-						<div class="flex max-w-[45%] flex-wrap justify-end gap-1">
-							{#each b.people as p (p.id)}
-								<Avatar id={p.id} name={p.name} avatarUpdatedAt={p.avatarUpdatedAt} size={24} />
-							{/each}
-						</div>
-					</a>
+					</BetCard>
 				{/each}
 			</div>
 		</section>
