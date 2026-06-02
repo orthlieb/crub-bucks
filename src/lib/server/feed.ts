@@ -69,8 +69,19 @@ export type FeedItem =
 			icon: string | null;
 	  };
 
-export async function getFeed(opts: { limit?: number; userId?: string } = {}): Promise<FeedItem[]> {
-	const { limit = 50, userId } = opts;
+/**
+ * Build a user's activity feed. `audience` is the set of user ids whose
+ * activity is visible to the viewer — typically the viewer plus their accepted
+ * friends (a friends feed), or just the viewer (the "Just me" view). An item is
+ * included when at least one of its people is in the audience; the feed is never
+ * global.
+ */
+export async function getFeed(opts: {
+	limit?: number;
+	audience: Iterable<string>;
+}): Promise<FeedItem[]> {
+	const { limit = 50 } = opts;
+	const audience = opts.audience instanceof Set ? opts.audience : new Set(opts.audience);
 	const items: FeedItem[] = [];
 
 	// --- Bets (created + resolved) ----------------------------------------
@@ -122,8 +133,8 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 			// (live) or if they get declined (which records a cancellation).
 			if (b.status === 'pending') continue;
 
-			// "Mine" filter: skip bets the user isn't part of.
-			if (userId && !ps.some((p) => p.userId === userId)) continue;
+			// Audience filter: only show bets that involve the viewer or a friend.
+			if (!ps.some((p) => audience.has(p.userId))) continue;
 
 			const creator: FeedUser = {
 				id: b.creatorId,
@@ -251,8 +262,8 @@ export async function getFeed(opts: { limit?: number; userId?: string } = {}): P
 		const toLeg = t.legs.find((l) => l.delta > 0);
 		if (!fromLeg || !toLeg || !fromLeg.name || !toLeg.name || !fromLeg.userId || !toLeg.userId)
 			continue;
-		// "Mine" filter: skip payments the user isn't part of.
-		if (userId && fromLeg.userId !== userId && toLeg.userId !== userId) continue;
+		// Audience filter: only show payments where the viewer or a friend is a party.
+		if (!audience.has(fromLeg.userId) && !audience.has(toLeg.userId)) continue;
 		items.push({
 			id: `payment:${transferId}`,
 			type: 'payment',

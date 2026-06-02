@@ -35,28 +35,18 @@
 		if (names.length === 2) return `${names[0]} & ${names[1]}`;
 		return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
 	}
-
-	function bankClass(n: number): string {
-		if (n > 0) return 'text-success';
-		if (n < 0) return 'text-destructive';
-		return 'text-muted-foreground';
-	}
 </script>
 
 <div class="space-y-6">
-	<header class="flex flex-wrap items-end justify-between gap-4">
-		<div>
-			<h1 class="text-3xl font-bold tracking-tight">Feed</h1>
-			<p class="mt-1 text-muted-foreground">
-				{data.mine ? 'Just the bets and payments you’re in.' : "What everyone's been up to."}
-			</p>
-		</div>
-		<div class="text-right">
-			<div class="text-xs uppercase tracking-wide text-muted-foreground">The Bank</div>
-			<div class="text-2xl font-bold tabular-nums {bankClass(data.bank)}">
-				{fmt(data.bank)} ₡
-			</div>
-		</div>
+	<header>
+		<h1 class="text-3xl font-bold tracking-tight">Feed</h1>
+		<p class="mt-1 text-muted-foreground">
+			{#if data.mine}
+				Just the bets and payments you’re in.
+			{:else}
+				In circulation {fmt(-data.bank)} ₡
+			{/if}
+		</p>
 	</header>
 
 	<div class="inline-flex rounded-md border p-0.5 text-sm">
@@ -67,7 +57,7 @@
 				: 'bg-accent font-medium text-foreground'}"
 			aria-current={data.mine ? undefined : 'page'}
 		>
-			Everyone
+			Friends
 		</a>
 		<a
 			href="/app/feed?mine=1"
@@ -93,7 +83,7 @@
 				{#if data.mine}
 					You're not in anything yet. Start a bet or pay a friend.
 				{:else}
-					Nothing's happened yet. Make a bet or pay a friend to kick things off.
+					No activity from you or your friends yet. Make a bet or pay a friend to kick things off.
 				{/if}
 			</CardContent>
 		</Card>
