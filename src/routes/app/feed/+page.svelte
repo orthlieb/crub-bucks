@@ -1,11 +1,21 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { Card, CardContent } from '$lib/components/ui/card';
-	import FeedItemRow from '$lib/components/FeedItemRow.svelte';
+	import { Input } from '$lib/components/ui/input';
+	import FeedItemRow, { feedHaystack } from '$lib/components/FeedItemRow.svelte';
 	import { formatAmount } from '$lib/format';
 
 	let { data }: { data: PageData } = $props();
 	const fmt = (n: number) => formatAmount(n, data.locale);
+
+	// Client-side typeahead over the loaded items (titles, parties, comments).
+	let q = $state('');
+	const rows = $derived(data.items.map((item) => ({ item, hay: feedHaystack(item) })));
+	const filtered = $derived.by(() => {
+		const needle = q.trim().toLowerCase();
+		if (!needle) return data.items;
+		return rows.filter((r) => r.hay.includes(needle)).map((r) => r.item);
+	});
 </script>
 
 <div class="space-y-6">
@@ -20,25 +30,37 @@
 		</p>
 	</header>
 
-	<div class="inline-flex rounded-md border p-0.5 text-sm">
-		<a
-			href="/app/feed"
-			class="rounded-sm px-3 py-1.5 transition-colors {data.mine
-				? 'text-muted-foreground hover:bg-accent'
-				: 'bg-accent font-medium text-foreground'}"
-			aria-current={data.mine ? undefined : 'page'}
-		>
-			Friends
-		</a>
-		<a
-			href="/app/feed?mine=1"
-			class="rounded-sm px-3 py-1.5 transition-colors {data.mine
-				? 'bg-accent font-medium text-foreground'
-				: 'text-muted-foreground hover:bg-accent'}"
-			aria-current={data.mine ? 'page' : undefined}
-		>
-			Just me
-		</a>
+	<div class="flex flex-wrap items-center gap-3">
+		<div class="inline-flex rounded-md border p-0.5 text-sm">
+			<a
+				href="/app/feed"
+				class="rounded-sm px-3 py-1.5 transition-colors {data.mine
+					? 'text-muted-foreground hover:bg-accent'
+					: 'bg-accent font-medium text-foreground'}"
+				aria-current={data.mine ? undefined : 'page'}
+			>
+				Friends
+			</a>
+			<a
+				href="/app/feed?mine=1"
+				class="rounded-sm px-3 py-1.5 transition-colors {data.mine
+					? 'bg-accent font-medium text-foreground'
+					: 'text-muted-foreground hover:bg-accent'}"
+				aria-current={data.mine ? 'page' : undefined}
+			>
+				Just me
+			</a>
+		</div>
+		{#if data.items.length > 0}
+			<Input
+				type="search"
+				bind:value={q}
+				placeholder="Search bets, people, comments…"
+				autocomplete="off"
+				aria-label="Search the feed"
+				class="min-w-0 flex-1 sm:max-w-xs"
+			/>
+		{/if}
 	</div>
 
 	{#if data.items.length === 0}
@@ -58,9 +80,15 @@
 				{/if}
 			</CardContent>
 		</Card>
+	{:else if filtered.length === 0}
+		<Card>
+			<CardContent class="py-10 text-center text-sm text-muted-foreground">
+				No results for “{q.trim()}”.
+			</CardContent>
+		</Card>
 	{:else}
 		<div class="space-y-2">
-			{#each data.items as item (item.id)}
+			{#each filtered as item (item.id)}
 				<FeedItemRow {item} locale={data.locale} />
 			{/each}
 		</div>

@@ -74,11 +74,11 @@
 <Card>
 	<CardContent class="py-4">
 		<div class="flex items-start justify-between gap-3">
-			<div class="flex items-start gap-3">
+			<div class="flex min-w-0 items-start gap-3">
 				{#if a}
 					<Avatar id={a.id} name={a.name} avatarUpdatedAt={a.avatarUpdatedAt} size={36} class="mt-0.5" />
 				{/if}
-				<div class="text-sm leading-relaxed">
+				<div class="min-w-0 break-words text-sm leading-relaxed">
 					{#if item.type === 'bet_created'}
 						<Badge variant="gold" class="mr-2 w-24 justify-center align-middle uppercase">bet</Badge>
 						<strong>{item.creator.name}</strong> started a bet
