@@ -28,9 +28,7 @@
 </script>
 
 <script lang="ts">
-	import { Card, CardContent } from '$lib/components/ui/card';
-	import Avatar from '$lib/components/Avatar.svelte';
-	import BetStateIcon, { type BetTone } from '$lib/components/BetStateIcon.svelte';
+	import BetCard, { type BetTone } from '$lib/components/BetCard.svelte';
 	import { formatAmount } from '$lib/format';
 
 	let {
@@ -64,50 +62,31 @@
 	}
 </script>
 
-<Card>
-	<CardContent class="py-4">
-		<!-- Left → right: bet icon, bet text (with date, wraps), participant
-		     avatars (instigator first). On mobile the avatars drop to their own
-		     line under the text. -->
-		<div class="flex items-start gap-3">
-			<BetStateIcon icon={item.icon} label={state.label} tone={state.tone} />
-
-			<div class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-				<div class="min-w-0 flex-1 break-words text-sm leading-relaxed">
-					{#if item.type === 'bet_created'}
-						<strong>{item.creator.name}</strong> started a bet
-						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
-						{#if item.participants.length > 1}
-							<span class="text-muted-foreground"> with {nameList(item.participants.filter((p) => p.id !== item.creator.id).map((p) => p.name))}</span>
-						{/if}.
-					{:else if item.type === 'bet_resolved'}
-						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
-						settled —
-						{#if item.winners.length > 0}
-							<strong>{nameList(item.winners.map((w) => w.name))}</strong>
-							won
-							<span class="text-success">+{fmt(item.winners.reduce((s, w) => s + w.amount, 0))} ₡</span>
-						{/if}{#if item.winners.length > 0 && item.losers.length > 0}; {/if}
-						{#if item.losers.length > 0}
-							<span class="text-muted-foreground">{nameList(item.losers.map((l) => l.name))} lost</span>
-							<span class="text-destructive">−{fmt(item.losers.reduce((s, l) => s + l.amount, 0))} ₡</span>
-						{/if}.{#if item.note}<span class="text-muted-foreground"> — {item.note}</span>{/if}
-					{:else if item.type === 'bet_cancelled'}
-						<strong>{item.cancelledBy.name}</strong> called off the bet
-						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}.
-					{:else if item.type === 'payment'}
-						<strong>{item.from.name}</strong> paid <strong>{item.to.name}</strong>
-						<span class="text-foreground">{fmt(item.amount)} ₡</span>{#if item.memo}<span class="text-muted-foreground"> — {item.memo}</span>{/if}.
-					{/if}
-					<span class="text-muted-foreground"> · {fmtDate(item.at)}</span>
-				</div>
-
-				<div class="flex flex-wrap gap-1 sm:shrink-0 sm:justify-end">
-					{#each item.people as p (p.id)}
-						<Avatar id={p.id} name={p.name} avatarUpdatedAt={p.avatarUpdatedAt} size={24} />
-					{/each}
-				</div>
-			</div>
-		</div>
-	</CardContent>
-</Card>
+<BetCard icon={item.icon} label={state.label} tone={state.tone} people={item.people}>
+	{#if item.type === 'bet_created'}
+		<strong>{item.creator.name}</strong> started a bet
+		{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
+		{#if item.participants.length > 1}
+			<span class="text-muted-foreground"> with {nameList(item.participants.filter((p) => p.id !== item.creator.id).map((p) => p.name))}</span>
+		{/if}.
+	{:else if item.type === 'bet_resolved'}
+		{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
+		settled —
+		{#if item.winners.length > 0}
+			<strong>{nameList(item.winners.map((w) => w.name))}</strong>
+			won
+			<span class="text-success">+{fmt(item.winners.reduce((s, w) => s + w.amount, 0))} ₡</span>
+		{/if}{#if item.winners.length > 0 && item.losers.length > 0}; {/if}
+		{#if item.losers.length > 0}
+			<span class="text-muted-foreground">{nameList(item.losers.map((l) => l.name))} lost</span>
+			<span class="text-destructive">−{fmt(item.losers.reduce((s, l) => s + l.amount, 0))} ₡</span>
+		{/if}.{#if item.note}<span class="text-muted-foreground"> — {item.note}</span>{/if}
+	{:else if item.type === 'bet_cancelled'}
+		<strong>{item.cancelledBy.name}</strong> called off the bet
+		{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}.
+	{:else if item.type === 'payment'}
+		<strong>{item.from.name}</strong> paid <strong>{item.to.name}</strong>
+		<span class="text-foreground">{fmt(item.amount)} ₡</span>{#if item.memo}<span class="text-muted-foreground"> — {item.memo}</span>{/if}.
+	{/if}
+	<span class="text-muted-foreground"> · {fmtDate(item.at)}</span>
+</BetCard>
