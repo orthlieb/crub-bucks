@@ -21,47 +21,19 @@
 <div class="space-y-6">
 	<header>
 		<h1 class="text-3xl font-bold tracking-tight">Feed</h1>
-		<p class="mt-1 text-muted-foreground">
-			{#if data.mine}
-				Just the bets and payments you’re in.
-			{:else}
-				In circulation {fmt(-data.bank)} ₡
-			{/if}
-		</p>
+		<p class="mt-1 text-muted-foreground">In circulation {fmt(-data.bank)} ₡</p>
 	</header>
 
-	<div class="flex flex-wrap items-center gap-3">
-		<div class="inline-flex rounded-md border p-0.5 text-sm">
-			<a
-				href="/app/feed"
-				class="rounded-sm px-3 py-1.5 transition-colors {data.mine
-					? 'text-muted-foreground hover:bg-accent'
-					: 'bg-accent font-medium text-foreground'}"
-				aria-current={data.mine ? undefined : 'page'}
-			>
-				Friends
-			</a>
-			<a
-				href="/app/feed?mine=1"
-				class="rounded-sm px-3 py-1.5 transition-colors {data.mine
-					? 'bg-accent font-medium text-foreground'
-					: 'text-muted-foreground hover:bg-accent'}"
-				aria-current={data.mine ? 'page' : undefined}
-			>
-				Just me
-			</a>
-		</div>
-		{#if data.items.length > 0}
-			<Input
-				type="search"
-				bind:value={q}
-				placeholder="Search bets, people, comments…"
-				autocomplete="off"
-				aria-label="Search the feed"
-				class="min-w-0 flex-1 sm:max-w-xs"
-			/>
-		{/if}
-	</div>
+	{#if data.items.length > 0}
+		<Input
+			type="search"
+			bind:value={q}
+			placeholder="Search bets, people, comments…"
+			autocomplete="off"
+			aria-label="Search the feed"
+			class="w-full sm:max-w-xs"
+		/>
+	{/if}
 
 	{#if data.items.length === 0}
 		<Card>
@@ -73,11 +45,7 @@
 					height="260"
 					class="h-32 w-auto select-none opacity-90"
 				/>
-				{#if data.mine}
-					You're not in anything yet. Start a bet or pay a friend.
-				{:else}
-					No activity from you or your friends yet. Make a bet or pay a friend to kick things off.
-				{/if}
+				No activity from you or your friends yet. Make a bet or pay a friend to kick things off.
 			</CardContent>
 		</Card>
 	{:else if filtered.length === 0}
