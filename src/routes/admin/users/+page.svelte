@@ -11,6 +11,7 @@
 	} from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { Card, CardContent } from '$lib/components/ui/card';
 
@@ -47,6 +48,7 @@
 						<TableHead>User</TableHead>
 						<TableHead>Role</TableHead>
 						<TableHead>Status</TableHead>
+						<TableHead>Balance</TableHead>
 						<TableHead>Last login</TableHead>
 						<TableHead>Joined</TableHead>
 						<TableHead class="text-right">Actions</TableHead>
@@ -75,6 +77,26 @@
 								{#if u.failedLoginCount > 0}
 									<span class="ml-2 text-xs text-muted-foreground">{u.failedLoginCount} fail{u.failedLoginCount === 1 ? '' : 's'}</span>
 								{/if}
+							</TableCell>
+							<TableCell>
+								<form
+									method="POST"
+									action="?/setBalance"
+									use:enhance
+									class="flex items-center gap-1"
+								>
+									<input type="hidden" name="userId" value={u.id} />
+									<Input
+										name="balance"
+										type="number"
+										step="1"
+										value={u.balance}
+										aria-label={`Balance for ${u.displayName}`}
+										class="h-8 w-24 text-right tabular-nums"
+									/>
+									<span class="text-xs text-muted-foreground">₡</span>
+									<Button type="submit" size="sm" variant="outline">Set</Button>
+								</form>
 							</TableCell>
 							<TableCell class="text-sm text-muted-foreground">
 								{fmt(u.lastLoginAt)}

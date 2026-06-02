@@ -202,6 +202,56 @@ export async function issueFromBank(opts: {
 	return opts.tx ? run(opts.tx) : db.transaction(run);
 }
 
+/**
+ * Admin override: set a user's balance to an exact whole number by moving the
+ * difference to/from the Bank, so the system stays zero-sum (the Bank absorbs
+ * the adjustment). Returns the previous and new balances.
+ */
+export async function adminSetBalance(opts: {
+	adminId: string;
+	userId: string;
+	target: number;
+}): Promise<{ previous: number; next: number; delta: number }> {
+	const { adminId, userId, target } = opts;
+	if (!Number.isInteger(target)) throw new LedgerError('Balance must be a whole number');
+	return db.transaction(async (tx) => {
+		const userWalletId = await getOrCreateUserWallet(userId, tx);
+		const [row] = await tx
+			.select({ balance: sql<number>`coalesce(sum(${ledgerEntries.delta}), 0)` })
+			.from(ledgerEntries)
+			.where(eq(ledgerEntries.walletId, userWalletId));
+		const previous = Number(row?.balance ?? 0);
+		const delta = target - previous;
+		if (delta !== 0) {
+			const bankWalletId = await getOrCreateBankWallet(tx);
+			await transferInTx(tx, {
+				fromWalletId: delta > 0 ? bankWalletId : userWalletId,
+				toWalletId: delta > 0 ? userWalletId : bankWalletId,
+				amount: Math.abs(delta),
+				memo: 'Admin balance adjustment',
+				createdBy: adminId
+			});
+		}
+		return { previous, next: target, delta };
+	});
+}
+
+/** Map of userId → balance across all user wallets (admin overview). */
+export async function allUserBalances(): Promise<Map<string, number>> {
+	const rows = await db
+		.select({
+			userId: wallets.userId,
+			balance: sql<number>`coalesce(sum(${ledgerEntries.delta}), 0)`
+		})
+		.from(wallets)
+		.leftJoin(ledgerEntries, eq(ledgerEntries.walletId, wallets.id))
+		.where(eq(wallets.kind, 'user'))
+		.groupBy(wallets.userId);
+	const m = new Map<string, number>();
+	for (const r of rows) if (r.userId) m.set(r.userId, Number(r.balance ?? 0));
+	return m;
+}
+
 // ---------------------------------------------------------------------------
 // First-login welcome grant
 // ---------------------------------------------------------------------------

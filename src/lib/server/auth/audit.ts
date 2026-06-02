@@ -36,6 +36,7 @@ export type SecurityEventType =
 	| 'admin_role_change'
 	| 'admin_suspend'
 	| 'admin_unsuspend'
+	| 'admin_balance_set'
 	| 'maintenance_mode_change'
 	| 'registration_lock_change'
 	| 'registration_daily_limit_change'

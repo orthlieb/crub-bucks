@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { goto, invalidate } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import type { LayoutData } from './$types';
@@ -73,15 +73,17 @@
 		if (count > Number(seen) && isSoundEnabled()) play('hello');
 	});
 
-	// Lightweight poll so incoming payments (and notifications / friend-request
-	// counts) surface without a manual refresh. Re-runs only the layout loader
-	// via its `app:activity` dependency. Pauses while the tab is hidden and
-	// fires once on becoming visible again, to avoid background churn.
+	// Lightweight poll so live changes — incoming payments, sound cues,
+	// notifications, friend-request counts, AND the current page's own data
+	// (e.g. a bet flipping to accepted while you're on the Bets page) — surface
+	// without a manual refresh. invalidateAll() re-runs every loader, so the
+	// page you're on updates too, not just the layout. Pauses while the tab is
+	// hidden and fires once on becoming visible again, to avoid background churn.
 	const POLL_MS = 20_000;
 	onMount(() => {
 		warmUpSound();
 		const tick = () => {
-			if (document.visibilityState === 'visible') invalidate('app:activity');
+			if (document.visibilityState === 'visible') invalidateAll();
 		};
 		const timer = setInterval(tick, POLL_MS);
 		document.addEventListener('visibilitychange', tick);
