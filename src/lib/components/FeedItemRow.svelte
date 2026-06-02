@@ -29,8 +29,8 @@
 
 <script lang="ts">
 	import { Card, CardContent } from '$lib/components/ui/card';
-	import { Badge } from '$lib/components/ui/badge';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import BetStateIcon, { type BetTone } from '$lib/components/BetStateIcon.svelte';
 	import { formatAmount } from '$lib/format';
 
 	let {
@@ -40,6 +40,15 @@
 	}: { item: FeedItem; locale: string; linkBets?: boolean } = $props();
 
 	const fmt = (n: number) => formatAmount(n, locale);
+
+	// State → icon-box label + tone.
+	const STATE: Record<FeedItem['type'], { label: string; tone: BetTone }> = {
+		bet_created: { label: 'Bet', tone: 'amber' },
+		bet_resolved: { label: 'Resolved', tone: 'blue' },
+		bet_cancelled: { label: 'Cancelled', tone: 'red' },
+		payment: { label: 'Payment', tone: 'green' }
+	};
+	const state = $derived(STATE[item.type]);
 
 	function fmtDate(d: Date | string): string {
 		const date = typeof d === 'string' ? new Date(d) : d;
@@ -61,24 +70,17 @@
 		     avatars (instigator first). On mobile the avatars drop to their own
 		     line under the text. -->
 		<div class="flex items-start gap-3">
-			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center text-xl leading-none"
-				aria-hidden="true"
-			>
-				{item.icon ?? '💰'}
-			</div>
+			<BetStateIcon icon={item.icon} label={state.label} tone={state.tone} />
 
 			<div class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
 				<div class="min-w-0 flex-1 break-words text-sm leading-relaxed">
 					{#if item.type === 'bet_created'}
-						<Badge variant="gold" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">bet</Badge>
 						<strong>{item.creator.name}</strong> started a bet
 						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
 						{#if item.participants.length > 1}
 							<span class="text-muted-foreground"> with {nameList(item.participants.filter((p) => p.id !== item.creator.id).map((p) => p.name))}</span>
 						{/if}.
 					{:else if item.type === 'bet_resolved'}
-						<Badge variant="info" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">resolved</Badge>
 						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
 						settled —
 						{#if item.winners.length > 0}
@@ -91,11 +93,9 @@
 							<span class="text-destructive">−{fmt(item.losers.reduce((s, l) => s + l.amount, 0))} ₡</span>
 						{/if}.{#if item.note}<span class="text-muted-foreground"> — {item.note}</span>{/if}
 					{:else if item.type === 'bet_cancelled'}
-						<Badge variant="destructive" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">cancelled</Badge>
 						<strong>{item.cancelledBy.name}</strong> called off the bet
 						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}.
 					{:else if item.type === 'payment'}
-						<Badge variant="success" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">payment</Badge>
 						<strong>{item.from.name}</strong> paid <strong>{item.to.name}</strong>
 						<span class="text-foreground">{fmt(item.amount)} ₡</span>{#if item.memo}<span class="text-muted-foreground"> — {item.memo}</span>{/if}.
 					{/if}
