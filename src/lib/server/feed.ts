@@ -70,18 +70,23 @@ export type FeedItem =
 	  };
 
 /**
- * Build a user's activity feed. `audience` is the set of user ids whose
- * activity is visible to the viewer — typically the viewer plus their accepted
- * friends (a friends feed), or just the viewer (the "Just me" view). An item is
- * included when at least one of its people is in the audience; the feed is never
- * global.
+ * Build an activity feed. `audience` is the set of user ids whose activity is
+ * visible to the viewer — typically the viewer plus their accepted friends (a
+ * friends feed), or just the viewer ("Just me"). Pass the literal `'all'` for a
+ * global feed; that path is admin-only (the friends feed never uses it). An
+ * item is included when at least one of its people is in the audience.
  */
 export async function getFeed(opts: {
 	limit?: number;
-	audience: Iterable<string>;
+	audience: Iterable<string> | 'all';
 }): Promise<FeedItem[]> {
 	const { limit = 50 } = opts;
-	const audience = opts.audience instanceof Set ? opts.audience : new Set(opts.audience);
+	const all = opts.audience === 'all';
+	const audience = all
+		? null
+		: opts.audience instanceof Set
+			? opts.audience
+			: new Set(opts.audience as Iterable<string>);
 	const items: FeedItem[] = [];
 
 	// --- Bets (created + resolved) ----------------------------------------
@@ -133,8 +138,8 @@ export async function getFeed(opts: {
 			// (live) or if they get declined (which records a cancellation).
 			if (b.status === 'pending') continue;
 
-			// Audience filter: only show bets that involve the viewer or a friend.
-			if (!ps.some((p) => audience.has(p.userId))) continue;
+			// Audience filter: only show bets that involve someone in the audience.
+			if (!all && !ps.some((p) => audience!.has(p.userId))) continue;
 
 			const creator: FeedUser = {
 				id: b.creatorId,
@@ -262,8 +267,8 @@ export async function getFeed(opts: {
 		const toLeg = t.legs.find((l) => l.delta > 0);
 		if (!fromLeg || !toLeg || !fromLeg.name || !toLeg.name || !fromLeg.userId || !toLeg.userId)
 			continue;
-		// Audience filter: only show payments where the viewer or a friend is a party.
-		if (!audience.has(fromLeg.userId) && !audience.has(toLeg.userId)) continue;
+		// Audience filter: only show payments where someone in the audience is a party.
+		if (!all && !audience!.has(fromLeg.userId) && !audience!.has(toLeg.userId)) continue;
 		items.push({
 			id: `payment:${transferId}`,
 			type: 'payment',

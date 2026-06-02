@@ -10,6 +10,7 @@
 	const tabs = [
 		{ href: '/admin', label: 'Overview', exact: true },
 		{ href: '/admin/users', label: 'Users' },
+		{ href: '/admin/feed', label: 'Feed' },
 		{ href: '/admin/notifications', label: 'Notifications' },
 		{ href: '/admin/security-events', label: 'Security events' },
 		{ href: '/admin/system', label: 'System' }
