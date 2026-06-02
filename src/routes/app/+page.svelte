@@ -71,9 +71,9 @@
 								</div>
 							</div>
 							{#if b.needsMyResponse}
-								<Badge variant="gold" class="w-28 justify-center uppercase">Your reply</Badge>
+								<Badge variant="gold" class="w-24 justify-center uppercase">reply</Badge>
 							{:else}
-								<Badge variant="secondary" class="w-28 justify-center uppercase">Pending</Badge>
+								<Badge variant="secondary" class="w-24 justify-center uppercase">Pending</Badge>
 							{/if}
 						</div>
 					</a>
