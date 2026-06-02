@@ -237,7 +237,7 @@
 					</div>
 					<div class="space-y-2">
 						<Label for="title">Title</Label>
-						<Input id="title" name="title" required placeholder="Cornhole rematch" value={form?.title ?? ''} />
+						<Input id="title" name="title" required placeholder="What's the bet?" value={form?.title ?? ''} />
 					</div>
 				</div>
 
