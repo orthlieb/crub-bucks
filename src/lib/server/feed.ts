@@ -37,8 +37,10 @@ export type FeedItem =
 			at: Date;
 			betId: string;
 			title: string;
+			icon: string | null;
 			creator: FeedUser;
 			participants: FeedUser[];
+			people: FeedUser[];
 	  }
 	| {
 			id: string;
@@ -46,9 +48,11 @@ export type FeedItem =
 			at: Date;
 			betId: string;
 			title: string;
+			icon: string | null;
 			winners: FeedPerson[];
 			losers: FeedPerson[];
 			note: string | null;
+			people: FeedUser[];
 	  }
 	| {
 			id: string;
@@ -56,7 +60,9 @@ export type FeedItem =
 			at: Date;
 			betId: string;
 			title: string;
+			icon: string | null;
 			cancelledBy: FeedUser;
+			people: FeedUser[];
 	  }
 	| {
 			id: string;
@@ -67,6 +73,7 @@ export type FeedItem =
 			amount: number;
 			memo: string | null;
 			icon: string | null;
+			people: FeedUser[];
 	  };
 
 /**
@@ -94,6 +101,7 @@ export async function getFeed(opts: {
 		.select({
 			id: bets.id,
 			title: bets.title,
+			icon: bets.icon,
 			status: bets.status,
 			createdAt: bets.createdAt,
 			resolvedAt: bets.resolvedAt,
@@ -146,6 +154,13 @@ export async function getFeed(opts: {
 				name: b.creatorName,
 				avatarUpdatedAt: b.creatorAvatarUpdatedAt
 			};
+			const participants: FeedUser[] = ps.map((p) => ({
+				id: p.userId,
+				name: p.displayName,
+				avatarUpdatedAt: p.avatarUpdatedAt
+			}));
+			// Participant avatars, instigator (creator) first.
+			const people: FeedUser[] = [creator, ...participants.filter((p) => p.id !== creator.id)];
 
 			items.push({
 				id: `bet_created:${b.id}`,
@@ -153,12 +168,10 @@ export async function getFeed(opts: {
 				at: b.createdAt,
 				betId: b.id,
 				title: b.title,
+				icon: b.icon,
 				creator,
-				participants: ps.map((p) => ({
-					id: p.userId,
-					name: p.displayName,
-					avatarUpdatedAt: p.avatarUpdatedAt
-				}))
+				participants,
+				people
 			});
 
 			if (b.status === 'resolved' && b.resolvedAt) {
@@ -168,6 +181,8 @@ export async function getFeed(opts: {
 					at: b.resolvedAt,
 					betId: b.id,
 					title: b.title,
+					icon: b.icon,
+					people,
 					winners: ps
 						.filter((p) => p.outcome === 'won')
 						.map((p) => ({
@@ -204,7 +219,9 @@ export async function getFeed(opts: {
 					at: b.cancelledAt ?? b.createdAt,
 					betId: b.id,
 					title: b.title,
-					cancelledBy
+					icon: b.icon,
+					cancelledBy,
+					people
 				});
 			}
 		}
@@ -269,15 +286,27 @@ export async function getFeed(opts: {
 			continue;
 		// Audience filter: only show payments where someone in the audience is a party.
 		if (!all && !audience!.has(fromLeg.userId) && !audience!.has(toLeg.userId)) continue;
+		const from: FeedUser = {
+			id: fromLeg.userId,
+			name: fromLeg.name,
+			avatarUpdatedAt: fromLeg.avatarUpdatedAt
+		};
+		const to: FeedUser = {
+			id: toLeg.userId,
+			name: toLeg.name,
+			avatarUpdatedAt: toLeg.avatarUpdatedAt
+		};
 		items.push({
 			id: `payment:${transferId}`,
 			type: 'payment',
 			at: t.createdAt,
-			from: { id: fromLeg.userId, name: fromLeg.name, avatarUpdatedAt: fromLeg.avatarUpdatedAt },
-			to: { id: toLeg.userId, name: toLeg.name, avatarUpdatedAt: toLeg.avatarUpdatedAt },
+			from,
+			to,
 			amount: Math.abs(fromLeg.delta),
 			memo: t.memo,
-			icon: t.icon
+			icon: t.icon,
+			// Instigator (payer) first.
+			people: [from, to]
 		});
 	}
 

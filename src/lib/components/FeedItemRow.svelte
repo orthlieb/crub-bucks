@@ -1,19 +1,5 @@
 <script lang="ts" module>
-	import type { FeedItem, FeedUser } from '$lib/server/feed';
-
-	// The person whose avatar leads the row — the actor behind the event.
-	export function feedActor(item: FeedItem): FeedUser | null {
-		switch (item.type) {
-			case 'bet_created':
-				return item.creator;
-			case 'bet_cancelled':
-				return item.cancelledBy;
-			case 'payment':
-				return item.from;
-			case 'bet_resolved':
-				return item.winners[0] ?? item.losers[0] ?? null;
-		}
-	}
+	import type { FeedItem } from '$lib/server/feed';
 
 	// Lowercased text used for typeahead search: title, parties, comments, notes.
 	export function feedHaystack(item: FeedItem): string {
@@ -67,27 +53,32 @@
 		if (names.length === 2) return `${names[0]} & ${names[1]}`;
 		return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
 	}
-
-	const a = $derived(feedActor(item));
 </script>
 
 <Card>
 	<CardContent class="py-4">
+		<!-- Left → right: bet icon, bet text (with date, wraps), participant
+		     avatars (instigator first). On mobile the avatars drop to their own
+		     line under the text. -->
 		<div class="flex items-start gap-3">
-			{#if a}
-				<Avatar id={a.id} name={a.name} avatarUpdatedAt={a.avatarUpdatedAt} size={36} class="mt-0.5" />
-			{/if}
-			<div class="min-w-0 flex-1">
-				<div class="break-words text-sm leading-relaxed">
+			<div
+				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-muted/40 text-xl leading-none"
+				aria-hidden="true"
+			>
+				{item.icon ?? '💰'}
+			</div>
+
+			<div class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+				<div class="min-w-0 flex-1 break-words text-sm leading-relaxed">
 					{#if item.type === 'bet_created'}
-						<Badge variant="gold" class="mr-2 w-24 justify-center align-middle uppercase">bet</Badge>
+						<Badge variant="gold" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">bet</Badge>
 						<strong>{item.creator.name}</strong> started a bet
 						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
 						{#if item.participants.length > 1}
 							<span class="text-muted-foreground"> with {nameList(item.participants.filter((p) => p.id !== item.creator.id).map((p) => p.name))}</span>
 						{/if}.
 					{:else if item.type === 'bet_resolved'}
-						<Badge variant="info" class="mr-2 w-24 justify-center align-middle uppercase">resolved</Badge>
+						<Badge variant="info" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">resolved</Badge>
 						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
 						settled —
 						{#if item.winners.length > 0}
@@ -100,17 +91,22 @@
 							<span class="text-destructive">−{fmt(item.losers.reduce((s, l) => s + l.amount, 0))} ₡</span>
 						{/if}.{#if item.note}<span class="text-muted-foreground"> — {item.note}</span>{/if}
 					{:else if item.type === 'bet_cancelled'}
-						<Badge variant="destructive" class="mr-2 w-24 justify-center align-middle uppercase">cancelled</Badge>
+						<Badge variant="destructive" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">cancelled</Badge>
 						<strong>{item.cancelledBy.name}</strong> called off the bet
 						{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}.
 					{:else if item.type === 'payment'}
-						<Badge variant="success" class="mr-2 w-24 justify-center align-middle uppercase">payment</Badge>
-						{#if item.icon}<span class="mr-1 align-middle text-lg leading-none">{item.icon}</span>{/if}
+						<Badge variant="success" class="mr-2 w-24 shrink-0 justify-center align-middle uppercase">payment</Badge>
 						<strong>{item.from.name}</strong> paid <strong>{item.to.name}</strong>
 						<span class="text-foreground">{fmt(item.amount)} ₡</span>{#if item.memo}<span class="text-muted-foreground"> — {item.memo}</span>{/if}.
 					{/if}
+					<span class="text-muted-foreground"> · {fmtDate(item.at)}</span>
 				</div>
-				<time class="mt-1 block text-xs text-muted-foreground">{fmtDate(item.at)}</time>
+
+				<div class="flex flex-wrap gap-1 sm:shrink-0 sm:justify-end">
+					{#each item.people as p (p.id)}
+						<Avatar id={p.id} name={p.name} avatarUpdatedAt={p.avatarUpdatedAt} size={24} />
+					{/each}
+				</div>
 			</div>
 		</div>
 	</CardContent>

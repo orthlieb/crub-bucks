@@ -166,11 +166,11 @@
 			     content stacked on the right. items-stretch on the flex
 			     parent makes the image column match the form column's height. -->
 			<div class="flex items-stretch">
-				<div class="relative hidden w-40 shrink-0 overflow-hidden border-r bg-primary/5 sm:block lg:w-48">
+				<div class="hidden w-40 shrink-0 items-center justify-center overflow-hidden border-r bg-primary/5 p-2 sm:flex lg:w-48">
 					<img
 						src="/cala-money.png"
 						alt="Cala the dog proudly holding a 1 Crub Buck note."
-						class="absolute inset-0 h-full w-full select-none object-contain object-center p-2"
+						class="h-56 w-full select-none object-contain"
 					/>
 				</div>
 				<div class="min-w-0 flex-1">
@@ -326,11 +326,11 @@
 	<!-- Add / request -->
 	<Card class="overflow-hidden">
 		<div class="flex items-stretch">
-			<div class="relative hidden w-40 shrink-0 overflow-hidden border-r bg-primary/5 sm:block lg:w-48">
+			<div class="hidden w-40 shrink-0 items-center justify-center overflow-hidden border-r bg-primary/5 p-2 sm:flex lg:w-48">
 				<img
 					src="/cala-watching.png"
 					alt="Cala the dog patiently holding an envelope, waiting to deliver it."
-					class="absolute inset-0 h-full w-full select-none object-contain object-center p-2"
+					class="h-56 w-full select-none object-contain"
 				/>
 			</div>
 			<div class="min-w-0 flex-1">
