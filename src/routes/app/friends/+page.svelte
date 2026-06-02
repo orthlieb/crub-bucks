@@ -541,7 +541,7 @@
 	>
 		<!-- Favorite toggle. Form-on-button so it works without JS too; use:enhance
 		     re-fetches data and the star updates from the server. -->
-		<form method="POST" action="?/favorite" use:enhance class="pl-3">
+		<form method="POST" action="?/favorite" use:enhance class="shrink-0 pl-3">
 			<input type="hidden" name="friendId" value={f.id} />
 			<input type="hidden" name="isFavorite" value={!f.isFavorite} />
 			<button
@@ -559,7 +559,7 @@
 		<button
 			type="button"
 			onclick={() => (selectedFriendId = isSelected ? null : f.id)}
-			class="flex flex-1 cursor-pointer items-center gap-3 py-3 pr-3 text-left"
+			class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-3 pr-3 text-left"
 			aria-pressed={isSelected}
 		>
 			<Avatar id={f.id} name={f.displayName} avatarUpdatedAt={f.avatarUpdatedAt} size={36} />
