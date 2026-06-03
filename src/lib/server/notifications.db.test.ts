@@ -3,6 +3,11 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { notifications, users } from '$lib/server/db/schema';
 import { createNotification, dismissForUser } from '$lib/server/notifications';
+import {
+	sendFriendRequest,
+	transferBetweenUsers,
+	grantWelcomeIfNeeded
+} from '$lib/server/ledger';
 import { hasTestDb, resetDb, createUser } from '../../test/db';
 
 const suite = hasTestDb ? describe : describe.skip;
@@ -45,5 +50,24 @@ suite('notification GC on dismissal', () => {
 		const id = await createNotification({ title: 'Everyone' });
 		await dismissForUser(id, a.id); // only the active user dismisses
 		expect(await notifExists(id)).toBe(false);
+	});
+
+	it('a friend request notifies the addressee with a /app/friends link', async () => {
+		const a = await createUser({ displayName: 'Aaron' });
+		const b = await createUser();
+		await sendFriendRequest(a.id, b.email);
+		const [n] = await db.select().from(notifications).where(eq(notifications.userId, b.id));
+		expect(n?.link).toBe('/app/friends');
+		expect(n?.title).toMatch(/Aaron/);
+	});
+
+	it('a peer payment notifies the recipient with a /app/feed link', async () => {
+		const a = await createUser({ displayName: 'Payer' });
+		const b = await createUser();
+		await grantWelcomeIfNeeded(a.id);
+		await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 10, memo: 'lunch' });
+		const [n] = await db.select().from(notifications).where(eq(notifications.userId, b.id));
+		expect(n?.link).toBe('/app/feed');
+		expect(n?.title).toMatch(/Payer.*10/);
 	});
 });

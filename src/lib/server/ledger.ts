@@ -176,7 +176,7 @@ export async function transferBetweenUsers(opts: {
 	icon?: string | null;
 	createdBy?: string | null;
 }): Promise<string> {
-	return db.transaction(async (tx) => {
+	const transferId = await db.transaction(async (tx) => {
 		const fromWalletId = await getOrCreateUserWallet(opts.fromUserId, tx);
 		const toWalletId = await getOrCreateUserWallet(opts.toUserId, tx);
 		return transferInTx(tx, {
@@ -188,6 +188,22 @@ export async function transferBetweenUsers(opts: {
 			createdBy: opts.createdBy ?? opts.fromUserId
 		});
 	});
+
+	// Tell the recipient they got paid (best-effort).
+	const [payer] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, opts.fromUserId))
+		.limit(1);
+	await createNotification({
+		userId: opts.toUserId,
+		level: 'success',
+		title: `${payer?.displayName ?? 'Someone'} paid you ${opts.amount} ₡`,
+		body: opts.memo ? `“${opts.memo}”` : null,
+		link: '/app/feed'
+	}).catch(() => {});
+
+	return transferId;
 }
 
 /** Issue bucks from the Bank to a user's wallet. */
@@ -669,6 +685,13 @@ export async function sendFriendRequest(
 		throw new LedgerError(FRIEND_CAP_MESSAGE);
 	}
 
+	const [requester] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, requesterId))
+		.limit(1);
+	const requesterName = requester?.displayName ?? 'Someone';
+
 	const theirsPending = existing.find(
 		(r) => r.status === 'pending' && r.requesterId === other.id
 	);
@@ -678,10 +701,24 @@ export async function sendFriendRequest(
 			.update(friendships)
 			.set({ status: 'accepted', respondedAt: new Date() })
 			.where(eq(friendships.id, theirsPending.id));
+		await createNotification({
+			userId: other.id,
+			level: 'success',
+			title: `${requesterName} accepted your friend request`,
+			body: "You're now friends — start a bet or send some bucks.",
+			link: '/app/friends'
+		}).catch(() => {});
 		return { result: 'accepted', otherId: other.id };
 	}
 
 	await db.insert(friendships).values({ requesterId, addresseeId: other.id, status: 'pending' });
+	await createNotification({
+		userId: other.id,
+		level: 'info',
+		title: `${requesterName} sent you a friend request`,
+		body: 'Open Friends to accept or deny.',
+		link: '/app/friends'
+	}).catch(() => {});
 	return { result: 'sent', otherId: other.id };
 }
 
@@ -712,6 +749,20 @@ export async function acceptFriendRequest(userId: string, requestId: string): Pr
 		.update(friendships)
 		.set({ status: 'accepted', respondedAt: new Date() })
 		.where(eq(friendships.id, req.id));
+
+	// Let the original requester know their request was accepted.
+	const [accepter] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, userId))
+		.limit(1);
+	await createNotification({
+		userId: req.requesterId,
+		level: 'success',
+		title: `${accepter?.displayName ?? 'Someone'} accepted your friend request`,
+		body: "You're now friends — start a bet or send some bucks.",
+		link: '/app/friends'
+	}).catch(() => {});
 }
 
 /** Deny a pending request. Only the addressee may deny (row is deleted). */
@@ -973,6 +1024,7 @@ export async function createBet(opts: {
 				level: 'info',
 				title: `${who} invited you to a bet`,
 				body: `"${title.trim()}" — open it to accept or decline.`,
+				link: `/app/bet/${betId}`,
 				userId: uid
 			}).catch(() => {});
 		}
@@ -1041,6 +1093,7 @@ export async function acceptBet(opts: {
 			level: 'success',
 			title: 'Your bet is live',
 			body: `Everyone accepted "${result.title}". Time to play.`,
+			link: `/app/bet/${betId}`,
 			userId: result.createdBy
 		}).catch(() => {});
 	}
@@ -1088,6 +1141,7 @@ export async function declineBet(opts: {
 			level: 'warning',
 			title: 'A bet was declined',
 			body: `"${result.title}" was called off because someone declined.`,
+			link: `/app/bet/${betId}`,
 			userId: result.createdBy
 		}).catch(() => {});
 	}
