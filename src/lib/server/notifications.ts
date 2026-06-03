@@ -27,6 +27,7 @@ export interface Notification {
 	level: NotificationLevel;
 	title: string;
 	body: string | null;
+	link: string | null;
 	createdAt: Date;
 	isBroadcast: boolean;
 }
@@ -43,6 +44,8 @@ interface CreateInput {
 	level?: NotificationLevel;
 	title: string;
 	body?: string | null;
+	// optional in-app path to navigate to when clicked (e.g. /app/bet/<id>)
+	link?: string | null;
 	// null = broadcast; otherwise targeted at this user
 	userId?: string | null;
 	// null = system-generated (e.g. welcome grant); otherwise the acting admin
@@ -56,6 +59,7 @@ export async function createNotification(input: CreateInput): Promise<string> {
 			level: input.level ?? 'info',
 			title: input.title,
 			body: input.body ?? null,
+			link: input.link ?? null,
 			userId: input.userId ?? null,
 			createdBy: input.createdBy ?? null
 		})
@@ -75,6 +79,7 @@ export async function listActiveForUser(userId: string): Promise<Notification[]>
 			level: notifications.level,
 			title: notifications.title,
 			body: notifications.body,
+			link: notifications.link,
 			createdAt: notifications.createdAt,
 			userId: notifications.userId
 		})
@@ -99,6 +104,7 @@ export async function listActiveForUser(userId: string): Promise<Notification[]>
 		level: r.level,
 		title: r.title,
 		body: r.body,
+		link: r.link,
 		createdAt: r.createdAt,
 		isBroadcast: r.userId === null
 	}));
@@ -173,6 +179,7 @@ export async function listAllForAdmin(limit = 50): Promise<AdminNotificationRow[
 			level: notifications.level,
 			title: notifications.title,
 			body: notifications.body,
+			link: notifications.link,
 			createdAt: notifications.createdAt,
 			userId: notifications.userId,
 			createdBy: notifications.createdBy,
@@ -194,6 +201,7 @@ export async function listAllForAdmin(limit = 50): Promise<AdminNotificationRow[
 		level: r.level,
 		title: r.title,
 		body: r.body,
+		link: r.link,
 		createdAt: r.createdAt,
 		userId: r.userId,
 		recipientName: r.recipientName,

@@ -15,6 +15,7 @@
 	} from '$lib/components/ui/table';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import { formatAmount } from '$lib/format';
 	import { evenSplitDeltas, winnerLoserDeltas, tieredDeltas, type BetMode } from '$lib/ledger-math';
 	import GripVertical from '@lucide/svelte/icons/grip-vertical';
@@ -119,6 +120,14 @@
 		data.participants.every((p) => outcomes[p.userId] === 'won' || outcomes[p.userId] === 'lost')
 	);
 	const cBalanced = $derived(cAllChosen && cWin === cLose && cWin > 0);
+
+	// --- tie-split (manual settlement) ---------------------------------------
+	let manualOpen = $state(false);
+	let manualValues = $state<Record<string, number>>({});
+	let tieNote = $state('');
+	const manualSum = $derived(
+		data.participants.reduce((s, p) => s + (Number(manualValues[p.userId]) || 0), 0)
+	);
 
 	// --- pot mode -------------------------------------------------------------
 	let winnings = $state<Record<string, number>>({});
@@ -519,8 +528,11 @@
 						<Input id="note" name="note" placeholder="How'd it go?" maxlength={280} />
 					</div>
 
-					<div class="flex gap-2">
+					<div class="flex flex-wrap gap-2">
 						<Button type="submit" disabled={!canSettle}>Settle</Button>
+						{#if mode !== 'pot'}
+							<Button type="button" variant="outline" onclick={() => (manualOpen = true)}>Tied?</Button>
+						{/if}
 						<!-- Same form, but this submitter posts to the cancel action and
 						     skips the resolve-field validation. -->
 						<Button type="submit" variant="outline" formaction="?/cancel" formnovalidate>
@@ -530,5 +542,55 @@
 				</form>
 			</CardContent>
 		</Card>
+
+		<!-- Tie-split: settle by hand when the outcome is a tie. Distributes the
+		     same stakes via per-player net amounts that must balance to zero. -->
+		<Dialog.Root bind:open={manualOpen}>
+			<Dialog.Content class="max-w-md">
+				<Dialog.Title>Settle a tie</Dialog.Title>
+				<Dialog.Description>
+					Enter each player's net result — wins (+) and losses (−) must balance to zero. A note is
+					required, and this settles the bet immediately.
+				</Dialog.Description>
+				<form method="POST" action="?/resolve" use:enhance class="space-y-3">
+					<div class="space-y-1">
+						{#each data.participants as p (p.userId)}
+							<div class="flex items-center justify-between gap-2">
+								<span class="min-w-0 flex-1 truncate text-sm">
+									{p.displayName}{#if p.userId === data.myUserId}<span class="ml-1 text-xs text-muted-foreground">(you)</span>{/if}
+								</span>
+								<Input
+									type="number"
+									step="1"
+									name={`manual[${p.userId}]`}
+									bind:value={manualValues[p.userId]}
+									placeholder="0"
+									class="w-28 text-right tabular-nums"
+								/>
+							</div>
+						{/each}
+					</div>
+					<div class="rounded-md border bg-muted/30 p-2 text-sm">
+						Balance:
+						<strong class="tabular-nums {manualSum === 0 ? 'text-success' : 'text-destructive'}">
+							{manualSum}
+						</strong> ₡{#if manualSum !== 0}<span class="text-muted-foreground"> — must total 0</span>{/if}
+					</div>
+					<div class="space-y-1">
+						<Label for="tie-note">Note (required)</Label>
+						<Input
+							id="tie-note"
+							name="note"
+							bind:value={tieNote}
+							maxlength={280}
+							placeholder="e.g. Dabbles & Gerrit tied for first"
+						/>
+					</div>
+					<Dialog.Footer>
+						<Button type="submit" disabled={manualSum !== 0 || !tieNote.trim()}>Settle tie</Button>
+					</Dialog.Footer>
+				</form>
+			</Dialog.Content>
+		</Dialog.Root>
 	{/if}
 </div>

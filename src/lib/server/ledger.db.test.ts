@@ -388,6 +388,45 @@ suite('ledger workflows (DB)', () => {
 			expect(await userBalance(c.id)).toBe(80); // -20 (2/3)
 			expect(await assertZeroSum()).toBe(true);
 		});
+
+		it('tie-split: manual net deltas settle the bet (must balance, needs a note)', async () => {
+			const { a, b, c } = await trio();
+			const betId = await createBet({
+				mode: 'even_split',
+				title: 'Tie',
+				createdBy: a.id,
+				pool: 30,
+				participantIds: [a.id, b.id, c.id]
+			});
+			await goLive(betId, [a.id, b.id, c.id], a.id);
+
+			// A note is required for a manual split.
+			await expect(
+				resolveBet({ betId, manual: { [a.id]: 10, [b.id]: 10, [c.id]: -20 }, resolvedBy: a.id })
+			).rejects.toThrow(/note/i);
+
+			// The split must balance to zero.
+			await expect(
+				resolveBet({
+					betId,
+					manual: { [a.id]: 10, [b.id]: 10, [c.id]: -10 },
+					note: 'a & b tied for first',
+					resolvedBy: a.id
+				})
+			).rejects.toThrow(/balance/i);
+
+			// a & b tie for first, c eats the loss.
+			await resolveBet({
+				betId,
+				manual: { [a.id]: 10, [b.id]: 10, [c.id]: -20 },
+				note: 'a & b tied for first',
+				resolvedBy: a.id
+			});
+			expect(await userBalance(a.id)).toBe(110); // +10
+			expect(await userBalance(b.id)).toBe(110); // +10
+			expect(await userBalance(c.id)).toBe(80); // -20
+			expect(await assertZeroSum()).toBe(true);
+		});
 	});
 
 	describe('pot mode (re-buys + winnings)', () => {

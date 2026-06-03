@@ -429,6 +429,8 @@ export const notifications = pgTable(
 		level: notificationLevelEnum('level').notNull().default('info'),
 		title: text('title').notNull(),
 		body: text('body'),
+		// optional in-app path the notification links to (e.g. /app/bet/<id>).
+		link: text('link'),
 		// the admin who sent it; null for system-generated rows like welcome
 		createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()

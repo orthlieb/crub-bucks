@@ -176,7 +176,7 @@ export async function transferBetweenUsers(opts: {
 	icon?: string | null;
 	createdBy?: string | null;
 }): Promise<string> {
-	return db.transaction(async (tx) => {
+	const transferId = await db.transaction(async (tx) => {
 		const fromWalletId = await getOrCreateUserWallet(opts.fromUserId, tx);
 		const toWalletId = await getOrCreateUserWallet(opts.toUserId, tx);
 		return transferInTx(tx, {
@@ -188,6 +188,22 @@ export async function transferBetweenUsers(opts: {
 			createdBy: opts.createdBy ?? opts.fromUserId
 		});
 	});
+
+	// Tell the recipient they got paid (best-effort).
+	const [payer] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, opts.fromUserId))
+		.limit(1);
+	await createNotification({
+		userId: opts.toUserId,
+		level: 'success',
+		title: `${payer?.displayName ?? 'Someone'} paid you ${opts.amount} ₡`,
+		body: opts.memo ? `“${opts.memo}”` : null,
+		link: '/app/feed'
+	}).catch(() => {});
+
+	return transferId;
 }
 
 /** Issue bucks from the Bank to a user's wallet. */
@@ -669,6 +685,13 @@ export async function sendFriendRequest(
 		throw new LedgerError(FRIEND_CAP_MESSAGE);
 	}
 
+	const [requester] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, requesterId))
+		.limit(1);
+	const requesterName = requester?.displayName ?? 'Someone';
+
 	const theirsPending = existing.find(
 		(r) => r.status === 'pending' && r.requesterId === other.id
 	);
@@ -678,10 +701,24 @@ export async function sendFriendRequest(
 			.update(friendships)
 			.set({ status: 'accepted', respondedAt: new Date() })
 			.where(eq(friendships.id, theirsPending.id));
+		await createNotification({
+			userId: other.id,
+			level: 'success',
+			title: `${requesterName} accepted your friend request`,
+			body: "You're now friends — start a bet or send some bucks.",
+			link: '/app/friends'
+		}).catch(() => {});
 		return { result: 'accepted', otherId: other.id };
 	}
 
 	await db.insert(friendships).values({ requesterId, addresseeId: other.id, status: 'pending' });
+	await createNotification({
+		userId: other.id,
+		level: 'info',
+		title: `${requesterName} sent you a friend request`,
+		body: 'Open Friends to accept or deny.',
+		link: '/app/friends'
+	}).catch(() => {});
 	return { result: 'sent', otherId: other.id };
 }
 
@@ -712,6 +749,20 @@ export async function acceptFriendRequest(userId: string, requestId: string): Pr
 		.update(friendships)
 		.set({ status: 'accepted', respondedAt: new Date() })
 		.where(eq(friendships.id, req.id));
+
+	// Let the original requester know their request was accepted.
+	const [accepter] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, userId))
+		.limit(1);
+	await createNotification({
+		userId: req.requesterId,
+		level: 'success',
+		title: `${accepter?.displayName ?? 'Someone'} accepted your friend request`,
+		body: "You're now friends — start a bet or send some bucks.",
+		link: '/app/friends'
+	}).catch(() => {});
 }
 
 /** Deny a pending request. Only the addressee may deny (row is deleted). */
@@ -973,6 +1024,7 @@ export async function createBet(opts: {
 				level: 'info',
 				title: `${who} invited you to a bet`,
 				body: `"${title.trim()}" — open it to accept or decline.`,
+				link: `/app/bet/${betId}`,
 				userId: uid
 			}).catch(() => {});
 		}
@@ -1041,6 +1093,7 @@ export async function acceptBet(opts: {
 			level: 'success',
 			title: 'Your bet is live',
 			body: `Everyone accepted "${result.title}". Time to play.`,
+			link: `/app/bet/${betId}`,
 			userId: result.createdBy
 		}).catch(() => {});
 	}
@@ -1088,6 +1141,7 @@ export async function declineBet(opts: {
 			level: 'warning',
 			title: 'A bet was declined',
 			body: `"${result.title}" was called off because someone declined.`,
+			link: `/app/bet/${betId}`,
 			userId: result.createdBy
 		}).catch(() => {});
 	}
@@ -1163,11 +1217,14 @@ export async function resolveBet(opts: {
 	loserOrder?: string[];
 	/** 'pot' mode: per-participant final winnings (must sum to the pool). */
 	winnings?: Record<string, number>;
+	/** Tie-split escape hatch (any mode): per-participant net delta; must sum to
+	 *  0. Requires a note. Lets a tie be settled by hand without changing stakes. */
+	manual?: Record<string, number>;
 }): Promise<{ transferIds: string[] }> {
 	const { betId, resolvedBy } = opts;
 	const note = opts.note?.trim() || null;
 
-	return db.transaction(async (tx) => {
+	const result = await db.transaction(async (tx) => {
 		const [bet] = await tx
 			.select({
 				id: bets.id,
@@ -1200,7 +1257,20 @@ export async function resolveBet(opts: {
 		let deltas: ParticipantDelta[];
 		const lossRankByUser = new Map<string, number>();
 
-		if (bet.mode === 'custom') {
+		if (opts.manual) {
+			// Tie-split: the resolver sets each participant's net result directly.
+			// Mode-agnostic; must balance to zero and carry a note for the record.
+			if (!note) throw new LedgerError('Add a note explaining the split.');
+			const manual = opts.manual;
+			deltas = parts.map((p) => ({ userId: p.userId, delta: Math.trunc(Number(manual[p.userId] ?? 0)) }));
+			for (const d of deltas) {
+				if (!Number.isFinite(d.delta)) throw new LedgerError('Enter a whole number for each player.');
+			}
+			const sum = deltas.reduce((s, d) => s + d.delta, 0);
+			if (sum !== 0) {
+				throw new LedgerError('The split must balance to zero — winnings must equal losses.');
+			}
+		} else if (bet.mode === 'custom') {
 			const outcomes = opts.outcomes ?? {};
 			for (const p of parts) {
 				if (!(p.userId in outcomes)) {
@@ -1314,8 +1384,28 @@ export async function resolveBet(opts: {
 		const totalMoved = plan.reduce((sum, t) => sum + t.amount, 0);
 		await bumpStats(tx, { betsOpen: -1, betsResolved: 1, bucksWagered: totalMoved });
 
-		return { transferIds };
+		return { transferIds, title: bet.title, participantIds: deltas.map((d) => d.userId) };
 	});
+
+	// Tell the other participants the bet settled (the resolver just did it).
+	const [resolver] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, resolvedBy))
+		.limit(1);
+	const who = resolver?.displayName ?? 'Someone';
+	for (const uid of result.participantIds) {
+		if (uid === resolvedBy) continue;
+		await createNotification({
+			userId: uid,
+			level: 'info',
+			title: `${who} settled a bet`,
+			body: `"${result.title}" was resolved — see how you did.`,
+			link: `/app/bet/${betId}`
+		}).catch(() => {});
+	}
+
+	return { transferIds: result.transferIds };
 }
 
 export async function cancelBet(opts: { betId: string; cancelledBy: string }): Promise<void> {

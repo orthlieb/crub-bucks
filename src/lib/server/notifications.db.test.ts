@@ -1,8 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { notifications, users } from '$lib/server/db/schema';
+import { notifications, users, friendships } from '$lib/server/db/schema';
 import { createNotification, dismissForUser } from '$lib/server/notifications';
+import {
+	sendFriendRequest,
+	transferBetweenUsers,
+	grantWelcomeIfNeeded,
+	createBet,
+	acceptBet,
+	resolveBet
+} from '$lib/server/ledger';
 import { hasTestDb, resetDb, createUser } from '../../test/db';
 
 const suite = hasTestDb ? describe : describe.skip;
@@ -45,5 +53,56 @@ suite('notification GC on dismissal', () => {
 		const id = await createNotification({ title: 'Everyone' });
 		await dismissForUser(id, a.id); // only the active user dismisses
 		expect(await notifExists(id)).toBe(false);
+	});
+
+	it('a friend request notifies the addressee with a /app/friends link', async () => {
+		const a = await createUser({ displayName: 'Aaron' });
+		const b = await createUser();
+		await sendFriendRequest(a.id, b.email);
+		const [n] = await db.select().from(notifications).where(eq(notifications.userId, b.id));
+		expect(n?.link).toBe('/app/friends');
+		expect(n?.title).toMatch(/Aaron/);
+	});
+
+	it('a peer payment notifies the recipient with a /app/feed link', async () => {
+		const a = await createUser({ displayName: 'Payer' });
+		const b = await createUser();
+		await grantWelcomeIfNeeded(a.id);
+		await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 10, memo: 'lunch' });
+		const [n] = await db.select().from(notifications).where(eq(notifications.userId, b.id));
+		expect(n?.link).toBe('/app/feed');
+		expect(n?.title).toMatch(/Payer.*10/);
+	});
+
+	it('resolving a bet notifies the other participants with a /app/bet link', async () => {
+		const a = await createUser();
+		const b = await createUser();
+		await db.insert(friendships).values({
+			requesterId: a.id,
+			addresseeId: b.id,
+			status: 'accepted',
+			respondedAt: new Date()
+		});
+		await grantWelcomeIfNeeded(a.id);
+		await grantWelcomeIfNeeded(b.id);
+		const betId = await createBet({
+			mode: 'custom',
+			title: 'Darts',
+			createdBy: a.id,
+			participants: [
+				{ userId: a.id, payoutIfWin: 10, lossIfLose: 10 },
+				{ userId: b.id, payoutIfWin: 10, lossIfLose: 10 }
+			]
+		});
+		await acceptBet({ betId, userId: b.id });
+		await resolveBet({ betId, outcomes: { [a.id]: 'won', [b.id]: 'lost' }, resolvedBy: a.id });
+
+		const bNotifs = await db.select().from(notifications).where(eq(notifications.userId, b.id));
+		const settled = bNotifs.find((n) => n.title.includes('settled'));
+		expect(settled?.link).toBe(`/app/bet/${betId}`);
+
+		// The resolver (a) doesn't get a "settled" notification.
+		const aNotifs = await db.select().from(notifications).where(eq(notifications.userId, a.id));
+		expect(aNotifs.some((n) => n.title.includes('settled'))).toBe(false);
 	});
 });

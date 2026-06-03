@@ -244,10 +244,19 @@
 		{#if data.notifications.length > 0}
 			<div class="mb-6 space-y-2">
 				{#each data.notifications as n (n.id)}
-					<Alert variant={alertVariantFor(n.level)} class="pr-12">
-						<AlertTitle>{n.title}</AlertTitle>
-						{#if n.body}
-							<AlertDescription>{n.body}</AlertDescription>
+					<Alert variant={alertVariantFor(n.level)} class="relative pr-12">
+						{#if n.link}
+							<a href={n.link} class="block rounded-sm hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+								<AlertTitle>{n.title}</AlertTitle>
+								{#if n.body}
+									<AlertDescription class="no-underline">{n.body}</AlertDescription>
+								{/if}
+							</a>
+						{:else}
+							<AlertTitle>{n.title}</AlertTitle>
+							{#if n.body}
+								<AlertDescription>{n.body}</AlertDescription>
+							{/if}
 						{/if}
 						<form
 							method="POST"
