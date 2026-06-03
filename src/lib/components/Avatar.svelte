@@ -1,11 +1,13 @@
 <script lang="ts" module>
-	// Deterministic hue from a string, so a given user always gets the same
-	// colour for their initials avatar across the app.
-	function hueFromString(s: string): number {
-		let h = 0;
-		for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-		return h % 360;
-	}
+	// Coloured status ring around the avatar. Driven by the user's relationship
+	// to a bet: acceptance (pending), outcome (resolved), or who cancelled it.
+	export type AvatarRing = 'green' | 'yellow' | 'red' | null;
+
+	const RINGS: Record<'green' | 'yellow' | 'red', string> = {
+		green: 'ring-2 ring-success',
+		yellow: 'ring-2 ring-yellow-400',
+		red: 'ring-2 ring-destructive'
+	};
 
 	function initialsOf(name: string): string {
 		const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -22,6 +24,7 @@
 		id,
 		name,
 		avatarUpdatedAt = null,
+		ring = null,
 		size = 32,
 		class: className
 	}: {
@@ -29,6 +32,8 @@
 		name: string;
 		/** Set when the user has an uploaded photo; also cache-busts the URL. */
 		avatarUpdatedAt?: Date | string | null;
+		/** Coloured status ring (bet acceptance / outcome / cancellation). */
+		ring?: AvatarRing;
 		size?: number;
 		class?: string;
 	} = $props();
@@ -38,16 +43,16 @@
 
 	const version = $derived(avatarUpdatedAt ? new Date(avatarUpdatedAt).getTime() : null);
 	const showImg = $derived(version !== null && !imgFailed);
-	const hue = $derived(hueFromString(id || name));
 	const initials = $derived(initialsOf(name));
 </script>
 
 <span
 	class={cn(
-		'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted font-medium text-white select-none',
+		'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary font-medium text-primary-foreground select-none',
+		ring && RINGS[ring],
 		className
 	)}
-	style={`width:${size}px;height:${size}px;${showImg ? '' : `background-color:hsl(${hue} 55% 45%);`}`}
+	style={`width:${size}px;height:${size}px;`}
 	aria-label={name}
 	title={name}
 >

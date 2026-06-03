@@ -12,29 +12,45 @@
 </script>
 
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-	import Avatar from '$lib/components/Avatar.svelte';
+	import Avatar, { type AvatarRing } from '$lib/components/Avatar.svelte';
+	import { formatAmount } from '$lib/format';
 	import { cn } from '$lib/utils';
 
-	type Person = { id: string; name: string; avatarUpdatedAt: Date | string | null };
+	type Person = {
+		id: string;
+		name: string;
+		avatarUpdatedAt: Date | string | null;
+		ring?: AvatarRing;
+	};
 
 	let {
 		icon = null,
 		label,
 		tone,
+		title,
+		amount = null,
+		comment = null,
+		date,
+		locale,
 		people = [],
 		href,
-		class: className,
-		children
+		class: className
 	}: {
 		icon?: string | null;
 		label: string;
 		tone: BetTone;
+		/** Headline: the bet title, or a payment's "A paid B" summary. */
+		title: string;
+		/** Total wagered (bets) or transferred (payments). Null hides the line. */
+		amount?: number | null;
+		/** Optional note on its own line: resolution note / payment memo. */
+		comment?: string | null;
+		date: Date | string;
+		locale?: string;
 		people?: Person[];
 		/** When set, the whole card is a link. */
 		href?: string;
 		class?: string;
-		children: Snippet;
 	} = $props();
 
 	const t = $derived(TONES[tone]);
@@ -46,6 +62,15 @@
 			className
 		)
 	);
+
+	function fmtDate(d: Date | string): string {
+		const parsed = typeof d === 'string' ? new Date(d) : d;
+		return parsed.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+	}
+
+	// Stack avatars into at most two rows, filling top-first: 2×1, then 2×2 (3–4),
+	// 3×2 (5–6), 4×2 (7–8)… — columns grow, rows cap at two.
+	const avatarCols = $derived(people.length <= 2 ? people.length : Math.ceil(people.length / 2));
 </script>
 
 {#snippet inner()}
@@ -59,15 +84,27 @@
 		</div>
 	</div>
 
-	<!-- Text + participants, vertically centred. -->
+	<!-- Standardised body: title + amount, optional comment, date — then avatars. -->
 	<div class="flex min-w-0 flex-1 items-center justify-between gap-3 p-4">
-		<div class="min-w-0 flex-1 break-words text-sm leading-relaxed">
-			{@render children()}
+		<div class="min-w-0 flex-1 space-y-1">
+			<div class="truncate text-sm font-semibold">
+				{#if amount != null}<span class="tabular-nums">{formatAmount(amount, locale)} ₡</span>{' — '}{/if}{title}
+			</div>
+			{#if comment}
+				<div class="break-words text-xs text-muted-foreground">{comment}</div>
+			{/if}
+			<div class="text-xs text-muted-foreground">{fmtDate(date)}</div>
 		</div>
 		{#if people.length > 0}
-			<div class="flex max-w-[45%] flex-wrap justify-end gap-1">
+			<div class="grid shrink-0 gap-1" style={`grid-template-columns:repeat(${avatarCols}, auto)`}>
 				{#each people as p (p.id)}
-					<Avatar id={p.id} name={p.name} avatarUpdatedAt={p.avatarUpdatedAt} size={24} />
+					<Avatar
+						id={p.id}
+						name={p.name}
+						avatarUpdatedAt={p.avatarUpdatedAt}
+						ring={p.ring ?? null}
+						size={24}
+					/>
 				{/each}
 			</div>
 		{/if}

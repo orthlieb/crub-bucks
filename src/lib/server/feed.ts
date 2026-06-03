@@ -23,6 +23,12 @@ export interface FeedUser {
 	id: string;
 	name: string;
 	avatarUpdatedAt: Date | null;
+	/**
+	 * Status ring for this person's avatar within an item. Only the `people`
+	 * arrays set it: green/red for resolved winners/losers, red for the canceller.
+	 * Created bets and payments leave it unset (no ring).
+	 */
+	ring?: 'green' | 'yellow' | 'red' | null;
 }
 
 /** A feed person with an associated amount (bet winners / losers). */
@@ -38,6 +44,7 @@ export type FeedItem =
 			betId: string;
 			title: string;
 			icon: string | null;
+			amount: number | null;
 			creator: FeedUser;
 			participants: FeedUser[];
 			people: FeedUser[];
@@ -49,6 +56,7 @@ export type FeedItem =
 			betId: string;
 			title: string;
 			icon: string | null;
+			amount: number | null;
 			winners: FeedPerson[];
 			losers: FeedPerson[];
 			note: string | null;
@@ -61,6 +69,7 @@ export type FeedItem =
 			betId: string;
 			title: string;
 			icon: string | null;
+			amount: number | null;
 			cancelledBy: FeedUser;
 			people: FeedUser[];
 	  }
@@ -103,6 +112,7 @@ export async function getFeed(opts: {
 			title: bets.title,
 			icon: bets.icon,
 			status: bets.status,
+			pool: bets.pool,
 			createdAt: bets.createdAt,
 			resolvedAt: bets.resolvedAt,
 			resolutionNote: bets.resolutionNote,
@@ -126,7 +136,8 @@ export async function getFeed(opts: {
 				displayName: users.displayName,
 				avatarUpdatedAt: users.avatarUpdatedAt,
 				outcome: betParticipants.outcome,
-				settledDelta: betParticipants.settledDelta
+				settledDelta: betParticipants.settledDelta,
+				lossIfLose: betParticipants.lossIfLose
 			})
 			.from(betParticipants)
 			.innerJoin(users, eq(users.id, betParticipants.userId))
@@ -149,6 +160,13 @@ export async function getFeed(opts: {
 			// Audience filter: only show bets that involve someone in the audience.
 			if (!all && !ps.some((p) => audience!.has(p.userId))) continue;
 
+			// Total wagered: the pot for pooled modes, else the sum of each
+			// player's stake (loss-if-lose) for custom bets, which have no pot.
+			const amount =
+				b.pool != null
+					? Number(b.pool)
+					: ps.reduce((s, p) => s + Number(p.lossIfLose ?? 0), 0);
+
 			const creator: FeedUser = {
 				id: b.creatorId,
 				name: b.creatorName,
@@ -169,12 +187,19 @@ export async function getFeed(opts: {
 				betId: b.id,
 				title: b.title,
 				icon: b.icon,
+				amount,
 				creator,
 				participants,
 				people
 			});
 
 			if (b.status === 'resolved' && b.resolvedAt) {
+				// Same avatars as the created event, but ringed by outcome.
+				const outcomeById = new Map(ps.map((p) => [p.userId, p.outcome]));
+				const resolvedPeople: FeedUser[] = people.map((pp) => {
+					const o = outcomeById.get(pp.id);
+					return { ...pp, ring: o === 'won' ? 'green' : o === 'lost' ? 'red' : null };
+				});
 				items.push({
 					id: `bet_resolved:${b.id}`,
 					type: 'bet_resolved',
@@ -182,7 +207,8 @@ export async function getFeed(opts: {
 					betId: b.id,
 					title: b.title,
 					icon: b.icon,
-					people,
+					amount,
+					people: resolvedPeople,
 					winners: ps
 						.filter((p) => p.outcome === 'won')
 						.map((p) => ({
@@ -213,6 +239,11 @@ export async function getFeed(opts: {
 							avatarUpdatedAt: cancellerPart.avatarUpdatedAt
 						}
 					: creator;
+				// Red ring on whoever called it off; everyone else unringed.
+				const cancelledPeople: FeedUser[] = people.map((pp) => ({
+					...pp,
+					ring: pp.id === b.cancelledBy ? 'red' : null
+				}));
 				items.push({
 					id: `bet_cancelled:${b.id}`,
 					type: 'bet_cancelled',
@@ -220,8 +251,9 @@ export async function getFeed(opts: {
 					betId: b.id,
 					title: b.title,
 					icon: b.icon,
+					amount,
 					cancelledBy,
-					people
+					people: cancelledPeople
 				});
 			}
 		}

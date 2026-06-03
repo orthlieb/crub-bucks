@@ -489,7 +489,7 @@
 						<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 							Favorites
 						</h3>
-						<div class="space-y-2">
+						<div class="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
 							{#each filteredFavorites as f (f.id)}
 								{@render friendRow(f)}
 							{/each}
@@ -503,7 +503,7 @@
 								All friends
 							</h3>
 						{/if}
-						<div class="space-y-2">
+						<div class="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
 							{#each filteredOthers as f (f.id)}
 								{@render friendRow(f)}
 							{/each}
@@ -551,13 +551,14 @@
 				<div class="truncate text-xs text-muted-foreground">{f.email}</div>
 			</div>
 		</button>
-		<!-- Unfriend, revealed on row hover (desktop) or focus-within. Always
+		<!-- Unfriend, revealed on row hover (desktop) or when the button itself is
+		     focused (keyboard). Selecting the row no longer reveals it. Always
 		     visible on touch / small viewports since there's no hover there. -->
 		<form
 			method="POST"
 			action="?/unfriend"
 			use:enhance
-			class="ml-auto shrink-0 pr-3 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+			class="ml-auto shrink-0 pr-3 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100"
 			onsubmit={(e) => {
 				if (!confirm(`Unfriend ${f.displayName}?`)) e.preventDefault();
 			}}
