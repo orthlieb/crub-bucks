@@ -152,9 +152,12 @@
 </script>
 
 <div class="space-y-8">
-	<header>
-		<h1 class="text-3xl font-bold tracking-tight">Friends</h1>
-		<p class="mt-1 text-muted-foreground">Send a request by email; they approve before you're connected.</p>
+	<header class="flex items-center gap-3">
+		<img src="/friends.png" alt="" class="h-12 w-12 shrink-0 object-contain" />
+		<div>
+			<h1 class="text-3xl font-bold tracking-tight">Friends</h1>
+			<p class="mt-1 text-muted-foreground">Send a request by email; they approve before you're connected.</p>
+		</div>
 	</header>
 
 	<!-- Pay a friend (or unfriend). Picks from the same `selectedFriendId`
