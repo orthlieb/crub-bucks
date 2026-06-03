@@ -219,7 +219,7 @@
 						alt="Cala celebrating a win"
 						width="160"
 						height="214"
-						class="max-h-28 max-w-[40%] select-none sm:max-h-32"
+						class="h-auto w-auto max-h-28 max-w-[40%] object-contain select-none sm:max-h-32"
 						draggable="false"
 					/>
 					<div class="min-w-0 flex-1">
@@ -239,7 +239,7 @@
 						alt="Cala flopped over after a loss"
 						width="220"
 						height="123"
-						class="max-h-28 max-w-[40%] select-none sm:max-h-32"
+						class="h-auto w-auto max-h-28 max-w-[40%] object-contain select-none sm:max-h-32"
 						draggable="false"
 					/>
 					<div class="min-w-0 flex-1">

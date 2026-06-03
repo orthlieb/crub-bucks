@@ -5,12 +5,6 @@
 	import BetCard from '$lib/components/BetCard.svelte';
 
 	let { data }: { data: PageData } = $props();
-
-	function fmtDate(d: Date | string | null): string {
-		if (!d) return '—';
-		const date = typeof d === 'string' ? new Date(d) : d;
-		return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-	}
 </script>
 
 <div class="space-y-8">
@@ -43,14 +37,14 @@
 						icon={b.icon}
 						label={b.needsMyResponse ? 'Reply' : 'Pending'}
 						tone="amber"
+						title={b.title}
+						amount={b.amount}
+						comment={b.comment}
+						date={b.createdAt}
+						locale={data.locale}
 						people={b.people}
 						class={b.needsMyResponse ? 'border-primary/60' : ''}
-					>
-						<div class="truncate font-semibold">{b.title}</div>
-						<div class="mt-1 text-xs text-muted-foreground">
-							{fmtDate(b.createdAt)}
-						</div>
-					</BetCard>
+					/>
 				{/each}
 			</div>
 		</section>
@@ -80,13 +74,12 @@
 						icon={b.icon}
 						label="Open"
 						tone="violet"
+						title={b.title}
+						amount={b.amount}
+						date={b.createdAt}
+						locale={data.locale}
 						people={b.people}
-					>
-						<div class="truncate font-semibold">{b.title}</div>
-						<div class="mt-1 text-xs text-muted-foreground">
-							{fmtDate(b.createdAt)}
-						</div>
-					</BetCard>
+					/>
 				{/each}
 			</div>
 		{/if}
@@ -108,13 +101,13 @@
 						icon={b.icon}
 						label={b.status === 'resolved' ? 'Resolved' : 'Cancelled'}
 						tone={b.status === 'resolved' ? 'blue' : 'red'}
+						title={b.title}
+						amount={b.amount}
+						comment={b.comment}
+						date={(b.status === 'resolved' ? b.resolvedAt : b.cancelledAt) ?? b.createdAt}
+						locale={data.locale}
 						people={b.people}
-					>
-						<div class="truncate font-medium">{b.title}</div>
-						<div class="mt-1 text-xs text-muted-foreground">
-							{b.status === 'resolved' ? `resolved ${fmtDate(b.resolvedAt)}` : 'cancelled'}
-						</div>
-					</BetCard>
+					/>
 				{/each}
 			</div>
 		</section>

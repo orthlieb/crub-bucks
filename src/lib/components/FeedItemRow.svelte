@@ -29,15 +29,13 @@
 
 <script lang="ts">
 	import BetCard, { type BetTone } from '$lib/components/BetCard.svelte';
-	import { formatAmount } from '$lib/format';
+	import { resolvedSummary, cancelledSummary } from '$lib/bet-summary';
 
 	let {
 		item,
 		locale,
 		linkBets = true
 	}: { item: FeedItem; locale: string; linkBets?: boolean } = $props();
-
-	const fmt = (n: number) => formatAmount(n, locale);
 
 	// State → icon-box label + tone.
 	const STATE: Record<FeedItem['type'], { label: string; tone: BetTone }> = {
@@ -48,45 +46,36 @@
 	};
 	const state = $derived(STATE[item.type]);
 
-	function fmtDate(d: Date | string): string {
-		const date = typeof d === 'string' ? new Date(d) : d;
-		return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-	}
-
-	// "A", "A & B", "A, B & C"
-	function nameList(names: string[]): string {
-		if (names.length === 0) return 'nobody';
-		if (names.length === 1) return names[0];
-		if (names.length === 2) return `${names[0]} & ${names[1]}`;
-		return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
-	}
+	// Standardised body shared with the dashboard: title, amount, comment, date.
+	const title = $derived(
+		item.type === 'payment' ? `${item.from.name} paid ${item.to.name}` : item.title
+	);
+	// Resolved/cancelled auto-generate a summary when there's no written note;
+	// payments show their memo; created bets get nothing.
+	const comment = $derived.by(() => {
+		switch (item.type) {
+			case 'bet_resolved':
+				return item.note ?? resolvedSummary(item.winners.map((w) => w.name));
+			case 'bet_cancelled':
+				return cancelledSummary(item.cancelledBy.name);
+			case 'payment':
+				return item.memo;
+			default:
+				return null;
+		}
+	});
+	const href = $derived(linkBets && item.type !== 'payment' ? `/app/bet/${item.betId}` : undefined);
 </script>
 
-<BetCard icon={item.icon} label={state.label} tone={state.tone} people={item.people}>
-	{#if item.type === 'bet_created'}
-		<strong>{item.creator.name}</strong> started a bet
-		{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
-		{#if item.participants.length > 1}
-			<span class="text-muted-foreground"> with {nameList(item.participants.filter((p) => p.id !== item.creator.id).map((p) => p.name))}</span>
-		{/if}.
-	{:else if item.type === 'bet_resolved'}
-		{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}
-		settled —
-		{#if item.winners.length > 0}
-			<strong>{nameList(item.winners.map((w) => w.name))}</strong>
-			won
-			<span class="text-success">+{fmt(item.winners.reduce((s, w) => s + w.amount, 0))} ₡</span>
-		{/if}{#if item.winners.length > 0 && item.losers.length > 0}; {/if}
-		{#if item.losers.length > 0}
-			<span class="text-muted-foreground">{nameList(item.losers.map((l) => l.name))} lost</span>
-			<span class="text-destructive">−{fmt(item.losers.reduce((s, l) => s + l.amount, 0))} ₡</span>
-		{/if}.{#if item.note}<span class="text-muted-foreground"> — {item.note}</span>{/if}
-	{:else if item.type === 'bet_cancelled'}
-		<strong>{item.cancelledBy.name}</strong> called off the bet
-		{#if linkBets}<a href={`/app/bet/${item.betId}`} class="font-medium text-primary hover:underline">“{item.title}”</a>{:else}<span class="font-medium">“{item.title}”</span>{/if}.
-	{:else if item.type === 'payment'}
-		<strong>{item.from.name}</strong> paid <strong>{item.to.name}</strong>
-		<span class="text-foreground">{fmt(item.amount)} ₡</span>{#if item.memo}<span class="text-muted-foreground"> — {item.memo}</span>{/if}.
-	{/if}
-	<span class="text-muted-foreground"> · {fmtDate(item.at)}</span>
-</BetCard>
+<BetCard
+	icon={item.icon}
+	label={state.label}
+	tone={state.tone}
+	{title}
+	amount={item.amount}
+	{comment}
+	date={item.at}
+	{locale}
+	{href}
+	people={item.people}
+/>
