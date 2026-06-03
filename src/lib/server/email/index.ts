@@ -51,9 +51,11 @@ export async function sendPasswordResetEmail(opts: {
 export async function sendFriendInviteEmail(opts: {
 	to: string;
 	inviterName: string;
+	/** Ties the signup back to this invite even if they use a different email. */
+	inviteId: string;
 }): Promise<void> {
 	const appUrl = getAppUrl();
-	const joinUrl = `${appUrl}/register?email=${encodeURIComponent(opts.to)}`;
+	const joinUrl = `${appUrl}/register?invite=${encodeURIComponent(opts.inviteId)}&email=${encodeURIComponent(opts.to)}`;
 	const msg = friendInviteTemplate({ inviterName: opts.inviterName, joinUrl, appUrl });
 	await getEmailTransport().send({ to: opts.to, ...msg });
 }

@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { users } from '$lib/server/db/schema';
+import { users, friendInvites } from '$lib/server/db/schema';
 import { hashPassword, validatePassword } from '$lib/server/auth/password';
 import { sanitizeDisplayName, DISPLAY_NAME_MIN, DISPLAY_NAME_MAX } from '$lib/server/display-name';
 import { issueAuthToken, TOKEN_EXPIRY_MS } from '$lib/server/auth/tokens';
@@ -13,7 +13,7 @@ import {
 	DEFAULT_DAILY_FULL_MESSAGE,
 	evaluateSignupGate
 } from '$lib/server/auth/signup-gate';
-import { materializeInvitesForUser } from '$lib/server/ledger';
+import { materializeInvitesForUser, materializeInviteById } from '$lib/server/ledger';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -30,14 +30,28 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		registrationFullToday = today >= config.registrationDailyLimit;
 	}
 
+	// Friend-invite link: ?invite=<id> ties the signup back to the invite even
+	// if they register with a different email; ?email= just suggests an address.
+	// When only the invite id is present, look up the invited email to prefill.
+	const inviteId = url.searchParams.get('invite') ?? '';
+	let prefillEmail = url.searchParams.get('email') ?? '';
+	if (inviteId && !prefillEmail) {
+		const [inv] = await db
+			.select({ email: friendInvites.email })
+			.from(friendInvites)
+			.where(and(eq(friendInvites.id, inviteId), isNull(friendInvites.claimedAt)))
+			.limit(1);
+		if (inv) prefillEmail = inv.email;
+	}
+
 	return {
 		registrationLocked: config.registrationLock,
 		registrationLockMessage: config.registrationLockMessage,
 		registrationFullToday,
 		registrationFullTodayMessage:
 			config.registrationDailyLimitMessage || DEFAULT_DAILY_FULL_MESSAGE,
-		// Prefill from a friend-invite link (?email=).
-		prefillEmail: url.searchParams.get('email') ?? ''
+		prefillEmail,
+		prefillInvite: inviteId
 	};
 };
 
@@ -149,9 +163,12 @@ export const actions: Actions = {
 			}
 
 			// Turn any outstanding friend invites to this email into pending
-			// friend requests for the new account.
+			// friend requests for the new account. Also claim the specific invite
+			// from the link (?invite=) so a mismatched signup email still connects.
 			try {
 				await materializeInvitesForUser(email, userId);
+				const inviteId = String(form.get('invite') ?? '');
+				if (inviteId) await materializeInviteById(inviteId, userId);
 			} catch (err) {
 				console.warn('[register] failed to materialize friend invites:', err);
 			}

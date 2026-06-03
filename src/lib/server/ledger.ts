@@ -639,11 +639,20 @@ export async function sendFriendRequest(
 			throw new LedgerError(FRIEND_CAP_MESSAGE);
 		}
 
-		if (!existingInvite) {
-			await db.insert(friendInvites).values({ inviterId: requesterId, email: normalized });
+		let inviteId = existingInvite?.id;
+		if (!inviteId) {
+			const [created] = await db
+				.insert(friendInvites)
+				.values({ inviterId: requesterId, email: normalized })
+				.returning({ id: friendInvites.id });
+			inviteId = created.id;
 		}
 		try {
-			await sendFriendInviteEmail({ to: normalized, inviterName: me?.displayName ?? 'A friend' });
+			await sendFriendInviteEmail({
+				to: normalized,
+				inviterName: me?.displayName ?? 'A friend',
+				inviteId
+			});
 		} catch (err) {
 			console.warn('[friend-invite] failed to send invite email:', err);
 		}
@@ -860,6 +869,35 @@ export async function materializeInvitesForUser(email: string, newUserId: string
 			.set({ claimedAt: new Date(), claimedUserId: newUserId })
 			.where(eq(friendInvites.id, inv.id));
 	}
+}
+
+/**
+ * Claim a single invite by its id — used when a new user follows an invite
+ * link but registers with a *different* email than the one invited. The invite
+ * id in the link ties the two together. Materializes the same inviter→new-user
+ * pending request. No-op if the invite is unknown, already claimed, or a
+ * self-invite.
+ */
+export async function materializeInviteById(inviteId: string, newUserId: string): Promise<void> {
+	const [inv] = await db
+		.select({
+			id: friendInvites.id,
+			inviterId: friendInvites.inviterId,
+			claimedAt: friendInvites.claimedAt
+		})
+		.from(friendInvites)
+		.where(eq(friendInvites.id, inviteId))
+		.limit(1);
+	if (!inv || inv.claimedAt || inv.inviterId === newUserId) return;
+
+	await db
+		.insert(friendships)
+		.values({ requesterId: inv.inviterId, addresseeId: newUserId, status: 'pending' })
+		.onConflictDoNothing();
+	await db
+		.update(friendInvites)
+		.set({ claimedAt: new Date(), claimedUserId: newUserId })
+		.where(eq(friendInvites.id, inv.id));
 }
 
 /** Set of accepted-friend user ids for a user (used by createBet). */
