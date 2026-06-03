@@ -19,9 +19,12 @@
 </script>
 
 <div class="space-y-6">
-	<header>
-		<h1 class="text-3xl font-bold tracking-tight">Feed</h1>
-		<p class="mt-1 text-muted-foreground">In circulation {fmt(-data.bank)} ₡</p>
+	<header class="flex items-center gap-3">
+		<img src="/feed.png" alt="" class="h-12 w-12 shrink-0 object-contain" />
+		<div>
+			<h1 class="text-3xl font-bold tracking-tight">Feed</h1>
+			<p class="mt-1 text-muted-foreground">In circulation {fmt(-data.bank)} ₡</p>
+		</div>
 	</header>
 
 	{#if data.items.length > 0}

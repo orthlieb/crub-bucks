@@ -8,9 +8,12 @@
 </script>
 
 <div class="space-y-8">
-	<header>
-		<h1 class="text-3xl font-bold tracking-tight">Your bets</h1>
-		<p class="mt-1 italic text-muted-foreground">{data.tagline}</p>
+	<header class="flex items-center gap-3">
+		<img src="/bets.png" alt="" class="h-12 w-12 shrink-0 object-contain" />
+		<div>
+			<h1 class="text-3xl font-bold tracking-tight">Your bets</h1>
+			<p class="mt-1 italic text-muted-foreground">{data.tagline}</p>
+		</div>
 	</header>
 
 	<div class="flex flex-wrap gap-2">
