@@ -1259,7 +1259,8 @@ export async function resolveBet(opts: {
 
 		if (opts.manual) {
 			// Tie-split: the resolver sets each participant's net result directly.
-			// Mode-agnostic; must balance to zero and carry a note for the record.
+			// Mode-agnostic; must balance to zero, move exactly the original pot
+			// (no inventing or shrinking stakes), and carry a note for the record.
 			if (!note) throw new LedgerError('Add a note explaining the split.');
 			const manual = opts.manual;
 			deltas = parts.map((p) => ({ userId: p.userId, delta: Math.trunc(Number(manual[p.userId] ?? 0)) }));
@@ -1269,6 +1270,13 @@ export async function resolveBet(opts: {
 			const sum = deltas.reduce((s, d) => s + d.delta, 0);
 			if (sum !== 0) {
 				throw new LedgerError('The split must balance to zero — winnings must equal losses.');
+			}
+			const won = deltas.reduce((s, d) => s + (d.delta > 0 ? d.delta : 0), 0);
+			const pool = Number(bet.pool ?? 0);
+			if (won !== pool) {
+				throw new LedgerError(
+					`The winnings must total the ${pool} ₡ pot (you distributed ${won} ₡). For an all-tie wash where no one pays, cancel the bet instead.`
+				);
 			}
 		} else if (bet.mode === 'custom') {
 			const outcomes = opts.outcomes ?? {};
