@@ -61,6 +61,10 @@
 				{/if}
 
 				<form method="POST" use:enhance class="space-y-4">
+					<!-- Ties this signup back to the invite even if the email differs. -->
+					{#if data.prefillInvite}
+						<input type="hidden" name="invite" value={data.prefillInvite} />
+					{/if}
 					<div class="space-y-2">
 						<Label for="displayName">Display name</Label>
 						<Input

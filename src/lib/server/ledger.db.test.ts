@@ -26,6 +26,7 @@ import {
 	acceptBet,
 	declineBet,
 	materializeInvitesForUser,
+	materializeInviteById,
 	LedgerError
 } from '$lib/server/ledger';
 import { hasTestDb, resetDb, createUser } from '../../test/db';
@@ -572,6 +573,55 @@ suite('ledger workflows (DB)', () => {
 				.from(friendInvites)
 				.where(eq(friendInvites.email, 'newbie@test.local'));
 			expect(claimed.claimedAt).not.toBeNull();
+		});
+
+		it('claims by invite id when the signup email differs from the invited one', async () => {
+			const a = await createUser();
+			await sendFriendRequest(a.id, 'work@test.local');
+			const [invite] = await db
+				.select()
+				.from(friendInvites)
+				.where(eq(friendInvites.email, 'work@test.local'));
+
+			// They sign up with a *different* email; the email-based path finds
+			// nothing, but the invite id from the link still ties them together.
+			const newbie = await createUser({ email: 'home@test.local' });
+			await materializeInvitesForUser('home@test.local', newbie.id);
+			await materializeInviteById(invite.id, newbie.id);
+
+			const [pending] = await db
+				.select()
+				.from(friendships)
+				.where(and(eq(friendships.requesterId, a.id), eq(friendships.addresseeId, newbie.id)));
+			expect(pending?.status).toBe('pending');
+
+			const [claimed] = await db.select().from(friendInvites).where(eq(friendInvites.id, invite.id));
+			expect(claimed.claimedAt).not.toBeNull();
+			expect(claimed.claimedUserId).toBe(newbie.id);
+		});
+
+		it('does not re-claim an already-claimed invite', async () => {
+			const a = await createUser();
+			await sendFriendRequest(a.id, 'taken@test.local');
+			const [invite] = await db
+				.select()
+				.from(friendInvites)
+				.where(eq(friendInvites.email, 'taken@test.local'));
+
+			const first = await createUser({ email: 'taken@test.local' });
+			await materializeInviteById(invite.id, first.id);
+
+			// A second user following the same (now spent) link gets nothing.
+			const second = await createUser();
+			await materializeInviteById(invite.id, second.id);
+
+			const [claimed] = await db.select().from(friendInvites).where(eq(friendInvites.id, invite.id));
+			expect(claimed.claimedUserId).toBe(first.id);
+			const link = await db
+				.select()
+				.from(friendships)
+				.where(and(eq(friendships.requesterId, a.id), eq(friendships.addresseeId, second.id)));
+			expect(link).toHaveLength(0);
 		});
 	});
 });
