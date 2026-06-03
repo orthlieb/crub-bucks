@@ -48,7 +48,6 @@
 					>
 						<div class="truncate font-semibold">{b.title}</div>
 						<div class="mt-1 text-xs text-muted-foreground">
-							{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
 							{fmtDate(b.createdAt)}
 						</div>
 					</BetCard>
@@ -85,7 +84,6 @@
 					>
 						<div class="truncate font-semibold">{b.title}</div>
 						<div class="mt-1 text-xs text-muted-foreground">
-							{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
 							{fmtDate(b.createdAt)}
 						</div>
 					</BetCard>
@@ -114,7 +112,6 @@
 					>
 						<div class="truncate font-medium">{b.title}</div>
 						<div class="mt-1 text-xs text-muted-foreground">
-							{b.participantCount} participant{b.participantCount === 1 ? '' : 's'} ·
 							{b.status === 'resolved' ? `resolved ${fmtDate(b.resolvedAt)}` : 'cancelled'}
 						</div>
 					</BetCard>
