@@ -84,6 +84,9 @@ export const actions: Actions = {
 		const outcomes: Record<string, 'won' | 'lost'> = {};
 		// pot: winnings[<userId>] = number
 		const winnings: Record<string, number> = {};
+		// tie-split: manual[<userId>] = signed net delta
+		const manualRaw: Record<string, number> = {};
+		let hasManual = false;
 		for (const [key, value] of form.entries()) {
 			const m = /^outcome\[(.+)\]$/.exec(key);
 			if (m) {
@@ -92,6 +95,11 @@ export const actions: Actions = {
 			}
 			const w = /^winnings\[(.+)\]$/.exec(key);
 			if (w) winnings[w[1]] = Number(value);
+			const mm = /^manual\[(.+)\]$/.exec(key);
+			if (mm) {
+				manualRaw[mm[1]] = Number(value);
+				hasManual = true;
+			}
 		}
 
 		try {
@@ -103,7 +111,8 @@ export const actions: Actions = {
 				loserId,
 				loserOrder,
 				outcomes,
-				winnings
+				winnings,
+				manual: hasManual ? manualRaw : undefined
 			});
 		} catch (e) {
 			if (e instanceof LedgerError) return fail(400, { error: e.message });

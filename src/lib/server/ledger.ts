@@ -1217,6 +1217,9 @@ export async function resolveBet(opts: {
 	loserOrder?: string[];
 	/** 'pot' mode: per-participant final winnings (must sum to the pool). */
 	winnings?: Record<string, number>;
+	/** Tie-split escape hatch (any mode): per-participant net delta; must sum to
+	 *  0. Requires a note. Lets a tie be settled by hand without changing stakes. */
+	manual?: Record<string, number>;
 }): Promise<{ transferIds: string[] }> {
 	const { betId, resolvedBy } = opts;
 	const note = opts.note?.trim() || null;
@@ -1254,7 +1257,20 @@ export async function resolveBet(opts: {
 		let deltas: ParticipantDelta[];
 		const lossRankByUser = new Map<string, number>();
 
-		if (bet.mode === 'custom') {
+		if (opts.manual) {
+			// Tie-split: the resolver sets each participant's net result directly.
+			// Mode-agnostic; must balance to zero and carry a note for the record.
+			if (!note) throw new LedgerError('Add a note explaining the split.');
+			const manual = opts.manual;
+			deltas = parts.map((p) => ({ userId: p.userId, delta: Math.trunc(Number(manual[p.userId] ?? 0)) }));
+			for (const d of deltas) {
+				if (!Number.isFinite(d.delta)) throw new LedgerError('Enter a whole number for each player.');
+			}
+			const sum = deltas.reduce((s, d) => s + d.delta, 0);
+			if (sum !== 0) {
+				throw new LedgerError('The split must balance to zero — winnings must equal losses.');
+			}
+		} else if (bet.mode === 'custom') {
 			const outcomes = opts.outcomes ?? {};
 			for (const p of parts) {
 				if (!(p.userId in outcomes)) {
