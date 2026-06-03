@@ -30,7 +30,7 @@
 	{#if data.pendingBets.length > 0}
 		<section>
 			<h2 class="text-xl font-semibold tracking-tight">Awaiting acceptance</h2>
-			<div class="mt-3 space-y-2">
+			<div class="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
 				{#each data.pendingBets as b (b.id)}
 					<BetCard
 						href={`/app/bet/${b.id}`}
@@ -67,7 +67,7 @@
 				</CardContent>
 			</Card>
 		{:else}
-			<div class="mt-3 space-y-2">
+			<div class="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
 				{#each data.openBets as b (b.id)}
 					<BetCard
 						href={`/app/bet/${b.id}`}
@@ -94,7 +94,7 @@
 					<a href="/app/feed?mine=1" class="text-sm text-primary hover:underline">See all →</a>
 				{/if}
 			</div>
-			<div class="mt-3 space-y-2">
+			<div class="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
 				{#each data.settledBets as b (b.id)}
 					<BetCard
 						href={`/app/bet/${b.id}`}

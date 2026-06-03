@@ -55,7 +55,7 @@
 			</CardContent>
 		</Card>
 	{:else}
-		<div class="space-y-2">
+		<div class="grid grid-cols-1 gap-2 lg:grid-cols-2">
 			{#each filtered as item (item.id)}
 				<FeedItemRow {item} locale={data.locale} />
 			{/each}

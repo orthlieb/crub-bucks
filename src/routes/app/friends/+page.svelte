@@ -415,7 +415,7 @@
 	{#if data.invites.length > 0}
 		<section>
 			<h2 class="text-xl font-semibold tracking-tight">Invited (not yet joined)</h2>
-			<div class="mt-3 space-y-2">
+			<div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
 				{#each data.invites as inv (inv.id)}
 					<Card>
 						<CardContent class="flex flex-wrap items-center justify-between gap-3 py-4">
