@@ -18,7 +18,7 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	type Mode = 'even_split' | 'winner_loser' | 'tiered' | 'pot' | 'custom';
+	type Mode = 'even_split' | 'winner_loser' | 'tiered' | 'pot';
 	let mode = $state<Mode>('even_split');
 
 	const modeInfo: Record<Mode, { label: string; blurb: string }> = {
@@ -38,8 +38,7 @@
 			label: 'Pot',
 			blurb:
 				'Everyone buys in for the same amount. Re-buys allowed while it’s open. At resolution you enter each person’s winnings.'
-		},
-		custom: { label: 'Custom', blurb: 'Set each person’s exact payout and loss yourself.' }
+		}
 	};
 
 	// Pot-mode buy-in (live preview of the pot = buyIn × players).
@@ -78,18 +77,6 @@
 			losers === 1 ? '' : 's'
 		} pay ${fracs} of it by rank (last place pays the most).`;
 	});
-
-	// Custom-mode rows.
-	let myPayout = $state(10);
-	let myLoss = $state(10);
-	type Row = { userId: string; payoutIfWin: number; lossIfLose: number };
-	let rows = $state<Row[]>([{ userId: '', payoutIfWin: 10, lossIfLose: 10 }]);
-	function addRow() {
-		rows = [...rows, { userId: '', payoutIfWin: 10, lossIfLose: 10 }];
-	}
-	function removeRow(i: number) {
-		rows = rows.filter((_, idx) => idx !== i);
-	}
 
 	// Bet icon. Default 💰; if a previous submit failed and the server echoed
 	// an icon back, sync it on first render via an effect (avoiding the
@@ -189,7 +176,7 @@
 				<!-- Type picker -->
 				<div class="space-y-2">
 					<Label>Type</Label>
-					<div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
+					<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
 						{#each Object.entries(modeInfo) as [m, info] (m)}
 							<button
 								type="button"
@@ -241,60 +228,6 @@
 					</div>
 				</div>
 
-				{#if mode === 'custom'}
-					<!-- Custom: explicit payout/loss per participant -->
-					<div class="space-y-2">
-						<Label>Participants</Label>
-						<div class="grid grid-cols-1 gap-2 sm:grid-cols-[2fr,1fr,1fr,auto] sm:items-end">
-							<div class="space-y-1">
-								<Label class="text-xs">Member</Label>
-								<div class="flex h-9 items-center rounded-md border border-input bg-muted/40 px-3 text-sm">
-									{data.me.displayName} <span class="ml-1 text-xs text-muted-foreground">(you)</span>
-								</div>
-								<input type="hidden" name="participantUserId" value={data.me.id} />
-							</div>
-							<div class="space-y-1">
-								<Label class="text-xs">Payout if win</Label>
-								<Input type="number" name="payoutIfWin" min="1" required bind:value={myPayout} />
-							</div>
-							<div class="space-y-1">
-								<Label class="text-xs">Loss if lose</Label>
-								<Input type="number" name="lossIfLose" min="1" required bind:value={myLoss} />
-							</div>
-							<div class="hidden sm:block"></div>
-						</div>
-						{#each rows as row, i (i)}
-							<div class="grid grid-cols-1 gap-2 sm:grid-cols-[2fr,1fr,1fr,auto] sm:items-end">
-								<div class="space-y-1">
-									<Label class="text-xs">Friend</Label>
-									<select
-										name="participantUserId"
-										bind:value={row.userId}
-										required
-										class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-									>
-										<option value="">— Pick a friend —</option>
-										{#each data.friends as f (f.id)}
-											<option value={f.id}>{f.displayName}</option>
-										{/each}
-									</select>
-								</div>
-								<div class="space-y-1">
-									<Label class="text-xs">Payout if win</Label>
-									<Input type="number" name="payoutIfWin" min="1" required bind:value={row.payoutIfWin} />
-								</div>
-								<div class="space-y-1">
-									<Label class="text-xs">Loss if lose</Label>
-									<Input type="number" name="lossIfLose" min="1" required bind:value={row.lossIfLose} />
-								</div>
-								<Button type="button" variant="ghost" size="sm" onclick={() => removeRow(i)} disabled={rows.length <= 1}>
-									Remove
-								</Button>
-							</div>
-						{/each}
-						<Button type="button" variant="outline" size="sm" class="mt-1" onclick={addRow}>Add friend</Button>
-					</div>
-				{:else}
 					<!-- Pooled modes: amount/stake + friend multi-select -->
 					{#if mode === 'pot'}
 						<div class="space-y-2">
@@ -375,7 +308,6 @@
 							</p>
 						{/if}
 					</div>
-				{/if}
 
 				<div class="flex gap-2">
 					<Button type="submit">Create bet</Button>
