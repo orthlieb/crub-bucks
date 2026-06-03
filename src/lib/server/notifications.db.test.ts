@@ -1,12 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { notifications, users } from '$lib/server/db/schema';
+import { notifications, users, friendships } from '$lib/server/db/schema';
 import { createNotification, dismissForUser } from '$lib/server/notifications';
 import {
 	sendFriendRequest,
 	transferBetweenUsers,
-	grantWelcomeIfNeeded
+	grantWelcomeIfNeeded,
+	createBet,
+	acceptBet,
+	resolveBet
 } from '$lib/server/ledger';
 import { hasTestDb, resetDb, createUser } from '../../test/db';
 
@@ -69,5 +72,37 @@ suite('notification GC on dismissal', () => {
 		const [n] = await db.select().from(notifications).where(eq(notifications.userId, b.id));
 		expect(n?.link).toBe('/app/feed');
 		expect(n?.title).toMatch(/Payer.*10/);
+	});
+
+	it('resolving a bet notifies the other participants with a /app/bet link', async () => {
+		const a = await createUser();
+		const b = await createUser();
+		await db.insert(friendships).values({
+			requesterId: a.id,
+			addresseeId: b.id,
+			status: 'accepted',
+			respondedAt: new Date()
+		});
+		await grantWelcomeIfNeeded(a.id);
+		await grantWelcomeIfNeeded(b.id);
+		const betId = await createBet({
+			mode: 'custom',
+			title: 'Darts',
+			createdBy: a.id,
+			participants: [
+				{ userId: a.id, payoutIfWin: 10, lossIfLose: 10 },
+				{ userId: b.id, payoutIfWin: 10, lossIfLose: 10 }
+			]
+		});
+		await acceptBet({ betId, userId: b.id });
+		await resolveBet({ betId, outcomes: { [a.id]: 'won', [b.id]: 'lost' }, resolvedBy: a.id });
+
+		const bNotifs = await db.select().from(notifications).where(eq(notifications.userId, b.id));
+		const settled = bNotifs.find((n) => n.title.includes('settled'));
+		expect(settled?.link).toBe(`/app/bet/${betId}`);
+
+		// The resolver (a) doesn't get a "settled" notification.
+		const aNotifs = await db.select().from(notifications).where(eq(notifications.userId, a.id));
+		expect(aNotifs.some((n) => n.title.includes('settled'))).toBe(false);
 	});
 });

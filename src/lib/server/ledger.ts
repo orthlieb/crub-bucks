@@ -1221,7 +1221,7 @@ export async function resolveBet(opts: {
 	const { betId, resolvedBy } = opts;
 	const note = opts.note?.trim() || null;
 
-	return db.transaction(async (tx) => {
+	const result = await db.transaction(async (tx) => {
 		const [bet] = await tx
 			.select({
 				id: bets.id,
@@ -1368,8 +1368,28 @@ export async function resolveBet(opts: {
 		const totalMoved = plan.reduce((sum, t) => sum + t.amount, 0);
 		await bumpStats(tx, { betsOpen: -1, betsResolved: 1, bucksWagered: totalMoved });
 
-		return { transferIds };
+		return { transferIds, title: bet.title, participantIds: deltas.map((d) => d.userId) };
 	});
+
+	// Tell the other participants the bet settled (the resolver just did it).
+	const [resolver] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, resolvedBy))
+		.limit(1);
+	const who = resolver?.displayName ?? 'Someone';
+	for (const uid of result.participantIds) {
+		if (uid === resolvedBy) continue;
+		await createNotification({
+			userId: uid,
+			level: 'info',
+			title: `${who} settled a bet`,
+			body: `"${result.title}" was resolved — see how you did.`,
+			link: `/app/bet/${betId}`
+		}).catch(() => {});
+	}
+
+	return { transferIds: result.transferIds };
 }
 
 export async function cancelBet(opts: { betId: string; cancelledBy: string }): Promise<void> {
