@@ -122,12 +122,22 @@
 	const cBalanced = $derived(cAllChosen && cWin === cLose && cWin > 0);
 
 	// --- tie-split (manual settlement) ---------------------------------------
+	// Same money-conservation rule as a normal resolution: the net must balance
+	// to zero AND the winnings must total the pot exactly (a tie can't invent or
+	// shrink the stakes). An all-tie wash where nobody pays is a Cancel, not this.
 	let manualOpen = $state(false);
 	let manualValues = $state<Record<string, number>>({});
 	let tieNote = $state('');
 	const manualSum = $derived(
 		data.participants.reduce((s, p) => s + (Number(manualValues[p.userId]) || 0), 0)
 	);
+	const manualWon = $derived(
+		data.participants.reduce((s, p) => {
+			const v = Number(manualValues[p.userId]) || 0;
+			return s + (v > 0 ? v : 0);
+		}, 0)
+	);
+	const manualValid = $derived(manualSum === 0 && manualWon === pool);
 
 	// --- pot mode -------------------------------------------------------------
 	let winnings = $state<Record<string, number>>({});
@@ -549,8 +559,9 @@
 			<Dialog.Content class="max-w-md">
 				<Dialog.Title>Settle a tie</Dialog.Title>
 				<Dialog.Description>
-					Enter each player's net result — wins (+) and losses (−) must balance to zero. A note is
-					required, and this settles the bet immediately.
+					Enter each player's net result — the winnings (+) must total the {fmt(pool)} ₡ pot and the
+					losses (−) must cover it (net zero). A note is required, and this settles the bet
+					immediately. If everyone tied and no one pays, cancel the bet instead.
 				</Dialog.Description>
 				<form method="POST" action="?/resolve" use:enhance class="space-y-3">
 					<div class="space-y-1">
@@ -571,10 +582,19 @@
 						{/each}
 					</div>
 					<div class="rounded-md border bg-muted/30 p-2 text-sm">
-						Balance:
-						<strong class="tabular-nums {manualSum === 0 ? 'text-success' : 'text-destructive'}">
-							{manualSum}
-						</strong> ₡{#if manualSum !== 0}<span class="text-muted-foreground"> — must total 0</span>{/if}
+						<div>
+							Winnings:
+							<strong class="tabular-nums {manualWon === pool ? 'text-success' : 'text-destructive'}">
+								{manualWon}
+							</strong>
+							/ {fmt(pool)} ₡{#if manualWon !== pool}<span class="text-muted-foreground"> — must total the pot</span>{/if}
+						</div>
+						<div>
+							Balance:
+							<strong class="tabular-nums {manualSum === 0 ? 'text-success' : 'text-destructive'}">
+								{manualSum}
+							</strong> ₡{#if manualSum !== 0}<span class="text-muted-foreground"> — must net 0</span>{/if}
+						</div>
 					</div>
 					<div class="space-y-1">
 						<Label for="tie-note">Note (required)</Label>
@@ -587,7 +607,7 @@
 						/>
 					</div>
 					<Dialog.Footer>
-						<Button type="submit" disabled={manualSum !== 0 || !tieNote.trim()}>Settle tie</Button>
+						<Button type="submit" disabled={!manualValid || !tieNote.trim()}>Settle tie</Button>
 					</Dialog.Footer>
 				</form>
 			</Dialog.Content>

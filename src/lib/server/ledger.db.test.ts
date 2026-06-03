@@ -389,7 +389,7 @@ suite('ledger workflows (DB)', () => {
 			expect(await assertZeroSum()).toBe(true);
 		});
 
-		it('tie-split: manual net deltas settle the bet (must balance, needs a note)', async () => {
+		it('tie-split: manual deltas settle the bet (note, net zero, total = pot)', async () => {
 			const { a, b, c } = await trio();
 			const betId = await createBet({
 				mode: 'even_split',
@@ -402,29 +402,39 @@ suite('ledger workflows (DB)', () => {
 
 			// A note is required for a manual split.
 			await expect(
-				resolveBet({ betId, manual: { [a.id]: 10, [b.id]: 10, [c.id]: -20 }, resolvedBy: a.id })
+				resolveBet({ betId, manual: { [a.id]: 15, [b.id]: 15, [c.id]: -30 }, resolvedBy: a.id })
 			).rejects.toThrow(/note/i);
 
 			// The split must balance to zero.
 			await expect(
 				resolveBet({
 					betId,
-					manual: { [a.id]: 10, [b.id]: 10, [c.id]: -10 },
+					manual: { [a.id]: 15, [b.id]: 15, [c.id]: -10 },
 					note: 'a & b tied for first',
 					resolvedBy: a.id
 				})
 			).rejects.toThrow(/balance/i);
 
-			// a & b tie for first, c eats the loss.
+			// It must also move exactly the pot — net-zero but only 20 of the 30 ₡.
+			await expect(
+				resolveBet({
+					betId,
+					manual: { [a.id]: 10, [b.id]: 10, [c.id]: -20 },
+					note: 'a & b tied for first',
+					resolvedBy: a.id
+				})
+			).rejects.toThrow(/pot/i);
+
+			// a & b tie for first and split the 30 ₡ pot; c eats the loss.
 			await resolveBet({
 				betId,
-				manual: { [a.id]: 10, [b.id]: 10, [c.id]: -20 },
+				manual: { [a.id]: 15, [b.id]: 15, [c.id]: -30 },
 				note: 'a & b tied for first',
 				resolvedBy: a.id
 			});
-			expect(await userBalance(a.id)).toBe(110); // +10
-			expect(await userBalance(b.id)).toBe(110); // +10
-			expect(await userBalance(c.id)).toBe(80); // -20
+			expect(await userBalance(a.id)).toBe(115); // +15
+			expect(await userBalance(b.id)).toBe(115); // +15
+			expect(await userBalance(c.id)).toBe(70); // -30
 			expect(await assertZeroSum()).toBe(true);
 		});
 	});
