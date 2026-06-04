@@ -52,7 +52,9 @@
 		ring && RINGS[ring],
 		className
 	)}
-	style={`width:${size}px;height:${size}px;`}
+	style={`width:${size}px;height:${size}px;${
+		showImg ? 'background-color:oklch(0.72 0.15 293);' : ''
+	}`}
 	aria-label={name}
 	title={name}
 >
