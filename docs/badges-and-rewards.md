@@ -71,10 +71,10 @@ never revoked.
 
 | Badge | `key` | Metric | 🥉 Bronze | 🥈 Silver | 🥇 Gold |
 | --- | --- | --- | --- | --- | --- |
-| **First Steps** | `first_steps` | Bets joined (any outcome) | 5 | 25 | 100 |
+| **Running with the Pack** | `first_steps` | Bets joined (any outcome) | 5 | 25 | 100 |
 | **Winner, winner, chicken dinner!** | `winner` | Bets won | 5 | 25 | 50 |
-| **All-In** | `all_in` | Lifetime ₡ wagered ("zero impulse control") | 100 | 1,000 | 10,000 |
-| **Big Pot** | `big_pot` | Largest single bet pot you were in | 50 | 250 | 1,000 |
+| **All Bones In** | `all_in` | Lifetime ₡ wagered ("zero impulse control") | 100 | 1,000 | 10,000 |
+| **Big Bowl** | `big_bowl` | Largest single bet pot you were in ("when the kibble piles up") | 50 | 250 | 1,000 |
 | **On a Heater** | `heater` | Longest win streak | 3 | 5 | 10 |
 | **The House** | `the_house` | Bets you resolved (settled) | 5 | 25 | 100 |
 | **Philanthropist** | `philanthropist` | Lifetime ₡ paid to friends (peer payments) | 100 | 1,000 | 10,000 |
@@ -208,7 +208,7 @@ ledger today):
 
 | Event | Badges potentially affected |
 | --- | --- |
-| Bet resolved (`resolveBet`) | First Steps, Winner, High Roller, Big Pot, On a Heater, The House |
+| Bet resolved (`resolveBet`) | Running with the Pack, Winner, All Bones In, Big Bowl, On a Heater, The House |
 | Peer payment (`transferBetweenUsers`) | Philanthropist |
 | Friend request accepted (`acceptFriendRequest`) | Social Butterfly |
 | Invite claimed on signup (`materializeInvite*`) | Recruiter (for the inviter) |

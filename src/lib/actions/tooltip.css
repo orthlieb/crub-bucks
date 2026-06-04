@@ -1,0 +1,18 @@
+/* tippy.js "crub" theme — matches the app's popover tokens (light + dark). */
+.tippy-box[data-theme~='crub'] {
+	background-color: var(--popover);
+	color: var(--popover-foreground);
+	border: 1px solid var(--border);
+	border-radius: 0.5rem;
+	font-size: 0.75rem;
+	line-height: 1.1rem;
+	max-width: 16rem !important;
+	box-shadow:
+		0 4px 14px rgb(0 0 0 / 0.12),
+		0 2px 4px rgb(0 0 0 / 0.08);
+}
+
+.tippy-box[data-theme~='crub'] .tippy-content {
+	padding: 0.4rem 0.6rem;
+	text-align: center;
+}

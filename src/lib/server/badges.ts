@@ -25,7 +25,8 @@ export async function computeMetrics(userId: string): Promise<Record<MetricKey, 
 	const rows = await db
 		.select({
 			outcome: betParticipants.outcome,
-			settledDelta: betParticipants.settledDelta
+			settledDelta: betParticipants.settledDelta,
+			pool: bets.pool
 		})
 		.from(betParticipants)
 		.innerJoin(bets, eq(bets.id, betParticipants.betId))
@@ -34,12 +35,14 @@ export async function computeMetrics(userId: string): Promise<Record<MetricKey, 
 	let betsJoined = 0;
 	let betsWon = 0;
 	let cbWagered = 0;
+	let maxPot = 0;
 	for (const r of rows) {
 		betsJoined += 1;
 		if (r.outcome === 'won') betsWon += 1;
 		cbWagered += Math.abs(Number(r.settledDelta ?? 0));
+		maxPot = Math.max(maxPot, Number(r.pool ?? 0));
 	}
-	return { bets_joined: betsJoined, bets_won: betsWon, cb_wagered: cbWagered };
+	return { bets_joined: betsJoined, bets_won: betsWon, cb_wagered: cbWagered, max_pot: maxPot };
 }
 
 /** Accepted-friend user ids (either direction), for notification fan-out. */
