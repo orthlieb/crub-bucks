@@ -32,7 +32,12 @@
 
 	const def = $derived(BADGES_BY_KEY.get(badge.key));
 	const firstTier: BadgeTier = $derived(def ? (tiersOf(def)[0] ?? 'bronze') : 'bronze');
-	const displayTier: BadgeTier = $derived(badge.earnedTier ?? firstTier);
+	// When locked, tint the silver art (more neutral than bronze → the purple
+	// tint reads cleaner); fall back to the first tier for single-tier badges.
+	const lockedBaseTier: BadgeTier = $derived(
+		badge.thresholds.silver !== undefined ? 'silver' : firstTier
+	);
+	const displayTier: BadgeTier = $derived(badge.earnedTier ?? lockedBaseTier);
 	const next = $derived(def ? nextTier(def, badge.earnedTier) : null);
 	const nextThreshold = $derived(next ? (badge.thresholds[next] ?? null) : null);
 	const howTo = $derived(def ? howToEarn(def) : '');
