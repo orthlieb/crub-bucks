@@ -8,7 +8,7 @@
 		tiersOf,
 		TIER_COLOR,
 		TIER_LABEL,
-		TIER_EMOJI,
+		tierBug,
 		METRIC_UNIT,
 		type BadgeTier,
 		type MetricKey
@@ -105,8 +105,8 @@
 	<div class="mt-2 font-semibold leading-tight">{badge.title}</div>
 
 	{#if badge.earnedTier}
-		<div class="mt-1 text-sm font-medium">
-			{TIER_EMOJI[badge.earnedTier]}
+		<div class="mt-1 flex items-center justify-center gap-1.5 text-sm font-medium">
+			<img src={tierBug(badge.earnedTier)} alt="" class="h-5 w-5 object-contain" />
 			{TIER_LABEL[badge.earnedTier]}
 		</div>
 		<div class="text-xs text-muted-foreground">earned {fmtDate(badge.earnedAt)}</div>

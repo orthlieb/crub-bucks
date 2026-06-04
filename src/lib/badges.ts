@@ -127,6 +127,11 @@ export function badgeSilhouette(key: string): string {
 	return `/awards/${key.replaceAll('_', '-')}.svg`;
 }
 
+/** Tier "bug" medallion image (shown beside the Bronze/Silver/Gold label). */
+export function tierBug(tier: BadgeTier): string {
+	return `/bug-${tier}.png`;
+}
+
 /** Tier accent colors — rings/frames and single-image silhouette tinting. */
 export const TIER_COLOR: Record<BadgeTier, string> = {
 	bronze: '#cd7f32',

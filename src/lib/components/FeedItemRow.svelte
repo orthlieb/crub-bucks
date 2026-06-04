@@ -34,7 +34,7 @@
 <script lang="ts">
 	import BetCard, { type BetTone } from '$lib/components/BetCard.svelte';
 	import { resolvedSummary, cancelledSummary } from '$lib/bet-summary';
-	import { TIER_LABEL, TIER_EMOJI, badgeIcon } from '$lib/badges';
+	import { TIER_LABEL, badgeIcon, tierBug } from '$lib/badges';
 
 	let {
 		item,
@@ -88,7 +88,8 @@
 			case 'payment':
 				return item.memo;
 			case 'badge_earned':
-				return `${TIER_EMOJI[item.tier]} ${TIER_LABEL[item.tier]} tier`;
+				// Rendered via the tierBugComment snippet (image, not text).
+				return null;
 			default:
 				return null;
 		}
@@ -100,14 +101,22 @@
 	);
 </script>
 
+{#snippet tierBugComment()}
+	{#if item.type === 'badge_earned'}
+		<span class="inline-flex items-center gap-1">
+			<img src={tierBug(item.tier)} alt="" class="inline-block h-4 w-4 object-contain" />
+			{TIER_LABEL[item.tier]} tier
+		</span>
+	{/if}
+{/snippet}
+
 <BetCard
 	{icon}
 	{iconImg}
 	{label}
 	{tone}
 	{title}
-	{amount}
-	{comment}
+	comment={item.type === 'badge_earned' ? tierBugComment : comment}
 	date={item.at}
 	{locale}
 	{href}
