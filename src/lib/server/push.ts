@@ -19,6 +19,11 @@ function ensureConfigured(): boolean {
 	return true;
 }
 
+/** Whether VAPID keys are present (push can be sent at all). */
+export function pushConfigured(): boolean {
+	return ensureConfigured();
+}
+
 /** Shape posted by the client (a serialized PushSubscription). */
 export interface PushSubscriptionInput {
 	endpoint: string;
@@ -76,13 +81,13 @@ export interface PushPayload {
  * a failed send never throws to the caller; dead endpoints (404/410) are pruned.
  * Not yet wired into createNotification — that hook lands in Phase 2.
  */
-export async function sendWebPush(userId: string, payload: PushPayload): Promise<void> {
-	if (!ensureConfigured()) return;
+export async function sendWebPush(userId: string, payload: PushPayload): Promise<number> {
+	if (!ensureConfigured()) return 0;
 	const subs = await db
 		.select()
 		.from(pushSubscriptions)
 		.where(eq(pushSubscriptions.userId, userId));
-	if (subs.length === 0) return;
+	if (subs.length === 0) return 0;
 
 	const body = JSON.stringify({
 		title: payload.title,
@@ -111,4 +116,5 @@ export async function sendWebPush(userId: string, payload: PushPayload): Promise
 			}
 		})
 	);
+	return subs.length;
 }
