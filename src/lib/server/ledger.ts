@@ -12,6 +12,7 @@ import {
 } from './db/schema';
 import { sendFriendInviteEmail } from './email';
 import { createNotification } from './notifications';
+import { evaluateBadges } from './badges';
 import { bumpStats } from './stats';
 import {
 	planSettlement,
@@ -1449,6 +1450,13 @@ export async function resolveBet(opts: {
 			body: `"${result.title}" was resolved — see how you did.`,
 			link: `/app/bet/${betId}`
 		}).catch(() => {});
+	}
+
+	// Award badges to every participant (First Steps / Winner / All-In all
+	// derive from resolved-bet history). Best-effort — a badge failure must not
+	// undo the settlement.
+	for (const uid of result.participantIds) {
+		await evaluateBadges(uid).catch((err) => console.warn('[badges] eval failed:', err));
 	}
 
 	return { transferIds: result.transferIds };

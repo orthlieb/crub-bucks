@@ -69,7 +69,8 @@ const ALL_TABLES = [
 	'security_events',
 	'sessions',
 	'system_config',
-	'app_stats'
+	'app_stats',
+	'user_badges'
 ].join(', ');
 
 /** Wipe every table between tests — with a hard guard against non-test DBs. */

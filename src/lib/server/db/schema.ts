@@ -60,6 +60,7 @@ export const betModeEnum = pgEnum('bet_mode', [
 ]);
 export const friendshipStatusEnum = pgEnum('friendship_status', ['pending', 'accepted']);
 export const notificationLevelEnum = pgEnum('notification_level', ['info', 'success', 'warning']);
+export const badgeTierEnum = pgEnum('badge_tier', ['bronze', 'silver', 'gold']);
 
 // ---------------------------------------------------------------------------
 // Users + sessions
@@ -536,3 +537,36 @@ export const appStats = pgTable('app_stats', {
 	bucksWagered: bigint('bucks_wagered', { mode: 'number' }).notNull().default(0),
 	bankTotal: bigint('bank_total', { mode: 'number' }).notNull().default(0)
 });
+
+// ---------------------------------------------------------------------------
+// Badges / awards. One row per (user, badge); the tier is upgraded in place as
+// the user climbs (forward-only — bronze → silver → gold, never backwards).
+// Badge *definitions* live in code ($lib/server/badges/catalog); only the
+// earned awards persist here, so the set is recomputable from bet history.
+// ---------------------------------------------------------------------------
+export const userBadges = pgTable(
+	'user_badges',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		// matches a key in the code-side badge registry
+		badgeKey: text('badge_key').notNull(),
+		// current highest tier reached
+		tier: badgeTierEnum('tier').notNull(),
+		// when the current tier was reached
+		earnedAt: timestamp('earned_at', { withTimezone: true }).notNull().defaultNow(),
+		// snapshot of the metric value at the current tier (display/debug)
+		metricValue: bigint('metric_value', { mode: 'number' })
+	},
+	(t) => ({
+		// one badge per user; the forward-only upsert targets this constraint
+		userBadgeIdx: uniqueIndex('user_badges_user_badge_idx').on(t.userId, t.badgeKey),
+		userIdx: index('user_badges_user_idx').on(t.userId)
+	})
+);
+
+export const userBadgesRelations = relations(userBadges, ({ one }) => ({
+	user: one(users, { fields: [userBadges.userId], references: [users.id] })
+}));
