@@ -30,7 +30,11 @@ async function main() {
 
 	for (const u of allUsers) {
 		const rows = await db
-			.select({ outcome: betParticipants.outcome, settledDelta: betParticipants.settledDelta })
+			.select({
+				outcome: betParticipants.outcome,
+				settledDelta: betParticipants.settledDelta,
+				pool: bets.pool
+			})
 			.from(betParticipants)
 			.innerJoin(bets, eq(bets.id, betParticipants.betId))
 			.where(and(eq(betParticipants.userId, u.id), eq(bets.status, 'resolved')));
@@ -38,15 +42,18 @@ async function main() {
 		let joined = 0;
 		let won = 0;
 		let wagered = 0;
+		let maxPot = 0;
 		for (const r of rows) {
 			joined += 1;
 			if (r.outcome === 'won') won += 1;
 			wagered += Math.abs(Number(r.settledDelta ?? 0));
+			maxPot = Math.max(maxPot, Number(r.pool ?? 0));
 		}
 		const metrics: Record<MetricKey, number> = {
 			bets_joined: joined,
 			bets_won: won,
-			cb_wagered: wagered
+			cb_wagered: wagered,
+			max_pot: maxPot
 		};
 
 		const existing = await db

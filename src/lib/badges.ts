@@ -23,13 +23,22 @@ export const TIER_EMOJI: Record<BadgeTier, string> = {
 };
 
 /** Lifetime, monotonic metrics the current badges read. */
-export type MetricKey = 'bets_joined' | 'bets_won' | 'cb_wagered';
+export type MetricKey = 'bets_joined' | 'bets_won' | 'cb_wagered' | 'max_pot';
 
 /** Display unit per metric, for progress hints ("12 / 25 bets"). */
 export const METRIC_UNIT: Record<MetricKey, string> = {
 	bets_joined: 'bets',
 	bets_won: 'wins',
-	cb_wagered: '₡'
+	cb_wagered: '₡',
+	max_pot: '₡'
+};
+
+/** Plain-language description of what a metric counts, for the how-to tooltip. */
+export const METRIC_HOWTO: Record<MetricKey, string> = {
+	bets_joined: 'Join bets that go on to settle',
+	bets_won: 'Win bets',
+	cb_wagered: 'Total of all wagered Crub Bucks across all of your bets',
+	max_pot: 'Be in a single big-pot bet'
 };
 
 export interface BadgeDef {
@@ -45,27 +54,35 @@ export interface BadgeDef {
 export const BADGES: BadgeDef[] = [
 	{
 		key: 'first_steps',
-		title: 'First Steps',
-		description: 'Get in the game — join bets with your friends.',
+		title: 'Running with the Pack',
+		description: 'Sit. Stay. Bet.',
 		emoji: '👣',
 		metric: 'bets_joined',
 		thresholds: { bronze: 5, silver: 25, gold: 100 }
 	},
 	{
 		key: 'winner',
-		title: 'Winner, winner, chicken dinner!',
-		description: 'Come out on top.',
+		title: 'Winner, Winner, Chicken Dinner!',
+		description: "Tastes like someone else's money.",
 		emoji: '🍗',
 		metric: 'bets_won',
 		thresholds: { bronze: 5, silver: 25, gold: 50 }
 	},
 	{
 		key: 'all_in',
-		title: 'All-In',
+		title: 'All Bones In',
 		description: 'For a dog with zero impulse control.',
 		emoji: '🎰',
 		metric: 'cb_wagered',
 		thresholds: { bronze: 100, silver: 1000, gold: 10000 }
+	},
+	{
+		key: 'big_bowl',
+		title: 'Big Bowl',
+		description: 'When the kibble really piles up.',
+		emoji: '🥣',
+		metric: 'max_pot',
+		thresholds: { bronze: 50, silver: 250, gold: 1000 }
 	}
 ];
 
@@ -113,4 +130,12 @@ export function nextTier(def: BadgeDef, current: BadgeTier | null): BadgeTier | 
 	if (!current) return tiers[0] ?? null;
 	const idx = tiers.indexOf(current);
 	return idx >= 0 && idx + 1 < tiers.length ? tiers[idx + 1] : null;
+}
+
+/** One-line "how to earn" for tooltips: what's counted + each tier threshold. */
+export function howToEarn(def: BadgeDef): string {
+	const tiers = tiersOf(def)
+		.map((t) => `${TIER_EMOJI[t]} ${def.thresholds[t]!.toLocaleString()}`)
+		.join('  ');
+	return `${METRIC_HOWTO[def.metric]} — ${tiers} ${METRIC_UNIT[def.metric]}`;
 }
