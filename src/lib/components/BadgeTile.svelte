@@ -45,9 +45,13 @@
 	let pngFailed = $state(false);
 
 	const locked = $derived(!badge.earnedTier);
-	// Locked badges render as a flat purplish-gray "ghost" silhouette (on-brand,
-	// instead of a neutral desaturated image).
-	const lockedTint = 'color-mix(in oklch, var(--muted-foreground) 58%, var(--primary) 42%)';
+	// Locked badges keep the artwork visible (not a flat silhouette) but cast a
+	// light *purple* tint — distinct from the silver tier's neutral gray.
+	// grayscale → neutralise, then sepia+hue-rotate re-tint toward brand violet.
+	const LOCKED_FILTER =
+		'grayscale(1) contrast(0.38) brightness(1.55) sepia(0.5) hue-rotate(232deg) saturate(1.5)';
+	// Light-purple fill for silhouette (SVG) art when locked.
+	const lockedSvgFill = 'color-mix(in oklch, var(--primary) 45%, white 38%)';
 
 	function fmtDate(d: Date | string | null): string {
 		if (!d) return '';
@@ -68,33 +72,27 @@
 	)}
 	use:tooltip={howTo}
 >
-	{#if badge.earnedTier}
-		<!-- Earned: full-colour art (silhouette tinted to tier when only an SVG). -->
-		{#if !svgFailed}
-			<span
-				class="block h-24 w-24"
-				style={`background-color:${TIER_COLOR[badge.earnedTier]};-webkit-mask:url(${svgUrl}) center/contain no-repeat;mask:url(${svgUrl}) center/contain no-repeat;`}
-				role="img"
-				aria-label={badge.title}
-			></span>
-		{:else if !pngFailed}
-			<img src={pngUrl} alt={badge.title} class="h-24 w-24 object-contain" />
-		{:else}
-			<div class="flex h-24 w-24 items-center justify-center text-5xl select-none">
-				{badge.emoji}
-			</div>
-		{/if}
-	{:else if !svgFailed || !pngFailed}
-		<!-- Locked: purplish-gray ghost silhouette (mask the art, fill with tint). -->
+	{#if !svgFailed}
+		<!-- SVG silhouette: tier colour when earned, light purple when locked. -->
 		<span
-			class="block h-24 w-24"
-			style={`background-color:${lockedTint};-webkit-mask:url(${!svgFailed ? svgUrl : pngUrl}) center/contain no-repeat;mask:url(${!svgFailed ? svgUrl : pngUrl}) center/contain no-repeat;`}
+			class={cn('block h-24 w-24', locked && 'opacity-80')}
+			style={`background-color:${locked ? lockedSvgFill : TIER_COLOR[displayTier]};-webkit-mask:url(${svgUrl}) center/contain no-repeat;mask:url(${svgUrl}) center/contain no-repeat;`}
 			role="img"
 			aria-label={badge.title}
 		></span>
+	{:else if !pngFailed}
+		<!-- PNG art: full colour when earned, light purple tint when locked. -->
+		<img
+			src={pngUrl}
+			alt={badge.title}
+			class="h-24 w-24 object-contain"
+			style={locked ? `filter:${LOCKED_FILTER};opacity:0.75` : ''}
+		/>
 	{:else}
-		<!-- Locked with no art: dimmed emoji. -->
-		<div class="flex h-24 w-24 items-center justify-center text-5xl opacity-40 grayscale select-none">
+		<div
+			class="flex h-24 w-24 items-center justify-center text-5xl select-none"
+			style={locked ? `filter:${LOCKED_FILTER};opacity:0.75` : ''}
+		>
 			{badge.emoji}
 		</div>
 	{/if}

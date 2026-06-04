@@ -33,7 +33,8 @@ async function main() {
 			.select({
 				outcome: betParticipants.outcome,
 				settledDelta: betParticipants.settledDelta,
-				pool: bets.pool
+				pool: bets.pool,
+				resolvedAt: bets.resolvedAt
 			})
 			.from(betParticipants)
 			.innerJoin(bets, eq(bets.id, betParticipants.betId))
@@ -49,11 +50,26 @@ async function main() {
 			wagered += Math.abs(Number(r.settledDelta ?? 0));
 			maxPot = Math.max(maxPot, Number(r.pool ?? 0));
 		}
+
+		let cur = 0;
+		let winStreak = 0;
+		for (const r of [...rows].sort(
+			(a, b) => (a.resolvedAt?.getTime() ?? 0) - (b.resolvedAt?.getTime() ?? 0)
+		)) {
+			if (r.outcome === 'won') {
+				cur += 1;
+				if (cur > winStreak) winStreak = cur;
+			} else {
+				cur = 0;
+			}
+		}
+
 		const metrics: Record<MetricKey, number> = {
 			bets_joined: joined,
 			bets_won: won,
 			cb_wagered: wagered,
-			max_pot: maxPot
+			max_pot: maxPot,
+			win_streak: winStreak
 		};
 
 		const existing = await db

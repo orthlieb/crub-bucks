@@ -75,7 +75,7 @@ never revoked.
 | **Winner, winner, chicken dinner!** | `winner` | Bets won | 5 | 25 | 50 |
 | **All Bones In** | `all_in` | Lifetime ₡ wagered ("zero impulse control") | 100 | 1,000 | 10,000 |
 | **Big Bowl** | `big_bowl` | Largest single bet pot you were in ("when the kibble piles up") | 50 | 250 | 1,000 |
-| **On a Heater** | `heater` | Longest win streak | 3 | 5 | 10 |
+| **Bark-to-Bark Wins** | `bark_to_bark` | Longest win streak ("back-to-back, now with more woof") | 3 | 5 | 10 |
 | **The House** | `the_house` | Bets you resolved (settled) | 5 | 25 | 100 |
 | **Philanthropist** | `philanthropist` | Lifetime ₡ paid to friends (peer payments) | 100 | 1,000 | 10,000 |
 | **Social Butterfly** | `social` | Accepted friends (high-water mark) | 3 | 10 | 25 |
