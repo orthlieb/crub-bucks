@@ -76,7 +76,7 @@ never revoked.
 | **All Bones In** | `all_in` | Lifetime ₡ wagered ("zero impulse control") | 100 | 1,000 | 10,000 |
 | **Big Bowl** | `big_bowl` | Largest single bet pot you were in ("when the kibble piles up") | 50 | 250 | 1,000 |
 | **Bark-to-Bark Wins** | `bark_to_bark` | Longest win streak ("back-to-back, now with more woof") | 3 | 5 | 10 |
-| **The House** | `the_house` | Bets you resolved (settled) | 5 | 25 | 100 |
+| **The Dog House** | `dog_house` | Bets you settled — the resolver ("where every bet comes to heel") | 5 | 25 | 100 |
 | **Philanthropist** | `philanthropist` | Lifetime ₡ paid to friends (peer payments) | 100 | 1,000 | 10,000 |
 | **Social Butterfly** | `social` | Accepted friends (high-water mark) | 3 | 10 | 25 |
 | **Recruiter** | `recruiter` | Invited friends who joined | 1 | 5 | 15 |
@@ -208,7 +208,7 @@ ledger today):
 
 | Event | Badges potentially affected |
 | --- | --- |
-| Bet resolved (`resolveBet`) | Running with the Pack, Winner, All Bones In, Big Bowl, On a Heater, The House |
+| Bet resolved (`resolveBet`) | Running with the Pack, Winner, All Bones In, Big Bowl, Bark-to-Bark Wins, The Dog House (resolver) |
 | Peer payment (`transferBetweenUsers`) | Philanthropist |
 | Friend request accepted (`acceptFriendRequest`) | Social Butterfly |
 | Invite claimed on signup (`materializeInvite*`) | Recruiter (for the inviter) |

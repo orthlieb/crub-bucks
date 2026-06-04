@@ -23,7 +23,13 @@ export const TIER_EMOJI: Record<BadgeTier, string> = {
 };
 
 /** Lifetime, monotonic metrics the current badges read. */
-export type MetricKey = 'bets_joined' | 'bets_won' | 'cb_wagered' | 'max_pot' | 'win_streak';
+export type MetricKey =
+	| 'bets_joined'
+	| 'bets_won'
+	| 'cb_wagered'
+	| 'max_pot'
+	| 'win_streak'
+	| 'bets_settled';
 
 /** Display unit per metric, for progress hints ("12 / 25 bets"). */
 export const METRIC_UNIT: Record<MetricKey, string> = {
@@ -31,7 +37,8 @@ export const METRIC_UNIT: Record<MetricKey, string> = {
 	bets_won: 'wins',
 	cb_wagered: '₡',
 	max_pot: '₡',
-	win_streak: 'in a row'
+	win_streak: 'in a row',
+	bets_settled: 'settled'
 };
 
 /** Plain-language description of what a metric counts, for the how-to tooltip. */
@@ -40,7 +47,8 @@ export const METRIC_HOWTO: Record<MetricKey, string> = {
 	bets_won: 'Win bets',
 	cb_wagered: 'Total of all wagered Crub Bucks across all of your bets',
 	max_pot: 'Be in a single big-pot bet',
-	win_streak: 'Win bets back-to-back'
+	win_streak: 'Win bets back-to-back',
+	bets_settled: 'Settle bets by being the one who resolves them'
 };
 
 export interface BadgeDef {
@@ -93,6 +101,15 @@ export const BADGES: BadgeDef[] = [
 		emoji: '🐶',
 		metric: 'win_streak',
 		thresholds: { bronze: 3, silver: 5, gold: 10 }
+	},
+	{
+		// Art lives at /awards/dog-house-<tier>.png (key → slug swaps _ for -).
+		key: 'dog_house',
+		title: 'The Dog House',
+		description: 'Where every bet comes to heel.',
+		emoji: '🏠',
+		metric: 'bets_settled',
+		thresholds: { bronze: 5, silver: 25, gold: 100 }
 	}
 ];
 

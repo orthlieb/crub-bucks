@@ -1452,10 +1452,11 @@ export async function resolveBet(opts: {
 		}).catch(() => {});
 	}
 
-	// Award badges to every participant (First Steps / Winner / All-In all
-	// derive from resolved-bet history). Best-effort — a badge failure must not
-	// undo the settlement.
-	for (const uid of result.participantIds) {
+	// Award badges to every participant (Running with the Pack / Winner / All
+	// Bones In all derive from resolved-bet history) plus the resolver, who may
+	// not be a participant but earns The Dog House for settling. Best-effort — a
+	// badge failure must not undo the settlement.
+	for (const uid of new Set([...result.participantIds, resolvedBy])) {
 		await evaluateBadges(uid).catch((err) => console.warn('[badges] eval failed:', err));
 	}
 
