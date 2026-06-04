@@ -34,7 +34,7 @@
 <script lang="ts">
 	import BetCard, { type BetTone } from '$lib/components/BetCard.svelte';
 	import { resolvedSummary, cancelledSummary } from '$lib/bet-summary';
-	import { TIER_LABEL, TIER_EMOJI } from '$lib/badges';
+	import { TIER_LABEL, TIER_EMOJI, badgeIcon } from '$lib/badges';
 
 	let {
 		item,
@@ -62,6 +62,11 @@
 	);
 	const icon = $derived(
 		item.type === 'badge_earned' ? (badgeDef?.emoji ?? '🏅') : item.icon
+	);
+	// Badge feed items prefer the tier art PNG over the emoji (which doesn't
+	// theme well); BetCard falls back to `icon` if the image fails to load.
+	const iconImg = $derived(
+		item.type === 'badge_earned' ? badgeIcon(item.badgeKey, item.tier) : null
 	);
 	const amount = $derived(item.type === 'badge_earned' ? null : item.amount);
 
@@ -97,6 +102,7 @@
 
 <BetCard
 	{icon}
+	{iconImg}
 	{label}
 	{tone}
 	{title}

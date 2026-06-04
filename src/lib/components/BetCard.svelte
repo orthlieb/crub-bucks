@@ -25,6 +25,7 @@
 
 	let {
 		icon = null,
+		iconImg = null,
 		label,
 		tone,
 		title,
@@ -37,6 +38,8 @@
 		class: className
 	}: {
 		icon?: string | null;
+		/** Preferred image icon (e.g. badge art); falls back to `icon` emoji. */
+		iconImg?: string | null;
 		label: string;
 		tone: BetTone;
 		/** Headline: the bet title, or a payment's "A paid B" summary. */
@@ -63,6 +66,9 @@
 		)
 	);
 
+	// Fall back to the emoji if the image icon fails to load.
+	let iconImgFailed = $state(false);
+
 	function fmtDate(d: Date | string): string {
 		const parsed = typeof d === 'string' ? new Date(d) : d;
 		return parsed.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -75,9 +81,18 @@
 
 {#snippet inner()}
 	<!-- State column: full card height, tinted; emoji centred, label at the bottom. -->
-	<div class={cn('flex w-16 shrink-0 flex-col sm:w-20', t.box)}>
+	<div class={cn('flex w-20 shrink-0 flex-col sm:w-24', t.box)}>
 		<div class="flex flex-1 items-center justify-center pt-2 text-3xl leading-none sm:text-4xl">
-			{icon ?? '💰'}
+			{#if iconImg && !iconImgFailed}
+				<img
+					src={iconImg}
+					alt=""
+					class="h-9 w-9 object-contain sm:h-11 sm:w-11"
+					onerror={() => (iconImgFailed = true)}
+				/>
+			{:else}
+				{icon ?? '💰'}
+			{/if}
 		</div>
 		<div class={cn('pb-2 text-center text-[10px] font-semibold uppercase tracking-wide', t.text)}>
 			{label}
