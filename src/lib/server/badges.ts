@@ -26,7 +26,8 @@ export async function computeMetrics(userId: string): Promise<Record<MetricKey, 
 		.select({
 			outcome: betParticipants.outcome,
 			settledDelta: betParticipants.settledDelta,
-			pool: bets.pool
+			pool: bets.pool,
+			resolvedAt: bets.resolvedAt
 		})
 		.from(betParticipants)
 		.innerJoin(bets, eq(bets.id, betParticipants.betId))
@@ -42,7 +43,29 @@ export async function computeMetrics(userId: string): Promise<Record<MetricKey, 
 		cbWagered += Math.abs(Number(r.settledDelta ?? 0));
 		maxPot = Math.max(maxPot, Number(r.pool ?? 0));
 	}
-	return { bets_joined: betsJoined, bets_won: betsWon, cb_wagered: cbWagered, max_pot: maxPot };
+
+	// Longest win streak: walk resolved bets in resolution order; a non-win
+	// (lost / none) breaks the run. All-time best, so it never decreases.
+	let cur = 0;
+	let winStreak = 0;
+	for (const r of [...rows].sort(
+		(a, b) => (a.resolvedAt?.getTime() ?? 0) - (b.resolvedAt?.getTime() ?? 0)
+	)) {
+		if (r.outcome === 'won') {
+			cur += 1;
+			if (cur > winStreak) winStreak = cur;
+		} else {
+			cur = 0;
+		}
+	}
+
+	return {
+		bets_joined: betsJoined,
+		bets_won: betsWon,
+		cb_wagered: cbWagered,
+		max_pot: maxPot,
+		win_streak: winStreak
+	};
 }
 
 /** Accepted-friend user ids (either direction), for notification fan-out. */
