@@ -159,4 +159,29 @@ suite('badges (DB)', () => {
 			.where(and(eq(userBadges.userId, a.id), eq(userBadges.badgeKey, 'big_bowl')));
 		expect(bb.tier).toBe('silver');
 	});
+
+	it('bets_settled (The Dog House) counts who resolved, not who joined', async () => {
+		const { a, b } = await makeFriends();
+		// Both a and b participate in every bet, but a is the resolver on three.
+		await playResolvedBet(a.id, b.id, a.id);
+		await playResolvedBet(a.id, b.id, b.id);
+		await playResolvedBet(a.id, b.id, a.id);
+
+		// One bet settled by b instead.
+		const betId = await createBet({
+			mode: 'custom',
+			title: 'B settles this one',
+			createdBy: b.id,
+			participants: [
+				{ userId: a.id, payoutIfWin: 10, lossIfLose: 10 },
+				{ userId: b.id, payoutIfWin: 10, lossIfLose: 10 }
+			]
+		});
+		await acceptBet({ betId, userId: a.id });
+		await resolveBet({ betId, outcomes: { [a.id]: 'won', [b.id]: 'lost' }, resolvedBy: b.id });
+
+		// Independent of participation (both joined all four).
+		expect((await computeMetrics(a.id)).bets_settled).toBe(3);
+		expect((await computeMetrics(b.id)).bets_settled).toBe(1);
+	});
 });

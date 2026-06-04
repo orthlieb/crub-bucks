@@ -1,4 +1,4 @@
-import { and, desc, eq, or } from 'drizzle-orm';
+import { and, count, desc, eq, or } from 'drizzle-orm';
 import { db } from './db';
 import { userBadges, betParticipants, bets, friendships, users } from './db/schema';
 import { createNotification } from './notifications';
@@ -17,8 +17,8 @@ import {
  * upgrades badges forward-only (bronze → silver → gold). Best-effort: callers
  * wrap this so a failure never rolls back the bet/payment that triggered it.
  *
- * The three current badges all derive from resolved-bet history, so one query
- * computes every metric.
+ * Most metrics derive from the user's resolved-bet participation (one query);
+ * bets_settled (The Dog House) counts bets they resolved, via a second query.
  */
 
 export async function computeMetrics(userId: string): Promise<Record<MetricKey, number>> {
@@ -59,12 +59,20 @@ export async function computeMetrics(userId: string): Promise<Record<MetricKey, 
 		}
 	}
 
+	// The Dog House: bets this user settled (the resolver), which is independent
+	// of participation — counted with its own query.
+	const [settled] = await db
+		.select({ n: count() })
+		.from(bets)
+		.where(and(eq(bets.resolvedBy, userId), eq(bets.status, 'resolved')));
+
 	return {
 		bets_joined: betsJoined,
 		bets_won: betsWon,
 		cb_wagered: cbWagered,
 		max_pot: maxPot,
-		win_streak: winStreak
+		win_streak: winStreak,
+		bets_settled: Number(settled?.n ?? 0)
 	};
 }
 
