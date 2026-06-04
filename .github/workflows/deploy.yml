@@ -64,13 +64,17 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Single source of truth for the Node version (.nvmrc → Node 24, which
+          # ships npm 11). npm 10 mishandles esbuild's multi-version platform
+          # optionalDependencies and rejects the lockfile under `npm ci`; npm 11
+          # handles it, so pinning 24 everywhere lets us keep strict `npm ci`.
+          node-version-file: '.nvmrc'
           cache: npm
 
       # Verify the push is deployable before we touch the server. A failure
       # here aborts the deploy without ever SSHing in.
       - name: Install dependencies
-        run: npm install --no-audit --no-fund --no-save
+        run: npm ci --no-audit --no-fund
 
       - name: Typecheck
         run: npm run check
@@ -110,8 +114,18 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            # Match the repo's pinned Node (.nvmrc → Node 24 → npm 11) so the
+            # lockfile is consumed exactly as CI generates it, letting us use
+            # strict `npm ci`. nvm install reads .nvmrc; --no-progress keeps logs tidy.
+            echo "→ Selecting Node from .nvmrc"
+            nvm install --no-progress
+            nvm use
+            # pm2 lives in a single Node version's global bin; after a Node switch
+            # it may be absent. Reinstall under the active Node if so.
+            command -v pm2 >/dev/null 2>&1 || npm install -g pm2
+
             echo "→ Installing dependencies"
-            npm install --no-audit --no-fund --no-save
+            npm ci --no-audit --no-fund
 
             echo "→ Running migrations"
             npm run db:migrate
