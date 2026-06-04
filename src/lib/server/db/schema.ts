@@ -570,3 +570,30 @@ export const userBadges = pgTable(
 export const userBadgesRelations = relations(userBadges, ({ one }) => ({
 	user: one(users, { fields: [userBadges.userId], references: [users.id] })
 }));
+
+// ---------------------------------------------------------------------------
+// Web Push subscriptions — one row per device/browser a user has opted in on.
+// Populated by the client's pushManager.subscribe(); the server sends VAPID-
+// signed pushes to these endpoints. Dead endpoints (404/410) are pruned on send.
+// ---------------------------------------------------------------------------
+export const pushSubscriptions = pgTable(
+	'push_subscriptions',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		// the browser push service endpoint (unique per device subscription)
+		endpoint: text('endpoint').notNull().unique(),
+		// client public key + auth secret from the PushSubscription
+		p256dh: text('p256dh').notNull(),
+		auth: text('auth').notNull(),
+		// best-effort device label for "manage your devices" UX later
+		userAgent: text('user_agent'),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => ({
+		userIdx: index('push_subscriptions_user_idx').on(t.userId)
+	})
+);
