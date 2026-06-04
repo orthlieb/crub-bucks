@@ -21,6 +21,11 @@
 	// Either condition prevents new accounts. Both disable the fields and the
 	// submit button so visitors don't waste time filling things in.
 	const signupBlocked = $derived(data.registrationLocked || data.registrationFullToday);
+
+	// Gate submission on a solved captcha (see login). resetCaptcha clears the
+	// spent single-use token after a failed attempt.
+	let captchaToken = $state('');
+	let resetCaptcha = $state(() => {});
 </script>
 
 <div class="kibble-bg min-h-screen bg-background py-12 px-4">
@@ -60,7 +65,17 @@
 					</Alert>
 				{/if}
 
-				<form method="POST" use:enhance class="space-y-4">
+				<form
+					method="POST"
+					use:enhance={() => {
+						return async ({ result, update }) => {
+							// Spent single-use token — reset so the next try gets a fresh one.
+							if (result.type === 'failure') resetCaptcha();
+							await update();
+						};
+					}}
+					class="space-y-4"
+				>
 					<!-- Ties this signup back to the invite even if the email differs. -->
 					{#if data.prefillInvite}
 						<input type="hidden" name="invite" value={data.prefillInvite} />
@@ -106,11 +121,14 @@
 						</p>
 					</div>
 
-					<Captcha />
+					<Captcha bind:token={captchaToken} bind:reset={resetCaptcha} />
 
-					<Button type="submit" class="w-full" disabled={signupBlocked}>
+					<Button type="submit" class="w-full" disabled={signupBlocked || !captchaToken}>
 						Create account
 					</Button>
+					{#if !signupBlocked && !captchaToken}
+						<p class="text-center text-xs text-muted-foreground">Complete the captcha to continue.</p>
+					{/if}
 				</form>
 			</CardContent>
 
