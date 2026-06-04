@@ -29,7 +29,8 @@ export type MetricKey =
 	| 'cb_wagered'
 	| 'max_pot'
 	| 'win_streak'
-	| 'bets_settled';
+	| 'bets_settled'
+	| 'friends';
 
 /** Display unit per metric, for progress hints ("12 / 25 bets"). */
 export const METRIC_UNIT: Record<MetricKey, string> = {
@@ -38,7 +39,8 @@ export const METRIC_UNIT: Record<MetricKey, string> = {
 	cb_wagered: '₡',
 	max_pot: '₡',
 	win_streak: 'in a row',
-	bets_settled: 'settled'
+	bets_settled: 'settled',
+	friends: 'friends'
 };
 
 /** Plain-language description of what a metric counts, for the how-to tooltip. */
@@ -48,7 +50,8 @@ export const METRIC_HOWTO: Record<MetricKey, string> = {
 	cb_wagered: 'Total of all wagered Crub Bucks across all of your bets',
 	max_pot: 'Be in a single big-pot bet',
 	win_streak: 'Win bets back-to-back',
-	bets_settled: 'Settle bets by being the one who resolves them'
+	bets_settled: 'Settle bets by being the one who resolves them',
+	friends: 'Make friends (accepted friend requests)'
 };
 
 export interface BadgeDef {
@@ -110,6 +113,14 @@ export const BADGES: BadgeDef[] = [
 		emoji: '🏠',
 		metric: 'bets_settled',
 		thresholds: { bronze: 5, silver: 25, gold: 100 }
+	},
+	{
+		key: 'social',
+		title: 'Social Butterfly',
+		description: "A friend is just someone you haven't sniffed yet.",
+		emoji: '🦋',
+		metric: 'friends',
+		thresholds: { bronze: 3, silver: 10, gold: 25 }
 	}
 ];
 
