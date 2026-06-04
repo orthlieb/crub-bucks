@@ -1,6 +1,7 @@
 import { desc, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from './db';
-import { bets, betParticipants, ledgerEntries, wallets, users } from './db/schema';
+import { bets, betParticipants, ledgerEntries, wallets, users, userBadges } from './db/schema';
+import type { BadgeTier } from '$lib/badges';
 
 /**
  * Public activity feed, visible to all logged-in users (Venmo-style).
@@ -82,6 +83,15 @@ export type FeedItem =
 			amount: number;
 			memo: string | null;
 			icon: string | null;
+			people: FeedUser[];
+	  }
+	| {
+			id: string;
+			type: 'badge_earned';
+			at: Date;
+			badgeKey: string;
+			tier: BadgeTier;
+			earner: FeedUser;
 			people: FeedUser[];
 	  };
 
@@ -339,6 +349,35 @@ export async function getFeed(opts: {
 			icon: t.icon,
 			// Instigator (payer) first.
 			people: [from, to]
+		});
+	}
+
+	// --- Badges (recently earned/upgraded) --------------------------------
+	const badgeRows = await db
+		.select({
+			userId: userBadges.userId,
+			badgeKey: userBadges.badgeKey,
+			tier: userBadges.tier,
+			earnedAt: userBadges.earnedAt,
+			name: users.displayName,
+			avatarUpdatedAt: users.avatarUpdatedAt
+		})
+		.from(userBadges)
+		.innerJoin(users, eq(users.id, userBadges.userId))
+		.orderBy(desc(userBadges.earnedAt))
+		.limit(100);
+	for (const b of badgeRows) {
+		// Audience filter: only show badges earned by someone the viewer follows.
+		if (!all && !audience!.has(b.userId)) continue;
+		const earner: FeedUser = { id: b.userId, name: b.name, avatarUpdatedAt: b.avatarUpdatedAt };
+		items.push({
+			id: `badge:${b.userId}:${b.badgeKey}`,
+			type: 'badge_earned',
+			at: b.earnedAt,
+			badgeKey: b.badgeKey,
+			tier: b.tier,
+			earner,
+			people: [earner]
 		});
 	}
 

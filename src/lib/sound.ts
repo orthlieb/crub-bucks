@@ -14,7 +14,7 @@
 
 export const SOUND_PREF_KEY = 'cb:sound';
 
-export type SoundName = 'cash' | 'slide' | 'hello' | 'yes' | 'no';
+export type SoundName = 'cash' | 'slide' | 'hello' | 'yes' | 'no' | 'wow';
 
 // Optional override files. If one 404s (or can't decode) we remember that and
 // use the synth fallback from then on.
@@ -23,7 +23,8 @@ const FILES: Record<SoundName, string> = {
 	slide: '/sounds/slide-whistle.mp3',
 	hello: '/sounds/hello-there.mp3',
 	yes: '/sounds/yes.mp3',
-	no: '/sounds/no.mp3'
+	no: '/sounds/no.mp3',
+	wow: '/sounds/wow.mp3'
 };
 
 const fileMissing = new Set<SoundName>();
@@ -126,7 +127,16 @@ function synth(name: SoundName): void {
 		case 'hello':
 			helloThere(c, t);
 			break;
+		case 'wow':
+			fanfare(c, t);
+			break;
 	}
+}
+
+/** A short triumphant arpeggio — the award fanfare. */
+function fanfare(c: AudioContext, t0: number): void {
+	const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 → E5 → G5 → C6
+	notes.forEach((f, i) => bell(c, t0 + i * 0.09, f, 0.16));
 }
 
 /** A bell partial-stack with fast attack + exponential decay. */

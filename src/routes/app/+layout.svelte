@@ -72,6 +72,9 @@
 		cueOnChange('cb:lastBetLive', liveAt ? String(liveAt) : null, liveAt, 'yes');
 		const cancAt = s.lastBetCancelledAt ? new Date(s.lastBetCancelledAt).getTime() : null;
 		cueOnChange('cb:lastBetCancelled', cancAt ? String(cancAt) : null, cancAt, 'no');
+		// You earned an award → celebratory fanfare.
+		const badgeAt = s.lastBadgeAt ? new Date(s.lastBadgeAt).getTime() : null;
+		cueOnChange('cb:lastBadge', badgeAt ? String(badgeAt) : null, badgeAt, 'wow');
 	});
 
 	// Friend request received → "hello there" (only on an increase in the count).
@@ -112,7 +115,8 @@
 	const navlinks = [
 		{ href: '/app', label: 'Bets', exact: true },
 		{ href: '/app/feed', label: 'Feed' },
-		{ href: '/app/friends', label: 'Friends' }
+		{ href: '/app/friends', label: 'Friends' },
+		{ href: '/app/awards', label: 'Awards' }
 	];
 
 	function isActive(href: string, exact?: boolean): boolean {

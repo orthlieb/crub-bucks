@@ -134,6 +134,13 @@
       "when": 1780452678175,
       "tag": "0018_notification_link",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1780539566153,
+      "tag": "0019_badges",
+      "breakpoints": true
     }
   ]
 }
