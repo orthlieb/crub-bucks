@@ -78,7 +78,7 @@ never revoked.
 | **Bark-to-Bark Wins** | `bark_to_bark` | Longest win streak ("back-to-back, now with more woof") | 3 | 5 | 10 |
 | **The Dog House** | `dog_house` | Bets you settled — the resolver ("where every bet comes to heel") | 5 | 25 | 100 |
 | **Philanthropist** | `philanthropist` | Lifetime ₡ paid to friends (peer payments) | 100 | 1,000 | 10,000 |
-| **Social Butterfly** | `social` | Accepted friends (high-water mark) | 3 | 10 | 25 |
+| **Social Butterfly** | `social` | Accepted friends ("a friend is just someone you haven't sniffed yet") | 3 | 10 | 25 |
 | **Recruiter** | `recruiter` | Invited friends who joined | 1 | 5 | 15 |
 | **Comeback Kid** | `comeback` | Climbed from ≤ −50 ₡ back to ≥ +100 ₡ | — | — | once 🥇 |
 | **Veteran** | `veteran` | Account age in days | 30 | 180 | 365 |

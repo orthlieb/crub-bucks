@@ -66,13 +66,26 @@ export async function computeMetrics(userId: string): Promise<Record<MetricKey, 
 		.from(bets)
 		.where(and(eq(bets.resolvedBy, userId), eq(bets.status, 'resolved')));
 
+	// Social Butterfly: accepted friendships in either direction. Forward-only
+	// awarding means a later unfriend can't strip a tier already earned.
+	const [friends] = await db
+		.select({ n: count() })
+		.from(friendships)
+		.where(
+			and(
+				eq(friendships.status, 'accepted'),
+				or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId))
+			)
+		);
+
 	return {
 		bets_joined: betsJoined,
 		bets_won: betsWon,
 		cb_wagered: cbWagered,
 		max_pot: maxPot,
 		win_streak: winStreak,
-		bets_settled: Number(settled?.n ?? 0)
+		bets_settled: Number(settled?.n ?? 0),
+		friends: Number(friends?.n ?? 0)
 	};
 }
 

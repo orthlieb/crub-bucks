@@ -773,6 +773,11 @@ export async function acceptFriendRequest(userId: string, requestId: string): Pr
 		body: "You're now friends — start a bet or send some bucks.",
 		link: '/app/friends'
 	}).catch(() => {});
+
+	// Both sides just gained a friend → re-evaluate Social Butterfly. Best-effort.
+	for (const uid of [userId, req.requesterId]) {
+		await evaluateBadges(uid).catch((err) => console.warn('[badges] eval failed:', err));
+	}
 }
 
 /** Deny a pending request. Only the addressee may deny (row is deleted). */

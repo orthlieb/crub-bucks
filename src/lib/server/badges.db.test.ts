@@ -184,4 +184,32 @@ suite('badges (DB)', () => {
 		expect((await computeMetrics(a.id)).bets_settled).toBe(3);
 		expect((await computeMetrics(b.id)).bets_settled).toBe(1);
 	});
+
+	it('friends (Social Butterfly) counts accepted friendships either direction', async () => {
+		const a = await createUser();
+		// Two where a is the requester, one where a is the addressee → 3 accepted.
+		for (let i = 0; i < 2; i++) {
+			const f = await createUser();
+			await db
+				.insert(friendships)
+				.values({ requesterId: a.id, addresseeId: f.id, status: 'accepted', respondedAt: new Date() });
+		}
+		const g = await createUser();
+		await db
+			.insert(friendships)
+			.values({ requesterId: g.id, addresseeId: a.id, status: 'accepted', respondedAt: new Date() });
+		// A pending request must not count.
+		const h = await createUser();
+		await db.insert(friendships).values({ requesterId: a.id, addresseeId: h.id, status: 'pending' });
+
+		expect((await computeMetrics(a.id)).friends).toBe(3);
+
+		// 3 ≥ 3 → Social Butterfly bronze.
+		await evaluateBadges(a.id);
+		const [sb] = await db
+			.select()
+			.from(userBadges)
+			.where(and(eq(userBadges.userId, a.id), eq(userBadges.badgeKey, 'social')));
+		expect(sb.tier).toBe('bronze');
+	});
 });
