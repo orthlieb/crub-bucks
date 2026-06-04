@@ -111,6 +111,32 @@
 		</p>
 	</header>
 
+	<!-- Push self-test -->
+	<Card>
+		<CardHeader>
+			<CardTitle level={2}>Test push notification</CardTitle>
+			<CardDescription>
+				Sends a Web Push to your own subscribed devices to verify delivery end-to-end.
+				Enable Notifications in Settings first (in a real browser — not the embedded preview).
+			</CardDescription>
+		</CardHeader>
+		<CardContent>
+			{#if form?.pushError}
+				<Alert variant="destructive" class="mb-4">
+					<AlertDescription>{form.pushError}</AlertDescription>
+				</Alert>
+			{/if}
+			{#if form?.pushResult}
+				<Alert variant="success" class="mb-4">
+					<AlertDescription>{form.pushResult}</AlertDescription>
+				</Alert>
+			{/if}
+			<form method="POST" action="?/testPush" use:enhance>
+				<Button type="submit">Send myself a test push</Button>
+			</form>
+		</CardContent>
+	</Card>
+
 	<!-- Send form -->
 	<Card>
 		<CardHeader>

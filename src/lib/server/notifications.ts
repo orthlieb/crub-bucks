@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { db } from './db';
 import { notificationDismissals, notifications, users } from './db/schema';
+import { sendWebPush } from './push';
 
 /**
  * Notifications: short messages shown to users at the top of /app pages.
@@ -64,6 +65,19 @@ export async function createNotification(input: CreateInput): Promise<string> {
 			createdBy: input.createdBy ?? null
 		})
 		.returning({ id: notifications.id });
+
+	// Phase 2: fan a web push out to the targeted user's devices. Fire-and-forget
+	// (full detail reused from the in-app notification); broadcasts (userId null)
+	// are not pushed. Never blocks or breaks the caller.
+	if (input.userId) {
+		sendWebPush(input.userId, {
+			title: input.title,
+			body: input.body ?? null,
+			url: input.link ?? '/app',
+			tag: row.id
+		}).catch((err) => console.warn('[push] send failed:', err));
+	}
+
 	return row.id;
 }
 

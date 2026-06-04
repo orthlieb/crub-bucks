@@ -6,6 +6,7 @@ import {
 	type NotificationLevel
 } from '$lib/server/notifications';
 import { logSecurityEvent } from '$lib/server/auth/audit';
+import { sendWebPush, pushConfigured } from '$lib/server/push';
 import type { Actions, PageServerLoad } from './$types';
 
 const LEVELS: NotificationLevel[] = ['info', 'success', 'warning'];
@@ -56,6 +57,27 @@ export const actions: Actions = {
 		});
 
 		return { ok: 'sent' as const };
+	},
+
+	// Send a Web Push to the admin's own subscribed devices — verifies the push
+	// pipeline end-to-end without creating an in-app notification.
+	testPush: async (event) => {
+		const actor = event.locals.user;
+		if (!actor) return fail(401, { pushError: 'Not signed in.' });
+		if (!pushConfigured()) {
+			return fail(400, { pushError: 'Push is not configured (missing VAPID env).' });
+		}
+		const count = await sendWebPush(actor.id, {
+			title: '🔔 Test push',
+			body: 'If you can see this, Crub Bucks push notifications are working.',
+			url: '/app'
+		});
+		return {
+			pushResult:
+				count > 0
+					? `Test push sent to ${count} device${count === 1 ? '' : 's'}.`
+					: 'No subscribed devices for your account — enable Notifications in Settings (in a real browser) first.'
+		};
 	},
 
 	delete: async (event) => {
