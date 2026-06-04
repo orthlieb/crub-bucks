@@ -96,7 +96,7 @@
 			<div class="text-xs text-muted-foreground">{fmtDate(date)}</div>
 		</div>
 		{#if people.length > 0}
-			<div class="grid shrink-0 gap-1" style={`grid-template-columns:repeat(${avatarCols}, auto)`}>
+			<div class="grid shrink-0 gap-1.5" style={`grid-template-columns:repeat(${avatarCols}, auto)`}>
 				{#each people as p (p.id)}
 					<Avatar
 						id={p.id}
