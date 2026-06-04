@@ -1,33 +1,99 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { env } from '$env/dynamic/public';
 
 	let {
 		theme = 'light',
-		size = 'normal'
-	}: { theme?: 'light' | 'dark'; size?: 'normal' | 'compact' | 'invisible' } = $props();
+		size = 'normal',
+		token = $bindable(''),
+		reset = $bindable(() => {})
+	}: {
+		theme?: 'light' | 'dark';
+		size?: 'normal' | 'compact' | 'invisible';
+		/** Bindable: the solved hCaptcha token (empty until solved/after expiry).
+		 *  Parents gate their submit button on this so the form can't be sent
+		 *  before the captcha is solved. */
+		token?: string;
+		/** Bindable: call to reset the widget (e.g. after a failed submit — the
+		 *  token is single-use, so the next attempt needs a fresh one). */
+		reset?: () => void;
+	} = $props();
 
 	const siteKey = env.PUBLIC_HCAPTCHA_SITE_KEY ?? '';
+
+	type HCaptcha = {
+		render: (el: HTMLElement, opts: Record<string, unknown>) => string;
+		reset: (id?: string) => void;
+		remove?: (id: string) => void;
+	};
+	const getHc = (): HCaptcha | undefined =>
+		(window as unknown as { hcaptcha?: HCaptcha }).hcaptcha;
+
+	let container: HTMLDivElement | undefined = $state();
+	let widgetId: string | undefined;
 	let scriptLoaded = $state(false);
 
+	function renderWidget() {
+		const hc = getHc();
+		if (!hc || !container || widgetId !== undefined) return;
+		scriptLoaded = true;
+		widgetId = hc.render(container, {
+			sitekey: siteKey,
+			theme,
+			size,
+			callback: (t: string) => (token = t),
+			'expired-callback': () => (token = ''),
+			'error-callback': () => (token = '')
+		});
+		reset = () => {
+			token = '';
+			const h = getHc();
+			if (h && widgetId !== undefined) h.reset(widgetId);
+		};
+	}
+
 	onMount(() => {
-		if (!siteKey) return;
-		if (document.querySelector('script[data-hcaptcha]')) {
-			scriptLoaded = true;
+		// No site key (e.g. local dev): there's no widget to solve, so hand the
+		// parent a sentinel token to keep its submit gate open.
+		if (!siteKey) {
+			token = 'unconfigured';
 			return;
 		}
+		// Script may already be present from a previous page (SPA navigation).
+		if (getHc()) {
+			renderWidget();
+			return;
+		}
+		const existing = document.querySelector<HTMLScriptElement>('script[data-hcaptcha]');
+		if (existing) {
+			existing.addEventListener('load', renderWidget);
+			return () => existing.removeEventListener('load', renderWidget);
+		}
 		const s = document.createElement('script');
-		s.src = 'https://js.hcaptcha.com/1/api.js';
+		// Explicit render (we call hcaptcha.render ourselves) so we get the
+		// solved/expired callbacks that drive the submit gate.
+		s.src = 'https://js.hcaptcha.com/1/api.js?render=explicit';
 		s.async = true;
 		s.defer = true;
 		s.dataset.hcaptcha = 'true';
-		s.onload = () => (scriptLoaded = true);
+		s.onload = renderWidget;
 		document.head.appendChild(s);
+	});
+
+	onDestroy(() => {
+		const hc = getHc();
+		if (hc?.remove && widgetId !== undefined) {
+			try {
+				hc.remove(widgetId);
+			} catch {
+				/* widget already gone */
+			}
+		}
 	});
 </script>
 
 {#if siteKey}
-	<div class="h-captcha" data-sitekey={siteKey} data-theme={theme} data-size={size}></div>
+	<div bind:this={container}></div>
 	{#if !scriptLoaded}
 		<p class="mt-1 text-xs text-muted-foreground">Loading captcha…</p>
 	{/if}

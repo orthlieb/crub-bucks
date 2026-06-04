@@ -16,6 +16,12 @@
 	import Captcha from '$lib/components/Captcha.svelte';
 
 	let { form }: { form: ActionData } = $props();
+
+	// Gate submission on a solved captcha so the form can't be sent prematurely
+	// (Enter key, autofill, or clicking before solving). resetCaptcha clears the
+	// spent single-use token after a failed attempt.
+	let captchaToken = $state('');
+	let resetCaptcha = $state(() => {});
 </script>
 
 <div class="kibble-bg min-h-screen bg-background py-12 px-4">
@@ -51,7 +57,17 @@
 					</Alert>
 				{/if}
 
-				<form method="POST" use:enhance class="space-y-4">
+				<form
+					method="POST"
+					use:enhance={() => {
+						return async ({ result, update }) => {
+							// Spent single-use token — reset so the next try gets a fresh one.
+							if (result.type === 'failure') resetCaptcha();
+							await update();
+						};
+					}}
+					class="space-y-4"
+				>
 					<div class="space-y-2">
 						<Label for="email">Email</Label>
 						<Input
@@ -92,9 +108,12 @@
 						<span>Remember me on this device</span>
 					</label>
 
-					<Captcha />
+					<Captcha bind:token={captchaToken} bind:reset={resetCaptcha} />
 
-					<Button type="submit" class="w-full">Log in</Button>
+					<Button type="submit" class="w-full" disabled={!captchaToken}>Log in</Button>
+					{#if !captchaToken}
+						<p class="text-center text-xs text-muted-foreground">Complete the captcha to continue.</p>
+					{/if}
 				</form>
 			</CardContent>
 
