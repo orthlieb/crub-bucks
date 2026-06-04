@@ -12,6 +12,7 @@
 </script>
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import Avatar, { type AvatarRing } from '$lib/components/Avatar.svelte';
 	import { formatAmount } from '$lib/format';
 	import { cn } from '$lib/utils';
@@ -46,8 +47,9 @@
 		title: string;
 		/** Total wagered (bets) or transferred (payments). Null hides the line. */
 		amount?: number | null;
-		/** Optional note on its own line: resolution note / payment memo. */
-		comment?: string | null;
+		/** Optional note on its own line: a plain string, or a snippet for rich
+		 *  content (e.g. the feed's tier-bug + label). Strings stay text-safe. */
+		comment?: string | Snippet | null;
 		date: Date | string;
 		locale?: string;
 		people?: Person[];
@@ -106,7 +108,9 @@
 				{#if amount != null}<span class="tabular-nums">{formatAmount(amount, locale)} ₡</span>{' — '}{/if}{title}
 			</div>
 			{#if comment}
-				<div class="break-words text-xs text-muted-foreground">{comment}</div>
+				<div class="break-words text-xs text-muted-foreground">
+					{#if typeof comment === 'function'}{@render comment()}{:else}{comment}{/if}
+				</div>
 			{/if}
 			<div class="text-xs text-muted-foreground">{fmtDate(date)}</div>
 		</div>
