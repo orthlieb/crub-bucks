@@ -374,7 +374,7 @@ BADGES registry (code)               static definitions, thresholds, icons
   in-app only: the notification bell, the `badge_earned` feed item, and the
   "wow" sound *while the tab is open*. Add Web Push (service worker + VAPID) so
   awards (and other notifications) reach users when the app isn't focused;
-  native wrappers later. Tracked separately from the badge framework.
+  native wrappers later. Tracked separately — see `docs/push-notifications.md`.
 - **Award sound (done).** `wow.mp3` plays once when *you* earn an award —
   driven by a `lastBadgeAt` signal in the layout poll (mirrors the
   cash/slide/yes/no cues), with a synth fanfare fallback if the file is missing.

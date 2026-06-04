@@ -5,6 +5,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import SoundToggle from '$lib/components/SoundToggle.svelte';
+	import NotificationToggle from '$lib/components/NotificationToggle.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { resizeToSquare } from '$lib/avatar-client';
 
@@ -183,6 +184,14 @@
 					<div class="text-xs text-muted-foreground">Cues for gains, losses, bets, and friend requests.</div>
 				</div>
 				<SoundToggle />
+			</div>
+
+			<div class="flex items-center justify-between py-3">
+				<div>
+					<div class="text-sm font-medium">Notifications</div>
+					<div class="text-xs text-muted-foreground">Push alerts for bets, payments, friends, and awards.</div>
+				</div>
+				<NotificationToggle />
 			</div>
 		</div>
 

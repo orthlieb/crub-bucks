@@ -141,6 +141,13 @@
       "when": 1780539566153,
       "tag": "0019_badges",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1780603027256,
+      "tag": "0020_push_subscriptions",
+      "breakpoints": true
     }
   ]
 }
