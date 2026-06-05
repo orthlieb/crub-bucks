@@ -30,7 +30,8 @@ export type MetricKey =
 	| 'max_pot'
 	| 'win_streak'
 	| 'bets_settled'
-	| 'friends';
+	| 'friends'
+	| 'cb_sent';
 
 /** Display unit per metric, for progress hints ("12 / 25 bets"). */
 export const METRIC_UNIT: Record<MetricKey, string> = {
@@ -40,7 +41,8 @@ export const METRIC_UNIT: Record<MetricKey, string> = {
 	max_pot: '₡',
 	win_streak: 'in a row',
 	bets_settled: 'settled',
-	friends: 'friends'
+	friends: 'friends',
+	cb_sent: '₡'
 };
 
 /** Plain-language description of what a metric counts, for the how-to tooltip. */
@@ -51,7 +53,8 @@ export const METRIC_HOWTO: Record<MetricKey, string> = {
 	max_pot: 'Be in a single big-pot bet',
 	win_streak: 'Win bets back-to-back',
 	bets_settled: 'Settle bets by being the one who resolves them',
-	friends: 'Make friends (accepted friend requests)'
+	friends: 'Make friends (accepted friend requests)',
+	cb_sent: 'Send Crub Bucks to other players (peer payments)'
 };
 
 export interface BadgeDef {
@@ -121,6 +124,14 @@ export const BADGES: BadgeDef[] = [
 		emoji: '🦋',
 		metric: 'friends',
 		thresholds: { bronze: 3, silver: 10, gold: 25 }
+	},
+	{
+		key: 'throwing_bones',
+		title: 'Throwing Bones',
+		description: 'Easy come, easy bury.',
+		emoji: '🦴',
+		metric: 'cb_sent',
+		thresholds: { bronze: 100, silver: 1000, gold: 10000 }
 	}
 ];
 

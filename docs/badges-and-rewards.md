@@ -77,7 +77,7 @@ never revoked.
 | **Big Bowl** | `big_bowl` | Largest single bet pot you were in ("when the kibble piles up") | 50 | 250 | 1,000 |
 | **Bark-to-Bark Wins** | `bark_to_bark` | Longest win streak ("back-to-back, now with more woof") | 3 | 5 | 10 |
 | **The Dog House** | `dog_house` | Bets you settled — the resolver ("where every bet comes to heel") | 5 | 25 | 100 |
-| **Philanthropist** | `philanthropist` | Lifetime ₡ paid to friends (peer payments) | 100 | 1,000 | 10,000 |
+| **Throwing Bones** | `throwing_bones` | Lifetime ₡ sent as peer payments ("easy come, easy bury") | 100 | 1,000 | 10,000 |
 | **Social Butterfly** | `social` | Accepted friends ("a friend is just someone you haven't sniffed yet") | 3 | 10 | 25 |
 | **Recruiter** | `recruiter` | Invited friends who joined | 1 | 5 | 15 |
 | **Comeback Kid** | `comeback` | Climbed from ≤ −50 ₡ back to ≥ +100 ₡ | — | — | once 🥇 |
@@ -209,7 +209,7 @@ ledger today):
 | Event | Badges potentially affected |
 | --- | --- |
 | Bet resolved (`resolveBet`) | Running with the Pack, Winner, All Bones In, Big Bowl, Bark-to-Bark Wins, The Dog House (resolver) |
-| Peer payment (`transferBetweenUsers`) | Philanthropist |
+| Peer payment (`transferBetweenUsers`) | Throwing Bones (the payer) |
 | Friend request accepted (`acceptFriendRequest`) | Social Butterfly |
 | Invite claimed on signup (`materializeInvite*`) | Recruiter (for the inviter) |
 | Balance change (any transfer) | Comeback Kid |
