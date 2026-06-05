@@ -204,6 +204,11 @@ export async function transferBetweenUsers(opts: {
 		link: '/app/feed'
 	}).catch(() => {});
 
+	// The payer just spent → re-evaluate Throwing Bones. Best-effort.
+	await evaluateBadges(opts.fromUserId).catch((err) =>
+		console.warn('[badges] eval failed:', err)
+	);
+
 	return transferId;
 }
 

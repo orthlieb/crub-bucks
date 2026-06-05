@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { friendships, userBadges, notifications, bets } from '$lib/server/db/schema';
-import { createBet, resolveBet, acceptBet, grantWelcomeIfNeeded } from '$lib/server/ledger';
+import {
+	createBet,
+	resolveBet,
+	acceptBet,
+	grantWelcomeIfNeeded,
+	transferBetweenUsers
+} from '$lib/server/ledger';
 import { evaluateBadges, computeMetrics } from '$lib/server/badges';
 import { hasTestDb, resetDb, createUser } from '../../test/db';
 
@@ -211,5 +217,24 @@ suite('badges (DB)', () => {
 			.from(userBadges)
 			.where(and(eq(userBadges.userId, a.id), eq(userBadges.badgeKey, 'social')));
 		expect(sb.tier).toBe('bronze');
+	});
+
+	it('cb_sent (Throwing Bones) sums peer payments the user sent, not received', async () => {
+		const { a, b } = await makeFriends(); // each holds the 100 ₡ welcome grant
+		await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 30 });
+		await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 70 });
+		await transferBetweenUsers({ fromUserId: b.id, toUserId: a.id, amount: 10 });
+
+		// a sent 100 (30 + 70); receiving b's 10 doesn't count toward a.
+		expect((await computeMetrics(a.id)).cb_sent).toBe(100);
+		expect((await computeMetrics(b.id)).cb_sent).toBe(10);
+
+		// 100 ≥ 100 → Throwing Bones bronze.
+		await evaluateBadges(a.id);
+		const [tb] = await db
+			.select()
+			.from(userBadges)
+			.where(and(eq(userBadges.userId, a.id), eq(userBadges.badgeKey, 'throwing_bones')));
+		expect(tb.tier).toBe('bronze');
 	});
 });

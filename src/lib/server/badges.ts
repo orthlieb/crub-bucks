@@ -1,6 +1,14 @@
-import { and, count, desc, eq, or } from 'drizzle-orm';
+import { and, count, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
-import { userBadges, betParticipants, bets, friendships, users } from './db/schema';
+import {
+	userBadges,
+	betParticipants,
+	bets,
+	friendships,
+	users,
+	ledgerEntries,
+	wallets
+} from './db/schema';
 import { createNotification } from './notifications';
 import {
 	BADGES,
@@ -78,6 +86,22 @@ export async function computeMetrics(userId: string): Promise<Record<MetricKey, 
 			)
 		);
 
+	// Throwing Bones: total ₡ sent as peer payments. Sum the debit legs that
+	// leave the user's *own* wallet and that the user initiated, excluding
+	// bet settlements (betId set) and admin clawbacks (createdBy ≠ self).
+	const [sent] = await db
+		.select({ total: sql<number>`coalesce(sum(-${ledgerEntries.delta}), 0)` })
+		.from(ledgerEntries)
+		.innerJoin(wallets, eq(wallets.id, ledgerEntries.walletId))
+		.where(
+			and(
+				eq(wallets.userId, userId),
+				eq(ledgerEntries.createdBy, userId),
+				isNull(ledgerEntries.betId),
+				lt(ledgerEntries.delta, 0)
+			)
+		);
+
 	return {
 		bets_joined: betsJoined,
 		bets_won: betsWon,
@@ -85,7 +109,8 @@ export async function computeMetrics(userId: string): Promise<Record<MetricKey, 
 		max_pot: maxPot,
 		win_streak: winStreak,
 		bets_settled: Number(settled?.n ?? 0),
-		friends: Number(friends?.n ?? 0)
+		friends: Number(friends?.n ?? 0),
+		cb_sent: Number(sent?.total ?? 0)
 	};
 }
 
