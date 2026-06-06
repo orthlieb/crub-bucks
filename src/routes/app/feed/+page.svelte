@@ -19,8 +19,10 @@
 </script>
 
 <div class="space-y-6">
-	<header class="flex items-center gap-3">
-		<img src="/feed.png" alt="" class="h-12 w-12 shrink-0 object-contain" />
+	<header class="flex items-stretch gap-3">
+		<div class="shrink-0 self-stretch">
+			<img src="/feed.png" alt="" class="h-full w-auto object-contain" />
+		</div>
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Feed</h1>
 			<p class="mt-1 text-muted-foreground">In circulation {fmt(-data.bank)} ₡</p>
