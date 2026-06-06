@@ -107,7 +107,7 @@
 		{#snippet child({ props })}
 			<button
 				{...props}
-				class="rounded-full ring-offset-background transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+				class="rounded-full ring-offset-background transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				aria-label="Settings"
 				title="Settings"
 			>
