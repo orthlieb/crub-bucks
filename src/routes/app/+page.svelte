@@ -8,10 +8,8 @@
 </script>
 
 <div class="space-y-8">
-	<header class="flex items-stretch gap-3">
-		<div class="shrink-0 self-stretch">
-			<img src="/bets.png" alt="" class="h-full w-auto object-contain" />
-		</div>
+	<header class="flex items-center gap-3">
+		<img src="/bets.png" alt="" class="h-16 w-16 shrink-0 object-contain" />
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Your bets</h1>
 			<p class="mt-1 italic text-muted-foreground">{data.tagline}</p>
