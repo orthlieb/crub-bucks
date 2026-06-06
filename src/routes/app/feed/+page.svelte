@@ -23,7 +23,7 @@
 		<img src="/feed.png" alt="" class="h-16 w-16 shrink-0 object-contain" />
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Feed</h1>
-			<p class="mt-1 text-muted-foreground">In circulation {fmt(-data.bank)} ₡</p>
+			<p class="mt-1 text-muted-foreground">In circulation {fmt(-data.bank)} ₡, that's a lot of treats.</p>
 		</div>
 	</header>
 
