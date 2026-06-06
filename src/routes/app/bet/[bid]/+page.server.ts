@@ -151,13 +151,19 @@ export const actions: Actions = {
 		throw redirect(303, `/app/bet/${betId}`);
 	},
 
-	accept: async ({ params, locals }) => {
+	accept: async ({ params, request, locals }) => {
 		const userId = locals.user!.id;
 		const betId = params.bid;
 		if (!(await isBetParticipant(betId, userId))) throw error(403, 'Not a participant');
 
+		// Odds bets carry the accepting player's own wager; other modes ignore it.
+		const form = await request.formData();
+		const stakeRaw = form.get('stake');
+		const stake =
+			stakeRaw != null && String(stakeRaw).trim() !== '' ? Number(stakeRaw) : undefined;
+
 		try {
-			await acceptBet({ betId, userId });
+			await acceptBet({ betId, userId, stake });
 		} catch (e) {
 			if (e instanceof LedgerError) return fail(400, { error: e.message });
 			throw e;

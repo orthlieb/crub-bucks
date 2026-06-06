@@ -166,9 +166,6 @@ the whole pot:
 
 ### 5. Odds — `odds`
 
-> **Note:** the settlement engine ships now; the create/accept/resolve **UI**
-> for odds bets lands in a follow-up, so it can't yet be created from the app.
-
 Each participant wagers a **self-chosen** amount; a single winner takes
 everyone else's wagers. The "odds" are emergent — they come from the relative
 stake sizes, nobody types a ratio.
