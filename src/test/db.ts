@@ -110,7 +110,7 @@ export async function createUser(opts?: {
 		.values({
 			email,
 			displayName,
-			passwordHash: hashPassword('password1234!'),
+			passwordHash: await hashPassword('password1234!'),
 			emailVerifiedAt: opts?.verified === false ? null : new Date()
 		})
 		.returning({ id: users.id, email: users.email, displayName: users.displayName });

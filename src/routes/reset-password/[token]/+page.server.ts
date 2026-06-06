@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { users, authTokens } from '$lib/server/db/schema';
 import { hashPassword, validatePassword } from '$lib/server/auth/password';
+import { assertPasswordNotPwned, PwnedPasswordError } from '$lib/server/auth/hibp';
 import { findValidToken } from '$lib/server/auth/tokens';
 import { invalidateAllSessionsForUser } from '$lib/server/auth/session';
 import { logSecurityEvent } from '$lib/server/auth/audit';
@@ -45,8 +46,17 @@ export const actions: Actions = {
 		if (!pw.ok) {
 			return fail(400, { error: pw.message ?? 'Invalid password.' });
 		}
+		// Reject passwords found in known breaches (fail-open if HIBP is down).
+		try {
+			await assertPasswordNotPwned(password);
+		} catch (err) {
+			if (err instanceof PwnedPasswordError) {
+				return fail(400, { error: err.message });
+			}
+			throw err;
+		}
 
-		const passwordHash = hashPassword(password);
+		const passwordHash = await hashPassword(password);
 
 		await db.transaction(async (tx) => {
 			await tx

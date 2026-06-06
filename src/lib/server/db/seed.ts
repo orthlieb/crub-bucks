@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { scryptSync, randomBytes } from 'node:crypto';
+import argon2 from 'argon2';
 import * as schema from './schema';
 import {
 	users,
@@ -28,15 +28,10 @@ if (!url) throw new Error('DATABASE_URL is not set');
 const sql = postgres(url, { max: 1 });
 const db = drizzle(sql, { schema });
 
-function hashPassword(pw: string): string {
-	const salt = randomBytes(16).toString('hex');
-	const key = scryptSync(pw.normalize('NFKC'), salt, 64, {
-		N: 16384,
-		r: 8,
-		p: 1,
-		maxmem: 64 * 1024 * 1024
-	});
-	return `scrypt$${salt}$${key.toString('hex')}`;
+function hashPassword(pw: string): Promise<string> {
+	// Mirrors $lib/server/auth/password.hashPassword, reimplemented here so the
+	// seed script doesn't need SvelteKit's $lib/$env aliases.
+	return argon2.hash(pw.normalize('NFKC'), { type: argon2.argon2id });
 }
 
 async function transfer(opts: {
@@ -70,7 +65,7 @@ async function transfer(opts: {
 
 console.log('Seeding demo data…');
 
-const hash = hashPassword('password123');
+const hash = await hashPassword('password123');
 const now = new Date();
 
 const [carl, dana, theo, mira, nina] = await db

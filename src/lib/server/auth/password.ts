@@ -1,42 +1,79 @@
-import { scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
+import argon2 from 'argon2';
+import { scryptSync, timingSafeEqual } from 'node:crypto';
 
-// scrypt parameters. N must be a power of 2; these are reasonable defaults
-// for an interactive login on modest hardware.
-const N = 16384; // 2^14
-const r = 8;
-const p = 1;
-const dkLen = 64;
+// ---------------------------------------------------------------------------
+// Password hashing
+//
+// New hashes use Argon2id (the argon2 library's defaults: m=65536 KiB, t=3,
+// p=4 — a sound interactive-login profile). Stored values are self-describing
+// ("$argon2id$v=19$m=...$..."), so verifyPassword can tell them apart from the
+// LEGACY scrypt format ("scrypt$<salt>$<hashHex>") and accept both. Old
+// accounts keep working; the login flow rehashes them to Argon2id on the next
+// successful sign-in (see needsRehash + the login action's rehash step).
+// ---------------------------------------------------------------------------
 
-function derive(password: string, salt: string): Buffer {
-	return scryptSync(password.normalize('NFKC'), salt, dkLen, {
-		N,
-		r,
-		p,
+/** Returns an Argon2id hash string (self-describing, includes salt + params). */
+export async function hashPassword(password: string): Promise<string> {
+	return argon2.hash(password.normalize('NFKC'), { type: argon2.argon2id });
+}
+
+// Legacy scrypt parameters — only used to VERIFY pre-existing scrypt hashes.
+const SCRYPT_N = 16384; // 2^14
+const SCRYPT_r = 8;
+const SCRYPT_p = 1;
+const SCRYPT_dkLen = 64;
+
+function deriveScrypt(password: string, salt: string): Buffer {
+	return scryptSync(password.normalize('NFKC'), salt, SCRYPT_dkLen, {
+		N: SCRYPT_N,
+		r: SCRYPT_r,
+		p: SCRYPT_p,
 		maxmem: 64 * 1024 * 1024
 	});
 }
 
-/** Returns a stored value of the form `scrypt$<salt>$<hashHex>`. */
-export function hashPassword(password: string): string {
-	const salt = randomBytes(16).toString('hex');
-	return `scrypt$${salt}$${derive(password, salt).toString('hex')}`;
-}
+/**
+ * Verifies a password against a stored hash. Accepts both new Argon2id hashes
+ * and legacy `scrypt$<salt>$<hashHex>` values. Never throws — returns false on
+ * any malformed or unrecognised input.
+ */
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+	if (typeof stored !== 'string' || stored.length === 0) return false;
 
-export function verifyPassword(password: string, stored: string): boolean {
+	// Argon2 hashes are self-describing and start with "$argon2".
+	if (stored.startsWith('$argon2')) {
+		try {
+			return await argon2.verify(stored, password.normalize('NFKC'));
+		} catch {
+			return false;
+		}
+	}
+
+	// Legacy scrypt format: scrypt$<salt>$<hashHex>
 	const parts = stored.split('$');
 	if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
 	const [, salt, expectedHex] = parts;
 	const expected = Buffer.from(expectedHex, 'hex');
-	const actual = derive(password, salt);
+	const actual = deriveScrypt(password, salt);
 	return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+/**
+ * True if a stored hash is not in the current preferred format (i.e. it's a
+ * legacy scrypt hash). The login flow calls this after a successful verify to
+ * decide whether to transparently rehash the password to Argon2id.
+ */
+export function needsRehash(stored: string): boolean {
+	return !stored.startsWith('$argon2');
 }
 
 // ---------------------------------------------------------------------------
 // Password policy
-// Mirrors ironledger: at least 12 characters, at least 5 distinct characters,
-// and not a common / easily-guessed password (local denylist — see
-// common-passwords.ts). HIBP breach checking remains a possible follow-on.
-// The constants live in a client-safe module so form copy can render them.
+// At least 12 characters, at least 5 distinct characters, and not a common /
+// easily-guessed password (local denylist — see common-passwords.ts). The
+// registration and reset-password flows additionally check HaveIBeenPwned
+// (see auth/hibp.ts). The constants live in a client-safe module so form copy
+// can render them.
 // ---------------------------------------------------------------------------
 
 export { PASSWORD_MIN_LENGTH, PASSWORD_MIN_DISTINCT } from '$lib/auth/password-policy';
@@ -72,9 +109,10 @@ export function validatePassword(password: string): PasswordValidationResult {
 /**
  * Constant-time-ish dummy verify, used in the login flow when the email is
  * unknown so attackers can't distinguish "no such user" from "wrong password"
- * by response timing alone.
+ * by response timing alone. The reference hash is computed once, lazily.
  */
-const DUMMY_HASH = hashPassword('not-a-real-password-but-still-a-hash');
-export function dummyVerify(password: string): boolean {
-	return verifyPassword(password, DUMMY_HASH);
+let dummyHashPromise: Promise<string> | null = null;
+export async function dummyVerify(password: string): Promise<boolean> {
+	dummyHashPromise ??= hashPassword('not-a-real-password-but-still-a-hash');
+	return verifyPassword(password, await dummyHashPromise);
 }

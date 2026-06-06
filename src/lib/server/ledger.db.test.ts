@@ -115,11 +115,13 @@ suite('ledger workflows (DB)', () => {
 
 		it('enforces the 99-friend cap', async () => {
 			const a = await createUser();
-			// Bulk-create 99 accepted friends for A.
+			// Bulk-create 99 accepted friends for A. Hash once and reuse — argon2
+			// is deliberately slow, and the password is identical for all rows.
+			const capHash = await hashPassword('password1234!');
 			const rows = Array.from({ length: 99 }, (_, i) => ({
 				email: `cap${i}@test.local`,
 				displayName: `Cap${i}`,
-				passwordHash: hashPassword('password1234!'),
+				passwordHash: capHash,
 				emailVerifiedAt: new Date()
 			}));
 			const created = await db.insert(users).values(rows).returning({ id: users.id });
