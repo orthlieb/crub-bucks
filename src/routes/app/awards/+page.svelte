@@ -11,7 +11,7 @@
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Awards</h1>
 			<p class="mt-1 text-muted-foreground">
-				{data.earnedCount} of {data.totalCount} badges earned. Keep betting to climb the tiers.
+				{data.earnedCount} of {data.totalCount} badges earned. Keep learning new tricks, you old dog!
 			</p>
 		</div>
 	</header>
