@@ -390,6 +390,39 @@ suite('ledger workflows (DB)', () => {
 			expect(await assertZeroSum()).toBe(true);
 		});
 
+		it('odds: each player wagers their own stake; winner takes the rest', async () => {
+			const { a, b, c } = await trio();
+			// a creates with their own wager (50); b and c declare theirs on accept.
+			const betId = await createBet({
+				mode: 'odds',
+				title: 'Odds',
+				createdBy: a.id,
+				stake: 50,
+				participantIds: [a.id, b.id, c.id]
+			});
+			await acceptBet({ betId, userId: b.id, stake: 20 });
+			await acceptBet({ betId, userId: c.id, stake: 10 }); // all in → goes live
+			// c (the longshot) wins → takes 50 + 20 = 70; a and b lose their wagers.
+			await resolveBet({ betId, winnerId: c.id, resolvedBy: c.id });
+			expect(await userBalance(a.id)).toBe(50); // 100 − 50
+			expect(await userBalance(b.id)).toBe(80); // 100 − 20
+			expect(await userBalance(c.id)).toBe(170); // 100 + 70
+			expect(await assertZeroSum()).toBe(true);
+		});
+
+		it('odds: accepting without a valid wager is rejected', async () => {
+			const { a, b, c } = await trio();
+			const betId = await createBet({
+				mode: 'odds',
+				title: 'Odds need stakes',
+				createdBy: a.id,
+				stake: 30,
+				participantIds: [a.id, b.id, c.id]
+			});
+			await expect(acceptBet({ betId, userId: b.id })).rejects.toThrow(/wager/i);
+			await expect(acceptBet({ betId, userId: b.id, stake: 0 })).rejects.toThrow(/wager/i);
+		});
+
 		it('tie-split: manual deltas settle the bet (note, net zero, total = pot)', async () => {
 			const { a, b, c } = await trio();
 			const betId = await createBet({
