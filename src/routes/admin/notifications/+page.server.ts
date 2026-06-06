@@ -25,6 +25,9 @@ export const actions: Actions = {
 		const level = String(form.get('level') ?? 'info') as NotificationLevel;
 		const target = String(form.get('target') ?? 'broadcast');
 		const userId = String(form.get('userId') ?? '').trim() || null;
+		// Optional click-through link (e.g. /app/feed, /app/bet/<id>). Drives both
+		// the in-app banner href and the Web Push `url`.
+		const link = String(form.get('link') ?? '').trim() || null;
 
 		if (!title) return fail(400, { error: 'Title is required.' });
 		if (!LEVELS.includes(level)) return fail(400, { error: 'Invalid level.' });
@@ -34,11 +37,17 @@ export const actions: Actions = {
 		if (target === 'user' && !userId) {
 			return fail(400, { error: 'Pick a recipient.' });
 		}
+		// Keep links to in-app paths so a tap can't be used to fling users at an
+		// arbitrary external site. Allow a leading "/" path only.
+		if (link && !link.startsWith('/')) {
+			return fail(400, { error: 'Link must be an in-app path starting with "/".' });
+		}
 
 		const id = await createNotification({
 			level,
 			title,
 			body,
+			link,
 			userId: target === 'user' ? userId : null,
 			createdBy: actor
 		});

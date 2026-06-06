@@ -19,6 +19,16 @@
 	let level = $state<'info' | 'success' | 'warning'>('info');
 	let target = $state<'broadcast' | 'user'>('broadcast');
 
+	// Optional click-through link. Presets cover the common in-app tabs; the
+	// input takes any /app/... path (e.g. /app/bet/<id>) for ad-hoc testing.
+	let link = $state('');
+	const linkPresets = [
+		{ label: 'Bets', value: '/app' },
+		{ label: 'Feed', value: '/app/feed' },
+		{ label: 'Friends', value: '/app/friends' },
+		{ label: 'Awards', value: '/app/awards' }
+	];
+
 	// Typeahead state: user is searched via /admin/users/search.
 	type UserHit = { id: string; displayName: string; email: string; isActive: boolean };
 	let query = $state('');
@@ -297,6 +307,37 @@
 					<Input id="body" name="body" placeholder="Should take about 15 minutes. Thanks for your patience." />
 				</div>
 
+				<div class="space-y-2">
+					<Label for="link">Link (optional)</Label>
+					<div class="flex flex-wrap gap-2">
+						{#each linkPresets as p (p.value)}
+							<button
+								type="button"
+								onclick={() => (link = p.value)}
+								class="rounded-md border px-3 py-1.5 text-sm transition-colors {link === p.value
+									? 'border-primary bg-accent'
+									: 'hover:bg-accent'}"
+							>
+								{p.label}
+							</button>
+						{/each}
+						{#if link}
+							<button
+								type="button"
+								onclick={() => (link = '')}
+								class="rounded-md border px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent"
+							>
+								Clear
+							</button>
+						{/if}
+					</div>
+					<Input id="link" name="link" bind:value={link} placeholder="/app/bet/<id> — where tapping the notification goes" />
+					<p class="text-xs text-muted-foreground">
+						Must be an in-app path starting with “/”. Drives both the in-app banner and the
+						push notification's tap target.
+					</p>
+				</div>
+
 				<Button type="submit">Send</Button>
 			</form>
 		</CardContent>
@@ -352,6 +393,11 @@
 								<div class="font-medium">{n.title}</div>
 								{#if n.body}
 									<div class="text-sm text-muted-foreground">{n.body}</div>
+								{/if}
+								{#if n.link}
+									<a href={n.link} class="inline-block text-xs text-primary hover:underline">
+										→ {n.link}
+									</a>
 								{/if}
 							</div>
 							<form method="POST" action="?/delete" use:enhance class="shrink-0">
