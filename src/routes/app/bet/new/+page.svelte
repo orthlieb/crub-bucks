@@ -69,7 +69,9 @@
 	// who pay 1/D, 2/D, … (n−1)/D of the pot, where D = n(n−1)/2.
 	const tieredBlurb = $derived.by(() => {
 		const n = selectedCount;
-		if (n < 2) return 'Add at least one friend.';
+		// Before anyone's added, describe the mode like the others do (the
+		// "add a friend" nudge lives in the participant validation, not here).
+		if (n < 2) return modeInfo.tiered.blurb;
 		const losers = n - 1;
 		const denom = (n * (n - 1)) / 2;
 		const fracs = Array.from({ length: losers }, (_, i) => `${i + 1}/${denom}`).join(', ');
@@ -78,13 +80,30 @@
 		} pay ${fracs} of it by rank (last place pays the most).`;
 	});
 
-	// Bet icon. Default 💰; if a previous submit failed and the server echoed
-	// an icon back, sync it on first render via an effect (avoiding the
-	// state_referenced_locally warning that comes from reading props in
-	// the $state initializer).
-	let icon = $state<string>('💰');
+	// Bet icon. Defaults to the selected mode's emoji (even split ⚖️, winner/
+	// loser 🏆, tiered 📊, pot 🪙, odds 🎲) and follows mode changes — until the
+	// user explicitly picks one from the emoji picker, after which `iconCustom`
+	// sticks and switching modes no longer overrides their choice.
+	const MODE_ICON: Record<string, string> = {
+		even_split: '⚖️',
+		winner_loser: '🏆',
+		tiered: '📊',
+		pot: '🪙',
+		odds: '🎲'
+	};
+	let icon = $state<string>(MODE_ICON.even_split);
+	let iconCustom = $state(false);
+	// A failed submit echoes the chosen icon back — treat that as the user's pick.
 	$effect.pre(() => {
-		if (form?.icon) icon = form.icon;
+		if (form?.icon) {
+			icon = form.icon;
+			iconCustom = true;
+		}
+	});
+	// Track the mode's default icon until the user customizes it.
+	$effect(() => {
+		const def = MODE_ICON[mode] ?? '💰';
+		if (!iconCustom) icon = def;
 	});
 
 	// emoji-picker-element integration. The component is a self-registering
@@ -124,6 +143,7 @@
 				const detail = (e as CustomEvent<{ unicode: string }>).detail;
 				if (detail?.unicode) {
 					icon = detail.unicode;
+					iconCustom = true; // user override — stop following the mode default
 					pickerOpen = false;
 				}
 			});
