@@ -87,10 +87,11 @@ Notes:
 - **Comeback Kid** is a single-tier (gold) one-shot. Badges may define 1–3
   tiers; the registry's `thresholds` map is a partial, so a one-shot just
   specifies one tier (designer's choice of color).
-- **On a Heater** measures the *longest* streak ever, so losing a streak never
-  removes the badge.
-- **Social Butterfly** uses a high-water mark: unfriending someone later doesn't
-  strip a badge you legitimately earned.
+- **Bark-to-Bark Wins** measures the *longest* streak ever, so losing a streak
+  never removes the badge.
+- **Social Butterfly** behaves like a high-water mark for free: awarding is
+  forward-only (a held tier is never revoked), so unfriending someone later
+  can't strip a badge you legitimately earned — no separate tracking needed.
 - Metrics map cleanly to existing data: `bet_participants.outcome`,
   `bet_participants.settled_delta`, `bets.pool`, `bets.resolved_by`,
   `ledger_entries` (peer payments), `friendships`, `friend_invites.claimed_at`,
@@ -145,16 +146,13 @@ CREATE TABLE user_badges (
   UNIQUE (user_id, badge_key)                -- one badge per user; upgraded in place
 );
 CREATE INDEX user_badges_user_idx ON user_badges (user_id);
-
--- High-water marks for metrics that can otherwise decrease (friends, balance).
--- Lets us keep evaluation cheap and keep earned badges from ever being revoked.
-CREATE TABLE user_badge_progress (
-  user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  metric_key  text NOT NULL,                 -- e.g. 'max_friends', 'max_balance'
-  value       bigint NOT NULL DEFAULT 0,
-  PRIMARY KEY (user_id, metric_key)
-);
 ```
+
+> **As built:** only `user_badges` exists. An earlier design proposed a separate
+> `user_badge_progress` high-water table for metrics that can decrease (friends,
+> balance). It wasn't needed: because awarding is **forward-only** (a tier is
+> never revoked), a metric dropping later can't strip an earned badge — the
+> high-water behavior falls out of the upsert below for free.
 
 The `UNIQUE (user_id, badge_key)` constraint plus a **forward-only upsert** is
 the heart of "you can't earn the same badge twice":

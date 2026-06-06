@@ -82,6 +82,24 @@ SvelteKit auto-registers this. It handles:
 - **Private** key is a server secret via `$env/dynamic/private` (same pattern as
   `DATABASE_URL`). Plus a `mailto:` contact for the VAPID "subject".
 
+Three env vars gate push (`pushConfigured()` is false unless all are set):
+
+```dotenv
+PUBLIC_VAPID_KEY=…   # public — read via $env/dynamic/public
+VAPID_PRIVATE_KEY=…  # secret
+VAPID_SUBJECT=mailto:you@example.com
+```
+
+**Production setup (the VPS):** prod loads env from `/home/crubbucks/app/.env`
+via PM2's `node_args: --env-file=…`, so add the three vars there and
+`pm2 reload crub-bucks`. Because `PUBLIC_VAPID_KEY` is read through
+`$env/dynamic/public` (runtime, not baked into the build), **no rebuild is
+needed** — a reload is enough. Note: `--env-file` values are assigned to
+`process.env` *after* exec, so they won't appear in `pm2 env`/`/proc/<pid>/environ`
+— verify functionally (admin "send myself a test push") rather than by inspecting
+the process env. Don't rotate the keys once devices have subscribed (it
+invalidates every existing subscription).
+
 ### 4.3 Subscription store (new table)
 ```sql
 CREATE TABLE push_subscriptions (
