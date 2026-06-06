@@ -5,7 +5,7 @@ import type { Actions, PageServerLoad } from './$types';
 
 // 'custom' is intentionally excluded — custom bets can no longer be created
 // (existing ones still resolve/display via the ledger).
-const MODES: BetMode[] = ['even_split', 'winner_loser', 'tiered', 'pot'];
+const MODES: BetMode[] = ['even_split', 'winner_loser', 'tiered', 'pot', 'odds'];
 
 // Cap the icon at 8 chars to allow for multi-codepoint emoji (skin tones,
 // ZWJ sequences) while keeping it well away from "user pasted a paragraph."
@@ -38,7 +38,9 @@ export const actions: Actions = {
 
 		try {
 			let betId: string;
-			if (mode === 'pot') {
+			if (mode === 'pot' || mode === 'odds') {
+				// pot: equal buy-in for everyone. odds: the creator's own wager
+				// (each invited player sets theirs on accept). Both use `stake`.
 				const stake = Number(form.get('stake'));
 				const selected = form.getAll('participantId').map(String).filter(Boolean);
 				const participantIds = Array.from(new Set([userId, ...selected]));

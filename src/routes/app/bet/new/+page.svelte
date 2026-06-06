@@ -19,7 +19,7 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	type Mode = 'even_split' | 'winner_loser' | 'tiered' | 'pot';
+	type Mode = 'even_split' | 'winner_loser' | 'tiered' | 'pot' | 'odds';
 	let mode = $state<Mode>('even_split');
 
 	const modeInfo: Record<Mode, { label: string; blurb: string }> = {
@@ -39,11 +39,18 @@
 			label: 'Pot',
 			blurb:
 				'Everyone buys in for the same amount. Re-buys allowed while it’s open. At resolution you enter each person’s winnings.'
+		},
+		odds: {
+			label: 'Odds',
+			blurb:
+				'Each player wagers their own amount; one winner takes everyone else’s wagers. The odds come from the stakes.'
 		}
 	};
 
 	// Pot-mode buy-in (live preview of the pot = buyIn × players).
 	let buyIn = $state(100);
+	// Odds-mode: the creator's own wager (each invited player sets theirs on accept).
+	let myWager = $state(10);
 
 	// Pooled-mode friend selection — a typeahead (FriendCombobox) so this scales
 	// to hundreds of friends instead of a giant scrolling checklist. The chosen
@@ -244,6 +251,15 @@
 								₡ ({selectedCount} player{selectedCount === 1 ? '' : 's'} × {buyIn} ₡). Re-buys grow the pot.
 							</p>
 						</div>
+					{:else if mode === 'odds'}
+						<div class="space-y-2">
+							<Label for="stake">Your wager</Label>
+							<Input id="stake" name="stake" type="number" min="1" required bind:value={myWager} class="max-w-40" />
+							<p class="text-xs text-muted-foreground">
+								Each player sets their own wager when they accept. The winner takes everyone
+								else's wagers — the odds come from how much each person risks.
+							</p>
+						</div>
 					{:else}
 						<div class="space-y-2">
 							<Label for="amount">Amount wagered (the pot the winner takes)</Label>
@@ -285,6 +301,11 @@
 							<p class="text-xs text-muted-foreground">
 								Anyone in can re-buy while the bet's open (each grows the pot). At resolution you
 								enter each player's winnings — they must total the pot.
+							</p>
+						{:else if mode === 'odds'}
+							<p class="text-xs text-muted-foreground">
+								Each player declares their wager when they accept. You'll name the single winner
+								when you resolve — they take the whole pot.
 							</p>
 						{:else}
 							<p class="text-xs text-muted-foreground">

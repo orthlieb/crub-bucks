@@ -17,7 +17,13 @@
 	import { Label } from '$lib/components/ui/label';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { formatAmount } from '$lib/format';
-	import { evenSplitDeltas, winnerLoserDeltas, tieredDeltas, type BetMode } from '$lib/ledger-math';
+	import {
+		evenSplitDeltas,
+		winnerLoserDeltas,
+		tieredDeltas,
+		oddsDeltas,
+		type BetMode
+	} from '$lib/ledger-math';
 	import GripVertical from '@lucide/svelte/icons/grip-vertical';
 	import BetModeIcon from '$lib/components/icons/BetModeIcon.svelte';
 
@@ -25,6 +31,17 @@
 	const fmt = (n: number) => formatAmount(n, data.locale);
 	const mode = $derived(data.bet.mode);
 	const pool = $derived(Number(data.bet.pool ?? 0));
+	// Odds mode: the pot is the sum of every player's self-chosen wager (boughtIn),
+	// since `pool` stays null. Used for display and the resolve preview.
+	const oddsStakeByUser = $derived(
+		new Map(data.participants.map((p) => [p.userId, Number(p.boughtIn ?? 0)]))
+	);
+	const oddsPot = $derived(
+		data.participants.reduce((s, p) => s + Number(p.boughtIn ?? 0), 0)
+	);
+	const oddsStakesReady = $derived(
+		mode === 'odds' && data.participants.every((p) => Number(p.boughtIn ?? 0) >= 1)
+	);
 	const open = $derived(data.bet.status === 'open');
 	const pending = $derived(data.bet.status === 'pending');
 	const settled = $derived(data.bet.status === 'resolved' || data.bet.status === 'cancelled');
@@ -103,6 +120,11 @@
 				data.participants.map((p) => p.userId).filter((u) => u !== winnerId && u !== loserId)
 			);
 		else if (mode === 'tiered' && winnerId) deltas = tieredDeltas(pool, winnerId, loserOrderIds);
+		else if (mode === 'odds' && winnerId && oddsStakesReady)
+			deltas = oddsDeltas(
+				data.participants.map((p) => ({ userId: p.userId, stake: Number(p.boughtIn ?? 0) })),
+				winnerId
+			);
 		for (const d of deltas) m.set(d.userId, d.delta);
 		return m;
 	});
@@ -162,7 +184,9 @@
 					? !!winnerId && !!loserId && winnerId !== loserId
 					: mode === 'tiered'
 						? !!winnerId
-						: /* pot */ potBalanced
+						: mode === 'odds'
+							? !!winnerId && oddsStakesReady
+							: /* pot */ potBalanced
 	);
 
 	const modeLabel: Record<string, string> = {
@@ -170,7 +194,8 @@
 		winner_loser: 'Winner / Loser',
 		tiered: 'Tiered',
 		pot: 'Pot',
-		custom: 'Custom'
+		custom: 'Custom',
+		odds: 'Odds'
 	};
 </script>
 
@@ -194,7 +219,7 @@
 									: 'destructive'}>{data.bet.status}</Badge
 					>
 					<Badge variant="secondary" class="gap-1"><BetModeIcon mode={mode as BetMode} size={12} />{modeLabel[mode]}</Badge>
-					{#if mode !== 'custom'}<span>pot {fmt(pool)} ₡</span>{/if}
+					{#if mode === 'odds'}<span>pot {fmt(oddsPot)} ₡</span>{:else if mode !== 'custom'}<span>pot {fmt(pool)} ₡</span>{/if}
 					<span>· by {data.creatorName} · {fmtDate(data.bet.createdAt)}</span>
 					{#if data.bet.resolvedAt}<span>· resolved {fmtDate(data.bet.resolvedAt)}</span>{/if}
 				</div>
@@ -274,12 +299,39 @@
 							<span>
 								{p.displayName}{#if p.userId === data.myUserId}<span class="ml-1 text-xs text-muted-foreground">(you)</span>{/if}{#if p.userId === data.bet.createdBy}<span class="ml-1 text-xs text-muted-foreground">· creator</span>{/if}
 							</span>
-							{#if p.acceptedAt}<Badge variant="success">accepted</Badge>{:else}<Badge variant="secondary">awaiting</Badge>{/if}
+							<span class="flex items-center gap-2">
+								{#if mode === 'odds' && p.acceptedAt}<span class="text-xs tabular-nums text-muted-foreground">wagered {fmt(Number(p.boughtIn ?? 0))} ₡</span>{/if}
+								{#if p.acceptedAt}<Badge variant="success">accepted</Badge>{:else}<Badge variant="secondary">awaiting</Badge>{/if}
+							</span>
 						</li>
 					{/each}
 				</ul>
 
-				{#if !iAccepted}
+				{#if !iAccepted && mode === 'odds'}
+					<div class="space-y-3">
+						<form method="POST" action="?/accept" use:enhance class="space-y-3">
+							<div class="space-y-2">
+								<Label for="my-wager">Your wager</Label>
+								<Input id="my-wager" name="stake" type="number" min="1" required class="max-w-40" />
+								<p class="text-xs text-muted-foreground">
+									{#if oddsPot > 0}Pot so far: <strong class="tabular-nums">{fmt(oddsPot)}</strong> ₡. {/if}The
+									winner takes everyone else's wagers — bet what you're willing to risk.
+								</p>
+							</div>
+							<Button type="submit">Accept &amp; wager</Button>
+						</form>
+						<form
+							method="POST"
+							action="?/decline"
+							use:enhance
+							onsubmit={(e) => {
+								if (!confirm('Decline and call off this bet for everyone?')) e.preventDefault();
+							}}
+						>
+							<Button type="submit" variant="outline">Decline</Button>
+						</form>
+					</div>
+				{:else if !iAccepted}
 					<div class="flex gap-2">
 						<form method="POST" action="?/accept" use:enhance>
 							<Button type="submit">Accept bet</Button>
@@ -382,6 +434,7 @@
 					{:else if mode === 'winner_loser'}Pick the winner and the loser; the loser pays the {fmt(pool)} ₡ pot, others net zero.
 					{:else if mode === 'tiered'}Pick the winner, then order the losers — last place pays the most.
 					{:else if mode === 'pot'}Enter each player's winnings. They must total the {fmt(pool)} ₡ pot exactly.
+					{:else if mode === 'odds'}Pick the winner — they take the whole {fmt(oddsPot)} ₡ pot; everyone else loses their wager.
 					{:else}Mark each participant won or lost; winner payouts must equal loser losses.
 					{/if}
 				</CardDescription>
@@ -463,6 +516,7 @@
 									<label class="flex items-center gap-2 rounded-md border p-2 text-sm">
 										<input type="radio" name="winnerId" value={p.userId} bind:group={winnerId} class="h-4 w-4" />
 										<span class="flex-1">{p.displayName}</span>
+										{#if mode === 'odds'}<span class="text-xs tabular-nums text-muted-foreground">wagered {fmt(oddsStakeByUser.get(p.userId) ?? 0)} ₡</span>{/if}
 										{#if preview.has(p.userId)}<span class="tabular-nums {deltaClass(preview.get(p.userId) ?? 0)}">{signed(preview.get(p.userId) ?? 0)} ₡</span>{/if}
 									</label>
 								{/each}
@@ -540,7 +594,7 @@
 
 					<div class="flex flex-wrap gap-2">
 						<Button type="submit" disabled={!canSettle}>Settle</Button>
-						{#if mode !== 'pot'}
+						{#if mode !== 'pot' && mode !== 'odds'}
 							<Button type="button" variant="outline" onclick={() => (manualOpen = true)}>Tied?</Button>
 						{/if}
 						<!-- Same form, but this submitter posts to the cancel action and
