@@ -488,20 +488,26 @@ PGPASSWORD="$DB_PASS" psql -h 127.0.0.1 -U crubbucks -d crubbucks -c '\conninfo'
 # Expect: You are connected to database "crubbucks" as user "crubbucks" on host "127.0.0.1" ...
 ```
 
-### 1.3 Install Node 22 via nvm (as the `crubbucks` user)
+### 1.3 Install Node 24 via nvm (as the `crubbucks` user)
 
-PM2 ties to whichever Node installation it sees first. Installing both
-via nvm under the same user keeps everything coherent.
+PM2 ties to whichever Node installation it sees first. Installing via nvm
+under the same user keeps everything coherent.
+
+The repo pins **Node 24** (`.nvmrc` + `engines`), which ships **npm 11**. This
+matters: npm 10 (bundled with Node 22) mishandles esbuild's multi-version
+platform `optionalDependencies` and rejects the lockfile under `npm ci`; npm 11
+handles it. The deploy workflow runs `nvm install` (reading `.nvmrc`) before
+`npm ci`, so the VPS must have Node 24 available.
 
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 # Reload the shell so nvm is on PATH
 exec bash -l
 
-nvm install 22 --lts
-nvm alias default 22
-node --version    # → v22.x
-npm  --version
+nvm install 24
+nvm alias default 24
+node --version    # → v24.x
+npm  --version    # → 11.x
 
 npm install -g pm2
 ```
@@ -552,6 +558,9 @@ What goes in each field:
 | `PUBLIC_APP_URL` | `https://yourdomain.com` (no trailing slash) |
 | `PUBLIC_HCAPTCHA_SITE_KEY` | Sitekey from your hCaptcha site (Phase 0.6). Exposed to the browser. |
 | `HCAPTCHA_SECRET` | Secret from your hCaptcha site (Phase 0.6). Server-only — never put in `PUBLIC_*`. |
+| `PUBLIC_VAPID_KEY` | Web-push public key (`npx web-push generate-vapid-keys`). Exposed to the browser. Optional — push is simply disabled if unset. |
+| `VAPID_PRIVATE_KEY` | Web-push private key from the same keypair. Server-only. Don't rotate once devices subscribe. |
+| `VAPID_SUBJECT` | `mailto:you@yourdomain.com` — VAPID contact. |
 | `ORIGIN` | `https://yourdomain.com` — same as `PUBLIC_APP_URL`. **Required for CSRF.** |
 | `PORT` | `3000` (matches `ecosystem.config.cjs` + Nginx config) |
 | `HOST` | `127.0.0.1` (only Nginx talks to Node; don't expose to 0.0.0.0) |
@@ -577,8 +586,8 @@ cd ~/app
 npm run db:migrate
 ```
 
-You should see the eight `0000_init.sql` … `0008_drop_bet_description.sql`
-files apply one at a time, ending with `Migrations complete.`
+You should see the migration files (`0000_init.sql` onward) apply one at a
+time, ending with `Migrations complete.`
 
 If migrations error with `password authentication failed`, the
 password in `DATABASE_URL` doesn't match the one set in Phase 1.2 —
