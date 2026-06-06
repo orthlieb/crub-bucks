@@ -16,6 +16,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import BetModeIcon from '$lib/components/icons/BetModeIcon.svelte';
 	import FriendCombobox from '$lib/components/FriendCombobox.svelte';
+	import { tooltip } from '$lib/actions/tooltip';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -57,6 +58,17 @@
 	// ids become hidden `participantId` inputs, so the form contract is unchanged.
 	let selectedFriendIds = $state<string[]>([]);
 	const selectedCount = $derived(1 + selectedFriendIds.length); // +1 = you
+
+	// Favourites double as quick-add checkboxes here (kept in sync with the
+	// combobox selection — checking adds, unchecking removes).
+	const favorites = $derived(data.friends.filter((f) => f.isFavorite));
+	function toggleFriend(id: string, on: boolean) {
+		if (on) {
+			if (!selectedFriendIds.includes(id)) selectedFriendIds = [...selectedFriendIds, id];
+		} else {
+			selectedFriendIds = selectedFriendIds.filter((x) => x !== id);
+		}
+	}
 
 	// Tiered blurb, live by player count: n players → 1 winner + (n−1) losers,
 	// who pay 1/D, 2/D, … (n−1)/D of the pot, where D = n(n−1)/2.
@@ -194,6 +206,7 @@
 							<button
 								type="button"
 								onclick={() => (mode = m as Mode)}
+								use:tooltip={m === 'tiered' ? tieredBlurb : info.blurb}
 								class="flex items-center gap-2 rounded-md border p-3 text-left text-sm transition-colors {mode === m
 									? 'border-primary bg-accent'
 									: 'hover:bg-accent'}"
@@ -203,9 +216,6 @@
 							</button>
 						{/each}
 					</div>
-					<p class="text-xs text-muted-foreground">
-						{mode === 'tiered' ? tieredBlurb : modeInfo[mode].blurb}
-					</p>
 				</div>
 
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-[auto,1fr] sm:items-end">
@@ -288,6 +298,26 @@
 								bind:selectedIds={selectedFriendIds}
 								placeholder="Add a friend by name or email…"
 							/>
+							{#if favorites.length > 0}
+								<div class="space-y-1.5">
+									<p class="text-xs text-muted-foreground">Quick add favourites</p>
+									<div class="flex flex-wrap gap-1.5">
+										{#each favorites as f (f.id)}
+											<label
+												class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border py-1 pl-2 pr-2.5 text-xs transition-colors hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-accent"
+											>
+												<input
+													type="checkbox"
+													class="h-3.5 w-3.5"
+													checked={selectedFriendIds.includes(f.id)}
+													onchange={(e) => toggleFriend(f.id, e.currentTarget.checked)}
+												/>
+												<span aria-hidden="true" class="text-yellow-500">★</span>{f.displayName}
+											</label>
+										{/each}
+									</div>
+								</div>
+							{/if}
 							{#each selectedFriendIds as fid (fid)}
 								<input type="hidden" name="participantId" value={fid} />
 							{/each}
