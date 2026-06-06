@@ -81,13 +81,13 @@
 	});
 
 	// Bet icon. Defaults to the selected mode's emoji (even split ⚖️, winner/
-	// loser 🏆, tiered 📊, pot 🪙, odds 🎲) and follows mode changes — until the
+	// loser 🏆, tiered 📶, pot 🪙, odds 🎲) and follows mode changes — until the
 	// user explicitly picks one from the emoji picker, after which `iconCustom`
 	// sticks and switching modes no longer overrides their choice.
 	const MODE_ICON: Record<string, string> = {
 		even_split: '⚖️',
 		winner_loser: '🏆',
-		tiered: '📊',
+		tiered: '📶',
 		pot: '🪙',
 		odds: '🎲'
 	};
