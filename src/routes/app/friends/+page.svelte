@@ -15,6 +15,7 @@
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import FriendCombobox from '$lib/components/FriendCombobox.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -46,48 +47,8 @@
 		if (selectedFriendId && !selectedFriend) selectedFriendId = null;
 	});
 
-	// Typeahead state for the Pay-a-friend selector. Client-side since
-	// friends are already loaded. Substring match on name OR email.
-	// Favorites still get a ★ prefix in the suggestions.
-	let payQuery = $state('');
-	let paySuggestionsOpen = $state(false);
-	let payHighlight = $state(0);
-	const paySuggestions = $derived.by(() => {
-		const q = payQuery.trim().toLowerCase();
-		if (!q) return [];
-		return data.friends
-			.filter(
-				(f) =>
-					f.displayName.toLowerCase().includes(q) || f.email.toLowerCase().includes(q)
-			)
-			.slice(0, 20);
-	});
-	function pickPayFriend(id: string) {
-		selectedFriendId = id;
-		payQuery = '';
-		paySuggestionsOpen = false;
-	}
-	function onPayKeydown(e: KeyboardEvent) {
-		if (!paySuggestionsOpen || paySuggestions.length === 0) return;
-		if (e.key === 'ArrowDown') {
-			e.preventDefault();
-			payHighlight = (payHighlight + 1) % paySuggestions.length;
-		} else if (e.key === 'ArrowUp') {
-			e.preventDefault();
-			payHighlight = (payHighlight - 1 + paySuggestions.length) % paySuggestions.length;
-		} else if (e.key === 'Enter') {
-			e.preventDefault();
-			const hit = paySuggestions[payHighlight];
-			if (hit) pickPayFriend(hit.id);
-		} else if (e.key === 'Escape') {
-			paySuggestionsOpen = false;
-		}
-	}
-	// Reset highlight whenever the suggestion set changes.
-	$effect(() => {
-		paySuggestions.length;
-		payHighlight = 0;
-	});
+	// The Pay-a-friend selector uses the shared FriendCombobox typeahead, which
+	// binds `selectedFriendId` directly (the list rows below set it too).
 
 	// Per-friend icon memory for the pay form (so if you select a friend,
 	// pick 🍕, switch to another, then come back, your 🍕 is still there).
@@ -221,7 +182,6 @@
 								size="sm"
 								onclick={() => {
 									selectedFriendId = null;
-									payQuery = '';
 									queueMicrotask(() =>
 										(document.getElementById('pay-friend-search') as HTMLInputElement | null)?.focus()
 									);
@@ -231,57 +191,12 @@
 							</Button>
 						</div>
 					{:else}
-						<div class="relative">
-							<Input
-								id="pay-friend-search"
-								type="search"
-								autocomplete="off"
-								placeholder="Start typing a name or email…"
-								bind:value={payQuery}
-								oninput={() => (paySuggestionsOpen = payQuery.trim().length > 0)}
-								onfocus={() => {
-									if (payQuery.trim().length > 0) paySuggestionsOpen = true;
-								}}
-								onblur={() => setTimeout(() => (paySuggestionsOpen = false), 120)}
-								onkeydown={onPayKeydown}
-								aria-expanded={paySuggestionsOpen}
-								aria-autocomplete="list"
-								aria-controls="pay-friend-suggestions"
-							/>
-							{#if paySuggestionsOpen && paySuggestions.length > 0}
-								<ul
-									id="pay-friend-suggestions"
-									role="listbox"
-									class="absolute left-0 right-0 z-10 mt-1 max-h-72 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg"
-								>
-									{#each paySuggestions as f, i (f.id)}
-										<li
-											role="option"
-											aria-selected={payHighlight === i}
-											class="cursor-pointer px-3 py-2 text-sm {payHighlight === i
-												? 'bg-accent'
-												: 'hover:bg-accent'}"
-											onmousedown={(e) => {
-												// mousedown beats input blur so the click actually
-												// registers before the dropdown closes.
-												e.preventDefault();
-												pickPayFriend(f.id);
-											}}
-											onmouseenter={() => (payHighlight = i)}
-										>
-											<div class="font-medium">
-												{#if f.isFavorite}<span aria-hidden="true" class="text-yellow-500">★</span> {/if}{f.displayName}
-											</div>
-											<div class="text-xs text-muted-foreground">{f.email}</div>
-										</li>
-									{/each}
-								</ul>
-							{:else if paySuggestionsOpen && payQuery.trim().length > 0 && paySuggestions.length === 0}
-								<div class="absolute left-0 right-0 z-10 mt-1 rounded-md border bg-popover px-3 py-2 text-sm text-muted-foreground shadow-lg">
-									No friends match “{payQuery}”.
-								</div>
-							{/if}
-						</div>
+						<FriendCombobox
+							id="pay-friend-search"
+							friends={data.friends}
+							bind:value={selectedFriendId}
+							placeholder="Start typing a name or email…"
+						/>
 						<p class="text-xs text-muted-foreground">
 							Or tap a friend in the list below. Use ↑/↓ + Enter to pick from suggestions.
 						</p>

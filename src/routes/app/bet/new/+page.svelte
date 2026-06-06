@@ -15,6 +15,7 @@
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import BetModeIcon from '$lib/components/icons/BetModeIcon.svelte';
+	import FriendCombobox from '$lib/components/FriendCombobox.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -44,26 +45,11 @@
 	// Pot-mode buy-in (live preview of the pot = buyIn × players).
 	let buyIn = $state(100);
 
-	// Pooled-mode friend selection.
-	let selected = $state<Record<string, boolean>>({});
-	const selectedCount = $derived(
-		1 + data.friends.filter((f) => selected[f.id]).length // +1 = you
-	);
-
-	// Client-side filter for the "Who's in?" checklist. Selections are keyed
-	// by friend.id in `selected`, so filtering only hides rows — checked
-	// friends scrolled off-screen are still in the bet.
-	let friendFilter = $state('');
-	const filteredFriends = $derived.by(() => {
-		const q = friendFilter.trim().toLowerCase();
-		if (!q) return data.friends;
-		return data.friends.filter(
-			(f) => f.displayName.toLowerCase().includes(q) || f.email.toLowerCase().includes(q)
-		);
-	});
-	const hiddenSelectedCount = $derived(
-		data.friends.filter((f) => selected[f.id] && !filteredFriends.includes(f)).length
-	);
+	// Pooled-mode friend selection — a typeahead (FriendCombobox) so this scales
+	// to hundreds of friends instead of a giant scrolling checklist. The chosen
+	// ids become hidden `participantId` inputs, so the form contract is unchanged.
+	let selectedFriendIds = $state<string[]>([]);
+	const selectedCount = $derived(1 + selectedFriendIds.length); // +1 = you
 
 	// Tiered blurb, live by player count: n players → 1 winner + (n−1) losers,
 	// who pay 1/D, 2/D, … (n−1)/D of the pot, where D = n(n−1)/2.
@@ -270,47 +256,25 @@
 							<Label>Who's in?</Label>
 							<span class="text-xs text-muted-foreground">{selectedCount} player{selectedCount === 1 ? '' : 's'}</span>
 						</div>
-						{#if data.friends.length > 5}
-							<Input
-								type="search"
-								placeholder="Filter by name or email…"
-								bind:value={friendFilter}
-								aria-label="Filter friends"
-							/>
-						{/if}
-						<div class="rounded-md border">
-							<div class="flex items-center gap-2 border-b bg-muted/40 px-3 py-2 text-sm">
-								<input type="checkbox" checked disabled class="h-4 w-4" />
-								{data.me.displayName} <span class="text-xs text-muted-foreground">(you — always in)</span>
-							</div>
-							{#if data.friends.length === 0}
-								<p class="px-3 py-3 text-sm text-muted-foreground">
-									No friends yet — <a href="/app/friends" class="text-primary hover:underline">add some</a>.
-								</p>
-							{:else if filteredFriends.length === 0}
-								<p class="px-3 py-3 text-sm text-muted-foreground">
-									No friends match “{friendFilter}”.
-								</p>
-							{:else}
-								{#each filteredFriends as f (f.id)}
-									<label class="flex items-center gap-2 border-b px-3 py-2 text-sm last:border-0">
-										<input
-											type="checkbox"
-											name="participantId"
-											value={f.id}
-											bind:checked={selected[f.id]}
-											class="h-4 w-4"
-										/>
-										{f.displayName}
-									</label>
-								{/each}
-							{/if}
+						<div class="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+							<input type="checkbox" checked disabled class="h-4 w-4" />
+							{data.me.displayName} <span class="text-xs text-muted-foreground">(you — always in)</span>
 						</div>
-						{#if hiddenSelectedCount > 0}
-							<p class="text-xs text-muted-foreground">
-								{hiddenSelectedCount} selected friend{hiddenSelectedCount === 1 ? '' : 's'}
-								hidden by filter — still in the bet.
+						{#if data.friends.length === 0}
+							<p class="text-sm text-muted-foreground">
+								No friends yet — <a href="/app/friends" class="text-primary hover:underline">add some</a>.
 							</p>
+						{:else}
+							<FriendCombobox
+								id="bet-participants"
+								friends={data.friends}
+								multiple
+								bind:selectedIds={selectedFriendIds}
+								placeholder="Add a friend by name or email…"
+							/>
+							{#each selectedFriendIds as fid (fid)}
+								<input type="hidden" name="participantId" value={fid} />
+							{/each}
 						{/if}
 						{#if mode === 'winner_loser'}
 							<p class="text-xs text-muted-foreground">
