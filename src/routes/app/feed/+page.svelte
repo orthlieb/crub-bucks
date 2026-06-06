@@ -34,7 +34,7 @@
 			placeholder="Search bets, people, comments…"
 			autocomplete="off"
 			aria-label="Search the feed"
-			class="w-full sm:max-w-xs"
+			class="w-full bg-white/50 sm:max-w-xs"
 		/>
 	{/if}
 
