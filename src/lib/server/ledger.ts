@@ -20,6 +20,7 @@ import {
 	winnerLoserDeltas,
 	tieredDeltas,
 	potSplitDeltas,
+	oddsDeltas,
 	BetMathError,
 	type BetMode,
 	type ParticipantDelta
@@ -989,6 +990,16 @@ export async function createBet(opts: {
 			throw new LedgerError('Enter a positive whole buy-in amount');
 		}
 		pool = stake * ids.length;
+	} else if (mode === 'odds') {
+		// Each participant picks their own wager: the creator sets theirs now
+		// (stored as boughtIn); invited players set theirs when they accept. The
+		// pot is dynamic (Σ boughtIn) so `pool` stays null until resolution.
+		ids = opts.participantIds ?? [];
+		if (ids.length < 2) throw new LedgerError('A bet needs at least 2 participants');
+		stake = opts.stake ?? 0;
+		if (!Number.isInteger(stake) || stake <= 0) {
+			throw new LedgerError('Enter your wager as a positive whole number');
+		}
 	} else {
 		ids = opts.participantIds ?? [];
 		if (ids.length < 2) throw new LedgerError('A bet needs at least 2 participants');
@@ -1049,7 +1060,16 @@ export async function createBet(opts: {
 							boughtIn: stake!,
 							acceptedAt: acceptedAtFor(id)
 						}))
-					: ids.map((id) => ({
+					: mode === 'odds'
+						? ids.map((id) => ({
+								betId: bet.id,
+								userId: id,
+								outcome: 'pending' as const,
+								// Creator's wager is known now; others set theirs on accept.
+								boughtIn: id === createdBy ? stake! : null,
+								acceptedAt: acceptedAtFor(id)
+							}))
+						: ids.map((id) => ({
 							betId: bet.id,
 							userId: id,
 							outcome: 'pending' as const,
@@ -1091,6 +1111,8 @@ export async function createBet(opts: {
 export async function acceptBet(opts: {
 	betId: string;
 	userId: string;
+	/** 'odds' mode only: the accepting player's self-chosen wager. */
+	stake?: number | null;
 }): Promise<{ wentLive: boolean; createdBy: string; title: string }> {
 	const { betId, userId } = opts;
 	const result = await db.transaction(async (tx) => {
@@ -1098,7 +1120,7 @@ export async function acceptBet(opts: {
 		// otherwise two simultaneous accepts could each miss the other's
 		// not-yet-committed acceptance and leave a fully-accepted bet stuck.
 		const [bet] = await tx
-			.select({ status: bets.status, createdBy: bets.createdBy, title: bets.title })
+			.select({ status: bets.status, createdBy: bets.createdBy, title: bets.title, mode: bets.mode })
 			.from(bets)
 			.where(eq(bets.id, betId))
 			.limit(1)
@@ -1113,10 +1135,20 @@ export async function acceptBet(opts: {
 			.limit(1);
 		if (!part) throw new LedgerError("You're not a participant in this bet");
 
+		// Odds bets: accepting means declaring your wager (stored as boughtIn).
+		let boughtIn: number | undefined;
+		if (bet.mode === 'odds') {
+			const s = opts.stake;
+			if (!Number.isInteger(s) || (s as number) < 1) {
+				throw new LedgerError('Enter your wager as a positive whole number to accept.');
+			}
+			boughtIn = s as number;
+		}
+
 		if (!part.acceptedAt) {
 			await tx
 				.update(betParticipants)
-				.set({ acceptedAt: new Date() })
+				.set({ acceptedAt: new Date(), ...(boughtIn !== undefined ? { boughtIn } : {}) })
 				.where(and(eq(betParticipants.betId, betId), eq(betParticipants.userId, userId)));
 		}
 
@@ -1367,6 +1399,19 @@ export async function resolveBet(opts: {
 						boughtIn: Number(p.boughtIn ?? 0),
 						winnings: Number(winnings[p.userId])
 					}))
+				);
+			} catch (e) {
+				if (e instanceof BetMathError) throw new LedgerError(e.message);
+				throw e;
+			}
+		} else if (bet.mode === 'odds') {
+			// Single winner takes the pot; each loser pays their own wager.
+			const winnerId = opts.winnerId;
+			if (!winnerId || !partIds.has(winnerId)) throw new LedgerError('Pick a valid winner');
+			try {
+				deltas = oddsDeltas(
+					parts.map((p) => ({ userId: p.userId, stake: Number(p.boughtIn ?? 0) })),
+					winnerId
 				);
 			} catch (e) {
 				if (e instanceof BetMathError) throw new LedgerError(e.message);

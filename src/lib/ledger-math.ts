@@ -50,7 +50,34 @@ export function planSettlement(
 // to exactly zero: the winner gets +pool, the losers split −pool per the mode.
 // ---------------------------------------------------------------------------
 
-export type BetMode = 'even_split' | 'winner_loser' | 'tiered' | 'pot' | 'custom';
+export type BetMode = 'even_split' | 'winner_loser' | 'tiered' | 'pot' | 'custom' | 'odds';
+
+/**
+ * Odds mode: each participant wagers a self-chosen `stake`; a single winner
+ * takes the whole pot. The winner nets +Σ(other stakes); each loser nets
+ * −(their own stake). Equivalent to pot mode with the winner taking the full
+ * pot and everyone else nothing, but resolution needs only the winner's id.
+ * Returns deltas summing to zero.
+ */
+export function oddsDeltas(
+	stakes: { userId: string; stake: number }[],
+	winnerId: string
+): ParticipantDelta[] {
+	let pot = 0;
+	let sawWinner = false;
+	for (const s of stakes) {
+		if (!Number.isInteger(s.stake) || s.stake < 1) {
+			throw new BetMathError('Each wager must be a positive whole CB');
+		}
+		pot += s.stake;
+		if (s.userId === winnerId) sawWinner = true;
+	}
+	if (!sawWinner) throw new BetMathError('Winner must be a participant');
+	return stakes.map((s) => ({
+		userId: s.userId,
+		delta: s.userId === winnerId ? pot - s.stake : -s.stake
+	}));
+}
 
 /**
  * Pot mode: each participant buys in for some amount (initial stake + any

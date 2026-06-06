@@ -61,7 +61,8 @@ Companion code:
 **Acceptance handshake.** A bet only goes live once **all** participants
 accept. A single **decline** calls the whole thing off (status → `cancelled`).
 This is why nothing needs to be escrowed: until everyone has agreed, there's
-nothing to unwind.
+nothing to unwind. (In `odds` mode, accepting also means declaring your own
+wager — see mode 5.)
 
 **Who can do what**
 - Any participant can **accept** / **decline** while `pending`, and **cancel**
@@ -76,10 +77,11 @@ each other — only with the creator who assembled the bet.
 
 ---
 
-## The five modes
+## The six modes
 
-Four modes are poolable around a single **pot** (the amount the winner takes);
-`custom` is a legacy per-person model. All of them resolve to zero-sum deltas.
+Four modes pool around a single **pot** (the amount the winner takes); `odds`
+lets each player wager their own self-chosen stake; `custom` is a legacy
+per-person model. All of them resolve to zero-sum deltas.
 
 > **Note:** `custom` can no longer be *created* in the UI (it was confusing);
 > existing custom bets still resolve and display. It's documented here for
@@ -162,7 +164,33 @@ the whole pot:
 | B | 100 | 0 | −100 |
 | C | 100 | 0 | −100 |
 
-### 5. Custom (legacy) — `custom`
+### 5. Odds — `odds`
+
+> **Note:** the settlement engine ships now; the create/accept/resolve **UI**
+> for odds bets lands in a follow-up, so it can't yet be created from the app.
+
+Each participant wagers a **self-chosen** amount; a single winner takes
+everyone else's wagers. The "odds" are emergent — they come from the relative
+stake sizes, nobody types a ratio.
+
+- **Create with:** the creator's own `stake` (their wager). The creator is
+  auto-accepted with it; the pot is *dynamic* (`pool` stays null).
+- **Accept with:** each invited player declares **their own** `stake` when they
+  accept (stored as `boughtIn`). Accepting without a positive wager is rejected.
+  A decline still calls the whole bet off.
+- **Resolve with:** `winnerId` (single winner — no tie-split for this mode).
+- **Math:** winner `+Σ(other stakes)`; each loser `−(own stake)`. Sums to zero.
+  (Equivalent to `pot` with the winner taking the full pot.)
+
+**Example** — A wagers 50, B wagers 20, C wagers 10; C (the longshot) wins:
+
+| Player | Wager | Delta | Implied odds |
+|--------|------:|------:|--------------|
+| A | 50 | −50 | risked 50 to win 30 (favorite) |
+| B | 20 | −20 | risked 20 to win 60 |
+| C (winner) | 10 | +70 | risked 10 to win 70 (longshot) |
+
+### 6. Custom (legacy) — `custom`
 
 Each participant has an explicit `payoutIfWin` and `lossIfLose`, set at
 creation. At resolution each is marked won/lost; the winners' payouts must
@@ -267,5 +295,6 @@ When a bet resolves, in the same transaction:
 | `winner_loser` | `pool` | `winnerId`, `loserId` | +pool | one loser pays pool; rest 0 |
 | `tiered` | `pool` | `winnerId`, `loserOrder` | +pool | by rank: `1…L` over `L(L+1)/2` |
 | `pot` | `stake` (+re-buys) | `winnings[]` (sum = pot) | winnings − boughtIn | winnings − boughtIn |
+| `odds` | per-player `stake` (set on accept) | `winnerId` | +Σ other stakes | −own stake |
 | `custom` *(legacy)* | `payoutIfWin`/`lossIfLose` | `outcomes[]` | +payoutIfWin | −lossIfLose |
 | **tie-split** | *(any non-pot bet)* | `manual[]` (Σ=0, wins=pool) | the + you typed | the − you typed |

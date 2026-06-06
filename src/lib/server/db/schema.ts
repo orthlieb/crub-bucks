@@ -56,7 +56,8 @@ export const betModeEnum = pgEnum('bet_mode', [
 	'winner_loser',
 	'tiered',
 	'pot',
-	'custom'
+	'custom',
+	'odds'
 ]);
 export const friendshipStatusEnum = pgEnum('friendship_status', ['pending', 'accepted']);
 export const notificationLevelEnum = pgEnum('notification_level', ['info', 'success', 'warning']);

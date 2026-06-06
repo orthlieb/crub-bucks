@@ -6,6 +6,7 @@ import {
 	winnerLoserDeltas,
 	tieredDeltas,
 	potSplitDeltas,
+	oddsDeltas,
 	BetMathError,
 	type ParticipantDelta,
 	type SettlementTransfer
@@ -235,5 +236,52 @@ describe('potSplitDeltas', () => {
 		expect(() => potSplitDeltas([{ userId: 'a', boughtIn: 10, winnings: -1 }])).toThrow(
 			BetMathError
 		);
+	});
+});
+
+describe('oddsDeltas', () => {
+	it('head-to-head: stakes encode the odds (100 vs 10)', () => {
+		const stakes = [
+			{ userId: 'a', stake: 100 },
+			{ userId: 'b', stake: 10 }
+		];
+		// a wins → takes b's 10; b only risked 10 to win 100.
+		const aWins = oddsDeltas(stakes, 'a');
+		expect(find(aWins, 'a')).toBe(10);
+		expect(find(aWins, 'b')).toBe(-10);
+		expect(sum(aWins)).toBe(0);
+		// b wins → takes a's 100.
+		const bWins = oddsDeltas(stakes, 'b');
+		expect(find(bWins, 'b')).toBe(100);
+		expect(find(bWins, 'a')).toBe(-100);
+		expect(sum(bWins)).toBe(0);
+	});
+
+	it('three players, winner takes the sum of the other stakes', () => {
+		const stakes = [
+			{ userId: 'a', stake: 50 },
+			{ userId: 'b', stake: 20 },
+			{ userId: 'c', stake: 10 }
+		];
+		const d = oddsDeltas(stakes, 'c'); // longshot hits
+		expect(find(d, 'c')).toBe(70); // 50 + 20
+		expect(find(d, 'a')).toBe(-50);
+		expect(find(d, 'b')).toBe(-20);
+		expect(sum(d)).toBe(0);
+	});
+
+	it('rejects a non-positive or fractional wager', () => {
+		expect(() => oddsDeltas([{ userId: 'a', stake: 0 }, { userId: 'b', stake: 5 }], 'b')).toThrow(
+			BetMathError
+		);
+		expect(() =>
+			oddsDeltas([{ userId: 'a', stake: 5.5 }, { userId: 'b', stake: 5 }], 'a')
+		).toThrow(BetMathError);
+	});
+
+	it('rejects a winner who is not a participant', () => {
+		expect(() =>
+			oddsDeltas([{ userId: 'a', stake: 5 }, { userId: 'b', stake: 5 }], 'z')
+		).toThrow(BetMathError);
 	});
 });

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."bet_mode" ADD VALUE IF NOT EXISTS 'odds';
