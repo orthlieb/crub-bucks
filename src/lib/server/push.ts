@@ -73,6 +73,8 @@ export interface PushPayload {
 	title: string;
 	body?: string | null;
 	url?: string | null;
+	/** Image shown in the OS notification; defaults to the app icon when null. */
+	icon?: string | null;
 	tag?: string;
 }
 
@@ -93,6 +95,7 @@ export async function sendWebPush(userId: string, payload: PushPayload): Promise
 		title: payload.title,
 		body: payload.body ?? undefined,
 		url: payload.url ?? '/app',
+		icon: payload.icon ?? undefined,
 		tag: payload.tag
 	});
 

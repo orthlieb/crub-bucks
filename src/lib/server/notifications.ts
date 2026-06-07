@@ -29,6 +29,7 @@ export interface Notification {
 	title: string;
 	body: string | null;
 	link: string | null;
+	icon: string | null;
 	createdAt: Date;
 	isBroadcast: boolean;
 }
@@ -47,6 +48,8 @@ interface CreateInput {
 	body?: string | null;
 	// optional in-app path to navigate to when clicked (e.g. /app/bet/<id>)
 	link?: string | null;
+	// optional image shown beside the message (e.g. a badge bug /bug-<tier>.png)
+	icon?: string | null;
 	// null = broadcast; otherwise targeted at this user
 	userId?: string | null;
 	// null = system-generated (e.g. welcome grant); otherwise the acting admin
@@ -61,6 +64,7 @@ export async function createNotification(input: CreateInput): Promise<string> {
 			title: input.title,
 			body: input.body ?? null,
 			link: input.link ?? null,
+			icon: input.icon ?? null,
 			userId: input.userId ?? null,
 			createdBy: input.createdBy ?? null
 		})
@@ -74,6 +78,7 @@ export async function createNotification(input: CreateInput): Promise<string> {
 			title: input.title,
 			body: input.body ?? null,
 			url: input.link ?? '/app',
+			icon: input.icon ?? null,
 			tag: row.id
 		}).catch((err) => console.warn('[push] send failed:', err));
 	}
@@ -94,6 +99,7 @@ export async function listActiveForUser(userId: string): Promise<Notification[]>
 			title: notifications.title,
 			body: notifications.body,
 			link: notifications.link,
+			icon: notifications.icon,
 			createdAt: notifications.createdAt,
 			userId: notifications.userId
 		})
@@ -119,6 +125,7 @@ export async function listActiveForUser(userId: string): Promise<Notification[]>
 		title: r.title,
 		body: r.body,
 		link: r.link,
+		icon: r.icon,
 		createdAt: r.createdAt,
 		isBroadcast: r.userId === null
 	}));
@@ -194,6 +201,7 @@ export async function listAllForAdmin(limit = 50): Promise<AdminNotificationRow[
 			title: notifications.title,
 			body: notifications.body,
 			link: notifications.link,
+			icon: notifications.icon,
 			createdAt: notifications.createdAt,
 			userId: notifications.userId,
 			createdBy: notifications.createdBy,
@@ -216,6 +224,7 @@ export async function listAllForAdmin(limit = 50): Promise<AdminNotificationRow[
 		title: r.title,
 		body: r.body,
 		link: r.link,
+		icon: r.icon,
 		createdAt: r.createdAt,
 		userId: r.userId,
 		recipientName: r.recipientName,

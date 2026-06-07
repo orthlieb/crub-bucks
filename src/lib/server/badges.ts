@@ -15,7 +15,7 @@ import {
 	tierFor,
 	TIER_RANK,
 	TIER_LABEL,
-	TIER_EMOJI,
+	tierBug,
 	type BadgeTier,
 	type MetricKey
 } from '$lib/badges';
@@ -190,15 +190,17 @@ async function notifyAwards(userId: string, awarded: AwardedBadge[]): Promise<vo
 
 	for (const a of awarded) {
 		const tierLabel = TIER_LABEL[a.tier];
-		const emoji = TIER_EMOJI[a.tier];
+		// Show the tier "bug" medallion image instead of a medal emoji.
+		const icon = tierBug(a.tier);
 
 		// The earner — celebratory, links to their wall.
 		await createNotification({
 			userId,
 			level: 'success',
-			title: `${emoji} You earned ${tierLabel} “${a.title}”`,
+			title: `You earned ${tierLabel} “${a.title}”`,
 			body: 'Nice — see it on your Awards wall.',
-			link: '/app/awards'
+			link: '/app/awards',
+			icon
 		}).catch(() => {});
 
 		// Each friend — informational, links to the feed where it appears.
@@ -206,8 +208,9 @@ async function notifyAwards(userId: string, awarded: AwardedBadge[]): Promise<vo
 			await createNotification({
 				userId: fid,
 				level: 'info',
-				title: `${emoji} ${who} earned ${tierLabel} “${a.title}”`,
-				link: '/app/feed'
+				title: `${who} earned ${tierLabel} “${a.title}”`,
+				link: '/app/feed',
+				icon
 			}).catch(() => {});
 		}
 	}
