@@ -12,6 +12,7 @@ interface PushPayload {
 	title?: string;
 	body?: string;
 	url?: string;
+	icon?: string;
 	tag?: string;
 }
 
@@ -26,7 +27,7 @@ sw.addEventListener('push', (event) => {
 	event.waitUntil(
 		sw.registration.showNotification(title, {
 			body: data.body,
-			icon: '/icon-192.png',
+			icon: data.icon || '/icon-192.png',
 			badge: '/icon-192.png',
 			tag: data.tag,
 			data: { url: data.url || '/app' }
