@@ -147,7 +147,11 @@ export const actions: Actions = {
 		const target = await loadUser(id);
 		if (!target) throw error(404, 'User not found');
 		if (!/^-?\d+$/.test(raw)) {
-			return fail(400, { error: 'Enter a whole number balance (it can be negative).' });
+			return fail(400, {
+				error: 'Enter a whole number balance (it can be negative).',
+				field: 'balance',
+				userId: id
+			});
 		}
 		let result;
 		try {
@@ -157,7 +161,7 @@ export const actions: Actions = {
 				target: Number(raw)
 			});
 		} catch (e) {
-			if (e instanceof LedgerError) return fail(400, { error: e.message });
+			if (e instanceof LedgerError) return fail(400, { error: e.message, field: 'balance', userId: id });
 			throw e;
 		}
 		await logSecurityEvent({

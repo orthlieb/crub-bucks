@@ -29,18 +29,18 @@ export const actions: Actions = {
 		// the in-app banner href and the Web Push `url`.
 		const link = String(form.get('link') ?? '').trim() || null;
 
-		if (!title) return fail(400, { error: 'Title is required.' });
+		if (!title) return fail(400, { error: 'Title is required.', field: 'title' });
 		if (!LEVELS.includes(level)) return fail(400, { error: 'Invalid level.' });
 		if (target !== 'broadcast' && target !== 'user') {
 			return fail(400, { error: 'Invalid target.' });
 		}
 		if (target === 'user' && !userId) {
-			return fail(400, { error: 'Pick a recipient.' });
+			return fail(400, { error: 'Pick a recipient.', field: 'recipient' });
 		}
 		// Keep links to in-app paths so a tap can't be used to fling users at an
 		// arbitrary external site. Allow a leading "/" path only.
 		if (link && !link.startsWith('/')) {
-			return fail(400, { error: 'Link must be an in-app path starting with "/".' });
+			return fail(400, { error: 'Link must be an in-app path starting with "/".', field: 'link' });
 		}
 
 		const id = await createNotification({

@@ -64,7 +64,8 @@ export const actions: Actions = {
 			const n = Number(raw);
 			if (!Number.isInteger(n) || n < 0) {
 				return fail(400, {
-					error: 'Daily limit must be a whole number ≥ 0, or blank for unlimited.'
+					error: 'Daily limit must be a whole number ≥ 0, or blank for unlimited.',
+					field: 'limit'
 				});
 			}
 			limit = n;
