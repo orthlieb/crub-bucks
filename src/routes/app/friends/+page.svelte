@@ -20,6 +20,9 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	// Which pay-form field the server flagged (amount | memo), to highlight in red.
+	const payField = $derived(form && 'payField' in form ? form.payField : undefined);
+
 	// Client-side filter over the already-loaded friends list. Case-insensitive
 	// substring match on display name OR email. Friends are capped at 99 so
 	// filtering in JS is trivial — no server round-trip.
@@ -227,11 +230,11 @@
 						</div>
 						<div class="space-y-1">
 							<Label class="text-xs">Pay (CB)</Label>
-							<Input type="number" name="amount" min="1" required class="w-24" placeholder="0" />
+							<Input type="number" name="amount" min="1" required class="w-24" placeholder="0" aria-invalid={payField === 'amount'} />
 						</div>
 						<div class="flex-1 space-y-1">
 							<Label class="text-xs">Note (optional)</Label>
-							<Input name="memo" placeholder="What's it for?" maxlength={140} />
+							<Input name="memo" placeholder="What's it for?" maxlength={140} aria-invalid={payField === 'memo'} />
 						</div>
 						<Button type="submit">Pay {selectedFriend.displayName}</Button>
 					</form>
@@ -266,7 +269,7 @@
 					<form method="POST" action="?/request" use:enhance class="flex flex-col gap-3 sm:flex-row sm:items-end">
 						<div class="flex-1 space-y-2">
 							<Label for="email">Friend's email</Label>
-							<Input id="email" name="email" type="email" placeholder="friend@example.com" required value={form?.email ?? ''} />
+							<Input id="email" name="email" type="email" placeholder="friend@example.com" required value={form?.email ?? ''} aria-invalid={!!form?.requestError} />
 						</div>
 						<Button type="submit">Send request</Button>
 					</form>

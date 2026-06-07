@@ -126,8 +126,10 @@
 		<CardHeader>
 			<CardTitle level={2}>Test push notification</CardTitle>
 			<CardDescription>
-				Sends a Web Push to your own subscribed devices to verify delivery end-to-end.
+				Sends a Web Push (with a distinct Cala icon, so the per-notification image is
+				exercised too) to your own subscribed devices to verify delivery end-to-end.
 				Enable Notifications in Settings first (in a real browser — not the embedded preview).
+				On iOS the icon is ignored and the app icon shows regardless.
 			</CardDescription>
 		</CardHeader>
 		<CardContent>

@@ -79,7 +79,11 @@ export const actions: Actions = {
 		const count = await sendWebPush(actor.id, {
 			title: '🔔 Test push',
 			body: 'If you can see this, Crub Bucks push notifications are working.',
-			url: '/app'
+			url: '/app',
+			// Use a distinct image (Cala) — not /icon-192.png — so the per-
+			// notification icon is actually exercised. (On iOS the icon field is
+			// ignored and the PWA app icon is shown regardless.)
+			icon: '/cala-avatar.png'
 		});
 		return {
 			pushResult:
