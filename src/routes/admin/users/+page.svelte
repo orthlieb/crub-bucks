@@ -20,6 +20,13 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	// The user row whose Set-balance input the server flagged, to highlight in red.
+	const balanceErrUserId = $derived(
+		form && 'field' in form && form.field === 'balance' && 'userId' in form
+			? (form.userId as string)
+			: undefined
+	);
+
 	function fmt(d: Date | string | null): string {
 		if (!d) return '—';
 		const date = typeof d === 'string' ? new Date(d) : d;
@@ -103,7 +110,7 @@
 		</div>
 	</header>
 
-	{#if form && 'error' in form && form.error}
+	{#if form && 'error' in form && form.error && !balanceErrUserId}
 		<Alert variant="destructive"><AlertDescription>{form.error}</AlertDescription></Alert>
 	{/if}
 
@@ -160,10 +167,14 @@
 										value={u.balance}
 										aria-label={`Balance for ${u.displayName}`}
 										class="h-8 w-24 text-right tabular-nums"
+										aria-invalid={balanceErrUserId === u.id}
 									/>
 									<span class="text-xs text-muted-foreground">₡</span>
 									<Button type="submit" size="sm" variant="outline">Set</Button>
 								</form>
+								{#if balanceErrUserId === u.id && form && 'error' in form}
+									<p class="mt-1 text-xs text-destructive">{form.error}</p>
+								{/if}
 							</TableCell>
 							<TableCell class="text-sm text-muted-foreground">
 								{fmt(u.lastLoginAt)}

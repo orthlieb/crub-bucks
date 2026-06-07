@@ -159,6 +159,7 @@
 						value={cfg.registrationDailyLimit ?? ''}
 						placeholder="leave blank for unlimited"
 						class="max-w-48"
+						aria-invalid={!!form?.error}
 					/>
 					<p class="text-xs text-muted-foreground">
 						{#if cfg.registrationDailyLimit !== null}

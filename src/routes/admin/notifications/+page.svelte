@@ -16,6 +16,9 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	// Which send-form field the server flagged, to highlight it in red.
+	const errField = $derived(form && 'field' in form ? form.field : undefined);
+
 	let level = $state<'info' | 'success' | 'warning'>('info');
 	let target = $state<'broadcast' | 'user'>('broadcast');
 
@@ -158,7 +161,7 @@
 			</CardDescription>
 		</CardHeader>
 		<CardContent>
-			{#if form?.error}
+			{#if form?.error && !errField}
 				<Alert variant="destructive" class="mb-4">
 					<AlertDescription>{form.error}</AlertDescription>
 				</Alert>
@@ -225,6 +228,7 @@
 									type="search"
 									autocomplete="off"
 									placeholder="Search by name or email…"
+									aria-invalid={errField === 'recipient'}
 									bind:value={query}
 									oninput={() => scheduleSearch(query)}
 									onkeydown={onKeydown}
@@ -278,6 +282,7 @@
 							<p class="text-xs text-muted-foreground">
 								Type at least 2 characters. Use ↑/↓ to navigate, Enter to pick.
 							</p>
+							{#if errField === 'recipient'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
 						{/if}
 					</div>
 				{/if}
@@ -302,7 +307,8 @@
 
 				<div class="space-y-2">
 					<Label for="title">Title</Label>
-					<Input id="title" name="title" required placeholder="Heads up: scheduled downtime tonight at 9 PM." />
+					<Input id="title" name="title" required placeholder="Heads up: scheduled downtime tonight at 9 PM." aria-invalid={errField === 'title'} />
+				{#if errField === 'title'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
 				</div>
 				<div class="space-y-2">
 					<Label for="body">Body (optional)</Label>
@@ -333,7 +339,8 @@
 							</button>
 						{/if}
 					</div>
-					<Input id="link" name="link" bind:value={link} placeholder="/app/bet/<id> — where tapping the notification goes" />
+					<Input id="link" name="link" bind:value={link} placeholder="/app/bet/<id> — where tapping the notification goes" aria-invalid={errField === 'link'} />
+				{#if errField === 'link'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
 					<p class="text-xs text-muted-foreground">
 						Must be an in-app path starting with “/”. Drives both the in-app banner and the
 						push notification's tap target.
