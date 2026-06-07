@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { createBet, getFriends, LedgerError } from '$lib/server/ledger';
+import { checkClean } from '$lib/server/moderation';
 import type { BetMode } from '$lib/ledger-math';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -34,6 +35,10 @@ export const actions: Actions = {
 		const mode = String(form.get('mode') ?? '') as BetMode;
 		if (!MODES.includes(mode)) {
 			return fail(400, { error: 'Pick a bet type.', title, icon });
+		}
+		const titleClean = checkClean(title, 'title');
+		if (!titleClean.ok) {
+			return fail(400, { error: titleClean.message, title, icon });
 		}
 
 		try {

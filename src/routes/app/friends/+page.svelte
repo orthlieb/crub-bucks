@@ -16,6 +16,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FriendCombobox from '$lib/components/FriendCombobox.svelte';
+	import ReportDialog from '$lib/components/ReportDialog.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -469,6 +470,10 @@
 				<div class="truncate text-xs text-muted-foreground">{f.email}</div>
 			</div>
 		</button>
+		<!-- Report this user's name to the team (always visible — safety feature). -->
+		<div class="shrink-0">
+			<ReportDialog targetType="user" targetId={f.id} targetLabel={f.displayName} iconOnly />
+		</div>
 		<!-- Unfriend, revealed on row hover (desktop) or when the button itself is
 		     focused (keyboard). Selecting the row no longer reveals it. Always
 		     visible on touch / small viewports since there's no hover there. -->
@@ -476,7 +481,7 @@
 			method="POST"
 			action="?/unfriend"
 			use:enhance
-			class="ml-auto shrink-0 pr-3 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100"
+			class="shrink-0 pr-3 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100"
 			onsubmit={(e) => {
 				if (!confirm(`Unfriend ${f.displayName}?`)) e.preventDefault();
 			}}

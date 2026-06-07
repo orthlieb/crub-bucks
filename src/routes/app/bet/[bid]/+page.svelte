@@ -26,6 +26,7 @@
 	} from '$lib/ledger-math';
 	import GripVertical from '@lucide/svelte/icons/grip-vertical';
 	import BetModeIcon from '$lib/components/icons/BetModeIcon.svelte';
+	import ReportDialog from '$lib/components/ReportDialog.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	const fmt = (n: number) => formatAmount(n, data.locale);
@@ -224,6 +225,13 @@
 					{#if data.bet.resolvedAt}<span>· resolved {fmtDate(data.bet.resolvedAt)}</span>{/if}
 				</div>
 			</div>
+			<ReportDialog
+				targetType="bet"
+				targetId={data.bet.id}
+				targetLabel={data.bet.title}
+				content={[data.bet.title, data.bet.resolutionNote].filter(Boolean).join(' — ')}
+				iconOnly
+			/>
 		</div>
 		{#if data.bet.status === 'resolved' && data.bet.resolutionNote}
 			<p class="mt-2 rounded-md border bg-muted/30 p-3 text-sm">
