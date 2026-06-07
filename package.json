@@ -17,7 +17,8 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "node --import tsx src/lib/server/db/seed.ts",
     "test:unit": "vitest",
-    "test": "npm run test:unit -- --run"
+    "test": "npm run test:unit -- --run",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.2.0",
@@ -26,6 +27,7 @@
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^25.9.1",
     "@types/web-push": "^3.6.4",
+    "@vitest/coverage-v8": "^4.1.8",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.28.0",
     "svelte": "^5.1.0",
