@@ -15,7 +15,7 @@ import {
 	tierFor,
 	TIER_RANK,
 	TIER_LABEL,
-	tierBug,
+	badgeIcon,
 	type BadgeTier,
 	type MetricKey
 } from '$lib/badges';
@@ -190,8 +190,9 @@ async function notifyAwards(userId: string, awarded: AwardedBadge[]): Promise<vo
 
 	for (const a of awarded) {
 		const tierLabel = TIER_LABEL[a.tier];
-		// Show the tier "bug" medallion image instead of a medal emoji.
-		const icon = tierBug(a.tier);
+		// Show the actual per-tier award art (encodes both badge + tier) instead
+		// of a medal emoji. The in-app banner falls back if the file is missing.
+		const icon = badgeIcon(a.key, a.tier);
 
 		// The earner — celebratory, links to their wall.
 		await createNotification({
