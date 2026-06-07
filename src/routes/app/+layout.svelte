@@ -251,7 +251,15 @@
 					<Alert variant={alertVariantFor(n.level)} class="relative pr-12">
 						<div class="flex items-center gap-3">
 							{#if n.icon}
-								<img src={n.icon} alt="" width="40" height="40" class="h-10 w-10 shrink-0 select-none object-contain" draggable="false" />
+								<img
+									src={n.icon}
+									alt=""
+									width="40"
+									height="40"
+									class="h-10 w-10 shrink-0 select-none object-contain"
+									draggable="false"
+									onerror={(e) => ((e.currentTarget as HTMLImageElement).src = '/icon-192.png')}
+								/>
 							{/if}
 							<div class="min-w-0 flex-1">
 								{#if n.link}
