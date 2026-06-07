@@ -126,7 +126,7 @@ export const actions: Actions = {
 			return fail(400, { payError: 'Pick a friend to pay.' });
 		}
 		const memoClean = checkClean(memo, 'memo');
-		if (!memoClean.ok) return fail(400, { payError: memoClean.message });
+		if (!memoClean.ok) return fail(400, { payError: memoClean.message, payField: 'memo' });
 		if (!(await areFriends(userId, toUserId))) {
 			return fail(400, { payError: 'You can only pay your friends.' });
 		}
@@ -141,7 +141,7 @@ export const actions: Actions = {
 				createdBy: userId
 			});
 		} catch (e) {
-			if (e instanceof LedgerError) return fail(400, { payError: e.message });
+			if (e instanceof LedgerError) return fail(400, { payError: e.message, payField: 'amount' });
 			throw e;
 		}
 		return { paid: true };

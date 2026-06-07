@@ -21,6 +21,9 @@
 	// spent single-use token after a failed attempt.
 	let captchaToken = $state('');
 	let resetCaptcha = $state(() => {});
+
+	// Which field (if any) the server flagged, to highlight it in red.
+	const errField = $derived(form && 'field' in form ? form.field : undefined);
 </script>
 
 <div class="kibble-bg min-h-screen bg-background py-12 px-4">
@@ -48,7 +51,7 @@
 						</AlertDescription>
 					</Alert>
 				{:else}
-					{#if form?.error}
+					{#if form?.error && !errField}
 						<Alert variant="destructive" class="mb-4">
 							<AlertDescription>{form.error}</AlertDescription>
 						</Alert>
@@ -73,7 +76,9 @@
 								autocomplete="email"
 								required
 								value={form?.email ?? ''}
+								aria-invalid={errField === 'email'}
 							/>
+							{#if errField === 'email'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
 						</div>
 
 						<Captcha bind:token={captchaToken} bind:reset={resetCaptcha} />

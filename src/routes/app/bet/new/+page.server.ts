@@ -38,7 +38,7 @@ export const actions: Actions = {
 		}
 		const titleClean = checkClean(title, 'title');
 		if (!titleClean.ok) {
-			return fail(400, { error: titleClean.message, title, icon });
+			return fail(400, { error: titleClean.message, field: 'title', title, icon });
 		}
 
 		try {

@@ -23,6 +23,7 @@
 	// Populated from the current name whenever the dialog opens (onOpenChange).
 	let name = $state('');
 	let nameSaved = $state(false);
+	let nameError = $state(false); // true when the last name save failed (red field)
 	const canSaveName = $derived(name.trim().length >= 2 && name.trim() !== user.displayName);
 
 	// Reset the field to the current name each time the dialog opens.
@@ -30,6 +31,7 @@
 		if (isOpen) {
 			name = user.displayName;
 			errorMsg = '';
+			nameError = false;
 			nameSaved = false;
 		}
 	}
@@ -39,6 +41,7 @@
 		if (next === user.displayName || next.length < 2) return;
 		busy = true;
 		errorMsg = '';
+		nameError = false;
 		nameSaved = false;
 		try {
 			const res = await fetch('/app/profile', {
@@ -55,6 +58,7 @@
 			await invalidateAll(); // refresh the name across the app (header, feed, …)
 		} catch (err) {
 			errorMsg = err instanceof Error ? err.message : 'Could not save name.';
+			nameError = true;
 		} finally {
 			busy = false;
 		}
@@ -64,6 +68,7 @@
 		const input = e.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
 		input.value = ''; // allow re-picking the same file later
+		nameError = false; // any error from here is an avatar error, not the name
 		if (!file) return;
 		if (!file.type.startsWith('image/')) {
 			errorMsg = 'Please choose an image file.';
@@ -90,6 +95,7 @@
 	async function removePhoto() {
 		busy = true;
 		errorMsg = '';
+		nameError = false;
 		try {
 			const res = await fetch('/app/avatar', { method: 'DELETE' });
 			if (!res.ok) throw new Error(`Couldn't remove photo (${res.status})`);
@@ -153,6 +159,7 @@
 					disabled={busy}
 					class="flex-1"
 					autocomplete="off"
+					aria-invalid={nameError}
 					onkeydown={(e: KeyboardEvent) => {
 						if (e.key === 'Enter' && canSaveName) {
 							e.preventDefault();

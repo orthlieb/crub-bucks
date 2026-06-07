@@ -16,6 +16,9 @@
 	import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_DISTINCT } from '$lib/auth/password-policy';
 
 	let { form, data }: { form: ActionData; data: PageData } = $props();
+
+	// Which field (if any) the server flagged, to highlight it in red.
+	const errField = $derived(form && 'field' in form ? form.field : undefined);
 </script>
 
 <div class="kibble-bg min-h-screen bg-background py-12 px-4">
@@ -41,7 +44,7 @@
 						</AlertDescription>
 					</Alert>
 				{:else}
-					{#if form?.error}
+					{#if form?.error && !errField}
 						<Alert variant="destructive" class="mb-4">
 							<AlertDescription>{form.error}</AlertDescription>
 						</Alert>
@@ -56,7 +59,9 @@
 								type="password"
 								autocomplete="new-password"
 								required
+								aria-invalid={errField === 'password'}
 							/>
+							{#if errField === 'password'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
 							<p class="text-xs text-muted-foreground">
 								At least {PASSWORD_MIN_LENGTH} characters with {PASSWORD_MIN_DISTINCT} different characters.
 							</p>
@@ -70,7 +75,9 @@
 								type="password"
 								autocomplete="new-password"
 								required
+								aria-invalid={errField === 'confirmPassword'}
 							/>
+							{#if errField === 'confirmPassword'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
 						</div>
 
 						<Button type="submit" class="w-full">Update password</Button>
