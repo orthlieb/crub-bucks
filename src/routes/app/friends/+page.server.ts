@@ -15,6 +15,7 @@ import {
 	setFavorite,
 	LedgerError
 } from '$lib/server/ledger';
+import { checkClean } from '$lib/server/moderation';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -124,6 +125,8 @@ export const actions: Actions = {
 		if (!toUserId || toUserId === userId) {
 			return fail(400, { payError: 'Pick a friend to pay.' });
 		}
+		const memoClean = checkClean(memo, 'memo');
+		if (!memoClean.ok) return fail(400, { payError: memoClean.message });
 		if (!(await areFriends(userId, toUserId))) {
 			return fail(400, { payError: 'You can only pay your friends.' });
 		}

@@ -11,6 +11,7 @@ import {
 	rebuy,
 	LedgerError
 } from '$lib/server/ledger';
+import { checkClean } from '$lib/server/moderation';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -75,6 +76,8 @@ export const actions: Actions = {
 
 		const form = await request.formData();
 		const note = String(form.get('note') ?? '').trim() || null;
+		const noteClean = checkClean(note, 'note');
+		if (!noteClean.ok) return fail(400, { error: noteClean.message });
 		const winnerId = String(form.get('winnerId') ?? '') || undefined;
 		const loserId = String(form.get('loserId') ?? '') || undefined;
 		// tiered: ordered loser ids (least → most), comma-separated hidden field

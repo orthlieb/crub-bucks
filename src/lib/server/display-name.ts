@@ -4,8 +4,11 @@
  * Names render as plain, auto-escaped text everywhere (no `{@html}`), so this
  * isn't about XSS — it's about preventing impersonation/spoofing and broken
  * layouts: we strip control, zero-width/invisible, and Unicode bidi-override
- * characters, NFC-normalize, and collapse whitespace.
+ * characters, NFC-normalize, and collapse whitespace. We also reject names
+ * containing profanity (kid-friendly app).
  */
+
+import { containsProfanity } from './moderation';
 
 export const DISPLAY_NAME_MIN = 2;
 export const DISPLAY_NAME_MAX = 40;
@@ -47,6 +50,9 @@ export function validateDisplayName(raw: string): DisplayNameResult {
 	}
 	if (value.length > DISPLAY_NAME_MAX) {
 		return { ok: false, message: `Display name must be ${DISPLAY_NAME_MAX} characters or fewer.` };
+	}
+	if (containsProfanity(value)) {
+		return { ok: false, message: 'Please choose a name without rude words.' };
 	}
 	return { ok: true, value };
 }
