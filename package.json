@@ -18,9 +18,11 @@
     "db:seed": "node --import tsx src/lib/server/db/seed.ts",
     "test:unit": "vitest",
     "test": "npm run test:unit -- --run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@sveltejs/adapter-node": "^5.2.0",
     "@sveltejs/kit": "^2.8.0",
     "@sveltejs/vite-plugin-svelte": "^4.0.0",
