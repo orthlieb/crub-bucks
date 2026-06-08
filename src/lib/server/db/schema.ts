@@ -90,6 +90,10 @@ export const users = pgTable(
 		// the user has a row in user_avatars; the timestamp also cache-busts the
 		// served image URL.
 		avatarUpdatedAt: timestamp('avatar_updated_at', { withTimezone: true }),
+		// A single emoji chosen as the profile picture instead of a photo. Mutually
+		// exclusive with a photo: setting one clears the other. null = no icon.
+		// Render precedence is photo → icon → generated initials.
+		avatarIcon: text('avatar_icon'),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},
 	(t) => ({

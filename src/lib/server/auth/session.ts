@@ -60,7 +60,8 @@ export async function validateSessionToken(token: string) {
 				role: users.role,
 				isActive: users.isActive,
 				emailVerifiedAt: users.emailVerifiedAt,
-				avatarUpdatedAt: users.avatarUpdatedAt
+				avatarUpdatedAt: users.avatarUpdatedAt,
+				avatarIcon: users.avatarIcon
 			}
 		})
 		.from(sessions)

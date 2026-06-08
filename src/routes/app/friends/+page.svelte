@@ -168,6 +168,7 @@
 									id={selectedFriend.id}
 									name={selectedFriend.displayName}
 									avatarUpdatedAt={selectedFriend.avatarUpdatedAt}
+									avatarIcon={selectedFriend.avatarIcon}
 									size={36}
 								/>
 								<div class="min-w-0">
@@ -437,7 +438,7 @@
 	</section>
 </div>
 
-{#snippet friendRow(f: { id: string; displayName: string; email: string; isFavorite: boolean; avatarUpdatedAt: Date | string | null })}
+{#snippet friendRow(f: { id: string; displayName: string; email: string; isFavorite: boolean; avatarUpdatedAt: Date | string | null; avatarIcon: string | null })}
 	{@const isSelected = selectedFriendId === f.id}
 	<div
 		class="group flex items-center gap-2 rounded-lg border bg-card shadow-sm transition-colors {isSelected
@@ -467,7 +468,13 @@
 			class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-3 pr-3 text-left"
 			aria-pressed={isSelected}
 		>
-			<Avatar id={f.id} name={f.displayName} avatarUpdatedAt={f.avatarUpdatedAt} size={36} />
+			<Avatar
+				id={f.id}
+				name={f.displayName}
+				avatarUpdatedAt={f.avatarUpdatedAt}
+				avatarIcon={f.avatarIcon}
+				size={36}
+			/>
 			<div class="min-w-0">
 				<div class="truncate font-medium">{f.displayName}</div>
 				<div class="truncate text-xs text-muted-foreground">{f.email}</div>

@@ -107,6 +107,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		id: string;
 		name: string;
 		avatarUpdatedAt: Date | null;
+		avatarIcon: string | null;
 		acceptedAt: Date | null;
 		outcome: 'pending' | 'won' | 'lost' | 'none';
 		lossIfLose: number | null;
@@ -119,6 +120,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 				userId: users.id,
 				name: users.displayName,
 				avatarUpdatedAt: users.avatarUpdatedAt,
+				avatarIcon: users.avatarIcon,
 				acceptedAt: betParticipants.acceptedAt,
 				outcome: betParticipants.outcome,
 				lossIfLose: betParticipants.lossIfLose
@@ -132,6 +134,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 				id: r.userId,
 				name: r.name,
 				avatarUpdatedAt: r.avatarUpdatedAt,
+				avatarIcon: r.avatarIcon,
 				acceptedAt: r.acceptedAt,
 				outcome: r.outcome,
 				lossIfLose: r.lossIfLose
@@ -179,6 +182,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			id: p.id,
 			name: p.name,
 			avatarUpdatedAt: p.avatarUpdatedAt,
+			avatarIcon: p.avatarIcon,
 			ring: ringFor(b.status, p, b.cancelledBy ?? null)
 		}));
 		// Total wagered: the pot for pooled modes, else the sum of each player's
