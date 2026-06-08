@@ -12,6 +12,7 @@ declare global {
 				isActive: boolean;
 				emailVerifiedAt: Date | null;
 				avatarUpdatedAt: Date | null;
+				avatarIcon: string | null;
 			} | null;
 			session: InferSelectModel<typeof sessions> | null;
 		}

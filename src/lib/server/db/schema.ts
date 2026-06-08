@@ -90,6 +90,10 @@ export const users = pgTable(
 		// the user has a row in user_avatars; the timestamp also cache-busts the
 		// served image URL.
 		avatarUpdatedAt: timestamp('avatar_updated_at', { withTimezone: true }),
+		// A single emoji chosen as the profile picture instead of a photo. Mutually
+		// exclusive with a photo: setting one clears the other. null = no icon.
+		// Render precedence is photo → icon → generated initials.
+		avatarIcon: text('avatar_icon'),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},
 	(t) => ({
@@ -433,6 +437,9 @@ export const notifications = pgTable(
 		body: text('body'),
 		// optional in-app path the notification links to (e.g. /app/bet/<id>).
 		link: text('link'),
+		// optional image shown beside the notification (e.g. a badge "bug"
+		// medallion at /bug-<tier>.png). Falls back to text/emoji when null.
+		icon: text('icon'),
 		// the admin who sent it; null for system-generated rows like welcome
 		createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()

@@ -4,7 +4,7 @@ import { db } from '$lib/server/db';
 import { users, friendInvites } from '$lib/server/db/schema';
 import { hashPassword, validatePassword } from '$lib/server/auth/password';
 import { assertPasswordNotPwned, PwnedPasswordError } from '$lib/server/auth/hibp';
-import { sanitizeDisplayName, DISPLAY_NAME_MIN, DISPLAY_NAME_MAX } from '$lib/server/display-name';
+import { sanitizeDisplayName, validateDisplayName } from '$lib/server/display-name';
 import { issueAuthToken, TOKEN_EXPIRY_MS } from '$lib/server/auth/tokens';
 import { sendVerificationEmail } from '$lib/server/email';
 import { verifyCaptcha } from '$lib/server/captcha';
@@ -100,25 +100,21 @@ export const actions: Actions = {
 
 		// Basic shape checks.
 		if (!email || !email.includes('@')) {
-			return fail(400, { error: 'A valid email is required.', email, displayName });
+			return fail(400, { error: 'A valid email is required.', field: 'email', email, displayName });
 		}
-		if (displayName.length < DISPLAY_NAME_MIN) {
-			return fail(400, {
-				error: `Display name must be at least ${DISPLAY_NAME_MIN} characters.`,
-				email,
-				displayName
-			});
-		}
-		if (displayName.length > DISPLAY_NAME_MAX) {
-			return fail(400, {
-				error: `Display name must be ${DISPLAY_NAME_MAX} characters or fewer.`,
-				email,
-				displayName
-			});
+		// Name: length + sanitize + profanity, all via validateDisplayName.
+		const nameCheck = validateDisplayName(String(form.get('displayName') ?? ''));
+		if (!nameCheck.ok) {
+			return fail(400, { error: nameCheck.message, field: 'displayName', email, displayName });
 		}
 		const pw = validatePassword(password);
 		if (!pw.ok) {
-			return fail(400, { error: pw.message ?? 'Invalid password.', email, displayName });
+			return fail(400, {
+				error: pw.message ?? 'Invalid password.',
+				field: 'password',
+				email,
+				displayName
+			});
 		}
 		// Reject passwords found in known breaches (fail-open if HIBP is down).
 		try {

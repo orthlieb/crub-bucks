@@ -40,11 +40,11 @@ export const actions: Actions = {
 		}
 
 		if (password !== confirmPassword) {
-			return fail(400, { error: 'Passwords do not match.' });
+			return fail(400, { error: 'Passwords do not match.', field: 'confirmPassword' });
 		}
 		const pw = validatePassword(password);
 		if (!pw.ok) {
-			return fail(400, { error: pw.message ?? 'Invalid password.' });
+			return fail(400, { error: pw.message ?? 'Invalid password.', field: 'password' });
 		}
 		// Reject passwords found in known breaches (fail-open if HIBP is down).
 		try {

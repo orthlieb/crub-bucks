@@ -24,6 +24,7 @@ export interface FeedUser {
 	id: string;
 	name: string;
 	avatarUpdatedAt: Date | null;
+	avatarIcon: string | null;
 	/**
 	 * Status ring for this person's avatar within an item. Only the `people`
 	 * arrays set it: green/red for resolved winners/losers, red for the canceller.
@@ -130,7 +131,8 @@ export async function getFeed(opts: {
 			cancelledBy: bets.cancelledBy,
 			creatorId: bets.createdBy,
 			creatorName: users.displayName,
-			creatorAvatarUpdatedAt: users.avatarUpdatedAt
+			creatorAvatarUpdatedAt: users.avatarUpdatedAt,
+			creatorAvatarIcon: users.avatarIcon
 		})
 		.from(bets)
 		.innerJoin(users, eq(users.id, bets.createdBy))
@@ -145,6 +147,7 @@ export async function getFeed(opts: {
 				userId: betParticipants.userId,
 				displayName: users.displayName,
 				avatarUpdatedAt: users.avatarUpdatedAt,
+				avatarIcon: users.avatarIcon,
 				outcome: betParticipants.outcome,
 				settledDelta: betParticipants.settledDelta,
 				lossIfLose: betParticipants.lossIfLose
@@ -178,12 +181,14 @@ export async function getFeed(opts: {
 			const creator: FeedUser = {
 				id: b.creatorId,
 				name: b.creatorName,
-				avatarUpdatedAt: b.creatorAvatarUpdatedAt
+				avatarUpdatedAt: b.creatorAvatarUpdatedAt,
+				avatarIcon: b.creatorAvatarIcon
 			};
 			const participants: FeedUser[] = ps.map((p) => ({
 				id: p.userId,
 				name: p.displayName,
-				avatarUpdatedAt: p.avatarUpdatedAt
+				avatarUpdatedAt: p.avatarUpdatedAt,
+				avatarIcon: p.avatarIcon
 			}));
 			// Participant avatars, instigator (creator) first.
 			const people: FeedUser[] = [creator, ...participants.filter((p) => p.id !== creator.id)];
@@ -223,6 +228,7 @@ export async function getFeed(opts: {
 							id: p.userId,
 							name: p.displayName,
 							avatarUpdatedAt: p.avatarUpdatedAt,
+							avatarIcon: p.avatarIcon,
 							amount: Number(p.settledDelta ?? 0)
 						})),
 					losers: ps
@@ -231,6 +237,7 @@ export async function getFeed(opts: {
 							id: p.userId,
 							name: p.displayName,
 							avatarUpdatedAt: p.avatarUpdatedAt,
+							avatarIcon: p.avatarIcon,
 							amount: Math.abs(Number(p.settledDelta ?? 0))
 						})),
 					note: b.resolutionNote
@@ -244,7 +251,8 @@ export async function getFeed(opts: {
 					? {
 							id: cancellerPart.userId,
 							name: cancellerPart.displayName,
-							avatarUpdatedAt: cancellerPart.avatarUpdatedAt
+							avatarUpdatedAt: cancellerPart.avatarUpdatedAt,
+							avatarIcon: cancellerPart.avatarIcon
 						}
 					: creator;
 				// Red ring on whoever called it off; everyone else unringed.
@@ -278,7 +286,8 @@ export async function getFeed(opts: {
 			kind: wallets.kind,
 			userId: users.id,
 			userName: users.displayName,
-			userAvatarUpdatedAt: users.avatarUpdatedAt
+			userAvatarUpdatedAt: users.avatarUpdatedAt,
+			userAvatarIcon: users.avatarIcon
 		})
 		.from(ledgerEntries)
 		.innerJoin(wallets, eq(wallets.id, ledgerEntries.walletId))
@@ -299,6 +308,7 @@ export async function getFeed(opts: {
 				userId: string | null;
 				name: string | null;
 				avatarUpdatedAt: Date | null;
+				avatarIcon: string | null;
 			}[];
 		}
 	>();
@@ -314,7 +324,8 @@ export async function getFeed(opts: {
 			kind: r.kind,
 			userId: r.userId,
 			name: r.userName,
-			avatarUpdatedAt: r.userAvatarUpdatedAt
+			avatarUpdatedAt: r.userAvatarUpdatedAt,
+			avatarIcon: r.userAvatarIcon
 		});
 		byTransfer.set(r.transferId, entry);
 	}
@@ -332,12 +343,14 @@ export async function getFeed(opts: {
 		const from: FeedUser = {
 			id: fromLeg.userId,
 			name: fromLeg.name,
-			avatarUpdatedAt: fromLeg.avatarUpdatedAt
+			avatarUpdatedAt: fromLeg.avatarUpdatedAt,
+			avatarIcon: fromLeg.avatarIcon
 		};
 		const to: FeedUser = {
 			id: toLeg.userId,
 			name: toLeg.name,
-			avatarUpdatedAt: toLeg.avatarUpdatedAt
+			avatarUpdatedAt: toLeg.avatarUpdatedAt,
+			avatarIcon: toLeg.avatarIcon
 		};
 		items.push({
 			id: `payment:${transferId}`,
@@ -361,7 +374,8 @@ export async function getFeed(opts: {
 			tier: userBadges.tier,
 			earnedAt: userBadges.earnedAt,
 			name: users.displayName,
-			avatarUpdatedAt: users.avatarUpdatedAt
+			avatarUpdatedAt: users.avatarUpdatedAt,
+			avatarIcon: users.avatarIcon
 		})
 		.from(userBadges)
 		.innerJoin(users, eq(users.id, userBadges.userId))
@@ -370,7 +384,12 @@ export async function getFeed(opts: {
 	for (const b of badgeRows) {
 		// Audience filter: only show badges earned by someone the viewer follows.
 		if (!all && !audience!.has(b.userId)) continue;
-		const earner: FeedUser = { id: b.userId, name: b.name, avatarUpdatedAt: b.avatarUpdatedAt };
+		const earner: FeedUser = {
+			id: b.userId,
+			name: b.name,
+			avatarUpdatedAt: b.avatarUpdatedAt,
+			avatarIcon: b.avatarIcon
+		};
 		items.push({
 			id: `badge:${b.userId}:${b.badgeKey}`,
 			type: 'badge_earned',

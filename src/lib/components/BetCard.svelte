@@ -21,6 +21,7 @@
 		id: string;
 		name: string;
 		avatarUpdatedAt: Date | string | null;
+		avatarIcon?: string | null;
 		ring?: AvatarRing;
 	};
 
@@ -125,6 +126,7 @@
 						id={p.id}
 						name={p.name}
 						avatarUpdatedAt={p.avatarUpdatedAt}
+						avatarIcon={p.avatarIcon ?? null}
 						ring={p.ring ?? null}
 						size={24}
 					/>

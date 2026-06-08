@@ -22,6 +22,9 @@
 	// submit button so visitors don't waste time filling things in.
 	const signupBlocked = $derived(data.registrationLocked || data.registrationFullToday);
 
+	// Which field (if any) the server flagged, so we can highlight it in red.
+	const errField = $derived(form && 'field' in form ? form.field : undefined);
+
 	// Gate submission on a solved captcha (see login). resetCaptcha clears the
 	// spent single-use token after a failed attempt.
 	let captchaToken = $state('');
@@ -60,7 +63,7 @@
 					</Alert>
 				{/if}
 
-				{#if form?.error}
+				{#if form?.error && !errField}
 					<Alert variant="destructive" class="mb-4">
 						<AlertDescription>{form.error}</AlertDescription>
 					</Alert>
@@ -91,7 +94,11 @@
 							maxlength={40}
 							value={form?.displayName ?? ''}
 							disabled={signupBlocked}
+							aria-invalid={errField === 'displayName'}
 						/>
+						{#if errField === 'displayName'}<p class="text-sm text-destructive">
+								{form?.error}
+							</p>{/if}
 					</div>
 
 					<div class="space-y-2">
@@ -104,7 +111,9 @@
 							required
 							value={form?.email ?? data.prefillEmail ?? ''}
 							disabled={signupBlocked}
+							aria-invalid={errField === 'email'}
 						/>
+						{#if errField === 'email'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
 					</div>
 
 					<div class="space-y-2">
@@ -116,7 +125,9 @@
 							autocomplete="new-password"
 							required
 							disabled={signupBlocked}
+							aria-invalid={errField === 'password'}
 						/>
+						{#if errField === 'password'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
 						<p class="text-xs text-muted-foreground">
 							At least {PASSWORD_MIN_LENGTH} characters with {PASSWORD_MIN_DISTINCT} different characters.
 						</p>

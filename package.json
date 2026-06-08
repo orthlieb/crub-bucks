@@ -59,6 +59,7 @@
 		"clsx": "^2.1.1",
 		"drizzle-orm": "^0.36.0",
 		"emoji-picker-element": "^1.29.1",
+		"obscenity": "^0.4.6",
 		"postgres": "^3.4.5",
 		"tailwind-merge": "^3.6.0",
 		"tailwind-variants": "^3.2.2",

@@ -252,22 +252,37 @@
 			<div class="mb-6 space-y-2">
 				{#each data.notifications as n (n.id)}
 					<Alert variant={alertVariantFor(n.level)} class="relative pr-12">
-						{#if n.link}
-							<a
-								href={n.link}
-								class="block rounded-sm hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							>
-								<AlertTitle>{n.title}</AlertTitle>
-								{#if n.body}
-									<AlertDescription class="no-underline">{n.body}</AlertDescription>
-								{/if}
-							</a>
-						{:else}
-							<AlertTitle>{n.title}</AlertTitle>
-							{#if n.body}
-								<AlertDescription>{n.body}</AlertDescription>
+						<div class="flex items-center gap-3">
+							{#if n.icon}
+								<img
+									src={n.icon}
+									alt=""
+									width="40"
+									height="40"
+									class="h-10 w-10 shrink-0 select-none object-contain"
+									draggable="false"
+									onerror={(e) => ((e.currentTarget as HTMLImageElement).src = '/icon-192.png')}
+								/>
 							{/if}
-						{/if}
+							<div class="min-w-0 flex-1">
+								{#if n.link}
+									<a
+										href={n.link}
+										class="block rounded-sm hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									>
+										<AlertTitle>{n.title}</AlertTitle>
+										{#if n.body}
+											<AlertDescription class="no-underline">{n.body}</AlertDescription>
+										{/if}
+									</a>
+								{:else}
+									<AlertTitle>{n.title}</AlertTitle>
+									{#if n.body}
+										<AlertDescription>{n.body}</AlertDescription>
+									{/if}
+								{/if}
+							</div>
+						</div>
 						<form
 							method="POST"
 							action="/app/notifications?/dismiss"

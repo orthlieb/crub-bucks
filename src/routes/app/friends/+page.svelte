@@ -16,8 +16,12 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FriendCombobox from '$lib/components/FriendCombobox.svelte';
+	import ReportDialog from '$lib/components/ReportDialog.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	// Which pay-form field the server flagged (amount | memo), to highlight in red.
+	const payField = $derived(form && 'payField' in form ? form.payField : undefined);
 
 	// Client-side filter over the already-loaded friends list. Case-insensitive
 	// substring match on display name OR email. Friends are capped at 99 so
@@ -170,6 +174,7 @@
 											id={selectedFriend.id}
 											name={selectedFriend.displayName}
 											avatarUpdatedAt={selectedFriend.avatarUpdatedAt}
+											avatarIcon={selectedFriend.avatarIcon}
 											size={36}
 										/>
 										<div class="min-w-0">
@@ -243,11 +248,17 @@
 										required
 										class="w-24"
 										placeholder="0"
+										aria-invalid={payField === 'amount'}
 									/>
 								</div>
 								<div class="flex-1 space-y-1">
 									<Label class="text-xs">Note (optional)</Label>
-									<Input name="memo" placeholder="What's it for?" maxlength={140} />
+									<Input
+										name="memo"
+										placeholder="What's it for?"
+										maxlength={140}
+										aria-invalid={payField === 'memo'}
+									/>
 								</div>
 								<Button type="submit">Pay {selectedFriend.displayName}</Button>
 							</form>
@@ -302,6 +313,7 @@
 								placeholder="friend@example.com"
 								required
 								value={form?.email ?? ''}
+								aria-invalid={!!form?.requestError}
 							/>
 						</div>
 						<Button type="submit">Send request</Button>
@@ -480,6 +492,7 @@
 	email: string;
 	isFavorite: boolean;
 	avatarUpdatedAt: Date | string | null;
+	avatarIcon: string | null;
 })}
 	{@const isSelected = selectedFriendId === f.id}
 	<div
@@ -510,12 +523,22 @@
 			class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-3 pr-3 text-left"
 			aria-pressed={isSelected}
 		>
-			<Avatar id={f.id} name={f.displayName} avatarUpdatedAt={f.avatarUpdatedAt} size={36} />
+			<Avatar
+				id={f.id}
+				name={f.displayName}
+				avatarUpdatedAt={f.avatarUpdatedAt}
+				avatarIcon={f.avatarIcon}
+				size={36}
+			/>
 			<div class="min-w-0">
 				<div class="truncate font-medium">{f.displayName}</div>
 				<div class="truncate text-xs text-muted-foreground">{f.email}</div>
 			</div>
 		</button>
+		<!-- Report this user's name to the team (always visible — safety feature). -->
+		<div class="shrink-0">
+			<ReportDialog targetType="user" targetId={f.id} targetLabel={f.displayName} iconOnly />
+		</div>
 		<!-- Unfriend, revealed on row hover (desktop) or when the button itself is
 		     focused (keyboard). Selecting the row no longer reveals it. Always
 		     visible on touch / small viewports since there's no hover there. -->
@@ -523,7 +546,7 @@
 			method="POST"
 			action="?/unfriend"
 			use:enhance
-			class="ml-auto shrink-0 pr-3 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100"
+			class="shrink-0 pr-3 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100"
 			onsubmit={(e) => {
 				if (!confirm(`Unfriend ${f.displayName}?`)) e.preventDefault();
 			}}

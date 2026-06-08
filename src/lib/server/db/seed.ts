@@ -72,6 +72,8 @@ const [carl, dana, theo, mira, nina] = await db
 			// Nina is a brand-new user who hasn't logged in yet — no welcome
 			// grant until her first login. The clique have already received theirs.
 			welcomeGrantedAt: name === 'Nina' ? null : now,
+			// Theo shows off the emoji-icon avatar; the rest use initials/photos.
+			avatarIcon: name === 'Theo' ? '🦊' : null,
 			role: 'user' as const
 		}))
 	)

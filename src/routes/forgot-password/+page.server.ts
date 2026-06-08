@@ -35,7 +35,7 @@ export const actions: Actions = {
 		}
 
 		if (!email || !email.includes('@')) {
-			return fail(400, { error: 'Please enter a valid email address.', email });
+			return fail(400, { error: 'Please enter a valid email address.', field: 'email', email });
 		}
 
 		const [user] = await db

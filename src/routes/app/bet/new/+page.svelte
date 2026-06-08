@@ -13,6 +13,9 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	// Which field (if any) the server flagged, to highlight it in red.
+	const errField = $derived(form && 'field' in form ? form.field : undefined);
+
 	type Mode = 'even_split' | 'winner_loser' | 'tiered' | 'pot' | 'odds';
 	let mode = $state<Mode>('even_split');
 
@@ -184,7 +187,7 @@
 
 	<Card>
 		<CardContent class="pt-6">
-			{#if form?.error}
+			{#if form?.error && errField !== 'title'}
 				<Alert variant="destructive" class="mb-4"
 					><AlertDescription>{form.error}</AlertDescription></Alert
 				>
@@ -249,7 +252,9 @@
 							required
 							placeholder="What's the bet?"
 							value={form?.title ?? ''}
+							aria-invalid={errField === 'title'}
 						/>
+						{#if errField === 'title'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
 					</div>
 				</div>
 

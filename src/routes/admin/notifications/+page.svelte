@@ -16,6 +16,9 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	// Which send-form field the server flagged, to highlight it in red.
+	const errField = $derived(form && 'field' in form ? form.field : undefined);
+
 	let level = $state<'info' | 'success' | 'warning'>('info');
 	let target = $state<'broadcast' | 'user'>('broadcast');
 
@@ -126,8 +129,10 @@
 		<CardHeader>
 			<CardTitle level={2}>Test push notification</CardTitle>
 			<CardDescription>
-				Sends a Web Push to your own subscribed devices to verify delivery end-to-end. Enable
-				Notifications in Settings first (in a real browser — not the embedded preview).
+				Sends a Web Push (with a distinct Cala icon, so the per-notification image is exercised too)
+				to your own subscribed devices to verify delivery end-to-end. Enable Notifications in
+				Settings first (in a real browser — not the embedded preview). On iOS the icon is ignored
+				and the app icon shows regardless.
 			</CardDescription>
 		</CardHeader>
 		<CardContent>
@@ -156,7 +161,7 @@
 			</CardDescription>
 		</CardHeader>
 		<CardContent>
-			{#if form?.error}
+			{#if form?.error && !errField}
 				<Alert variant="destructive" class="mb-4">
 					<AlertDescription>{form.error}</AlertDescription>
 				</Alert>
@@ -225,6 +230,7 @@
 									type="search"
 									autocomplete="off"
 									placeholder="Search by name or email…"
+									aria-invalid={errField === 'recipient'}
 									bind:value={query}
 									oninput={() => scheduleSearch(query)}
 									onkeydown={onKeydown}
@@ -280,6 +286,9 @@
 							<p class="text-xs text-muted-foreground">
 								Type at least 2 characters. Use ↑/↓ to navigate, Enter to pick.
 							</p>
+							{#if errField === 'recipient'}<p class="text-sm text-destructive">
+									{form?.error}
+								</p>{/if}
 						{/if}
 					</div>
 				{/if}
@@ -309,7 +318,9 @@
 						name="title"
 						required
 						placeholder="Heads up: scheduled downtime tonight at 9 PM."
+						aria-invalid={errField === 'title'}
 					/>
+					{#if errField === 'title'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
 				</div>
 				<div class="space-y-2">
 					<Label for="body">Body (optional)</Label>
@@ -349,7 +360,9 @@
 						name="link"
 						bind:value={link}
 						placeholder="/app/bet/<id> — where tapping the notification goes"
+						aria-invalid={errField === 'link'}
 					/>
+					{#if errField === 'link'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
 					<p class="text-xs text-muted-foreground">
 						Must be an in-app path starting with “/”. Drives both the in-app banner and the push
 						notification's tap target.
