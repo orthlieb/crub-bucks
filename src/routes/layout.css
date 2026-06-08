@@ -104,8 +104,8 @@
 	--radius-xl: calc(var(--radius) + 4px);
 
 	--font-sans:
-		'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
-		Arial, sans-serif;
+		'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+		sans-serif;
 	--font-mono:
 		ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
@@ -134,8 +134,8 @@
 		/* With viewport-fit=cover the page extends under the notch and the
 		   home indicator; pad the body so no chrome hides behind them. The
 		   solid body background fills the inset gaps to match the theme. */
-		padding: env(safe-area-inset-top) env(safe-area-inset-right)
-			env(safe-area-inset-bottom) env(safe-area-inset-left);
+		padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+			env(safe-area-inset-left);
 	}
 }
 

@@ -44,9 +44,7 @@
 	// Reset to null when the underlying list refreshes (e.g. unfriend
 	// succeeds) and the selected id no longer exists.
 	let selectedFriendId = $state<string | null>(null);
-	const selectedFriend = $derived(
-		data.friends.find((f) => f.id === selectedFriendId) ?? null
-	);
+	const selectedFriend = $derived(data.friends.find((f) => f.id === selectedFriendId) ?? null);
 	$effect(() => {
 		if (selectedFriendId && !selectedFriend) selectedFriendId = null;
 	});
@@ -134,7 +132,9 @@
 			     content stacked on the right. items-stretch on the flex
 			     parent makes the image column match the form column's height. -->
 			<div class="flex items-stretch">
-				<div class="hidden w-40 shrink-0 items-center justify-center overflow-hidden border-r bg-primary/5 p-2 sm:flex lg:w-48">
+				<div
+					class="hidden w-40 shrink-0 items-center justify-center overflow-hidden border-r bg-primary/5 p-2 sm:flex lg:w-48"
+				>
 					<img
 						src="/cala-money.png"
 						alt="Cala the dog proudly holding a 1 Crub Buck note."
@@ -142,105 +142,128 @@
 					/>
 				</div>
 				<div class="min-w-0 flex-1">
-			<CardHeader>
-				<CardTitle level={2}>Pay a friend</CardTitle>
-				<CardDescription>
-					Pick a friend, enter an amount, and send them some bucks. Tap a row in the list
-					below to fill this in quickly.
-				</CardDescription>
-			</CardHeader>
-			<CardContent>
-				{#if form?.payError}
-					<Alert variant="destructive" class="mb-4"><AlertDescription>{form.payError}</AlertDescription></Alert>
-				{:else if form?.paid}
-					<Alert variant="success" class="mb-4"><AlertDescription>Payment sent.</AlertDescription></Alert>
-				{/if}
+					<CardHeader>
+						<CardTitle level={2}>Pay a friend</CardTitle>
+						<CardDescription>
+							Pick a friend, enter an amount, and send them some bucks. Tap a row in the list below
+							to fill this in quickly.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{#if form?.payError}
+							<Alert variant="destructive" class="mb-4"
+								><AlertDescription>{form.payError}</AlertDescription></Alert
+							>
+						{:else if form?.paid}
+							<Alert variant="success" class="mb-4"
+								><AlertDescription>Payment sent.</AlertDescription></Alert
+							>
+						{/if}
 
-				<div class="space-y-2">
-					<Label for="pay-friend-search">Friend</Label>
+						<div class="space-y-2">
+							<Label for="pay-friend-search">Friend</Label>
 
-					{#if selectedFriend}
-						<!-- Chip with current selection. Change clears + refocuses
+							{#if selectedFriend}
+								<!-- Chip with current selection. Change clears + refocuses
 						     the search input so the user can pick a different friend. -->
-						<div class="flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2 text-sm">
-							<div class="flex min-w-0 items-center gap-3">
-								<Avatar
-									id={selectedFriend.id}
-									name={selectedFriend.displayName}
-									avatarUpdatedAt={selectedFriend.avatarUpdatedAt}
-									avatarIcon={selectedFriend.avatarIcon}
-									size={36}
-								/>
-								<div class="min-w-0">
-									<div class="truncate font-medium">
-										{selectedFriend.displayName}
-										{#if selectedFriend.isFavorite}
-											<span aria-hidden="true" class="text-yellow-500">★</span>
-										{/if}
+								<div
+									class="flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2 text-sm"
+								>
+									<div class="flex min-w-0 items-center gap-3">
+										<Avatar
+											id={selectedFriend.id}
+											name={selectedFriend.displayName}
+											avatarUpdatedAt={selectedFriend.avatarUpdatedAt}
+											avatarIcon={selectedFriend.avatarIcon}
+											size={36}
+										/>
+										<div class="min-w-0">
+											<div class="truncate font-medium">
+												{selectedFriend.displayName}
+												{#if selectedFriend.isFavorite}
+													<span aria-hidden="true" class="text-yellow-500">★</span>
+												{/if}
+											</div>
+											<div class="truncate text-xs text-muted-foreground">
+												{selectedFriend.email}
+											</div>
+										</div>
 									</div>
-									<div class="truncate text-xs text-muted-foreground">{selectedFriend.email}</div>
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										onclick={() => {
+											selectedFriendId = null;
+											queueMicrotask(() =>
+												(
+													document.getElementById('pay-friend-search') as HTMLInputElement | null
+												)?.focus()
+											);
+										}}
+									>
+										Change
+									</Button>
 								</div>
-							</div>
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								onclick={() => {
-									selectedFriendId = null;
-									queueMicrotask(() =>
-										(document.getElementById('pay-friend-search') as HTMLInputElement | null)?.focus()
-									);
-								}}
-							>
-								Change
-							</Button>
+							{:else}
+								<FriendCombobox
+									id="pay-friend-search"
+									friends={data.friends}
+									bind:value={selectedFriendId}
+									placeholder="Start typing a name or email…"
+								/>
+								<p class="text-xs text-muted-foreground">
+									Or tap a friend in the list below. Use ↑/↓ + Enter to pick from suggestions.
+								</p>
+							{/if}
 						</div>
-					{:else}
-						<FriendCombobox
-							id="pay-friend-search"
-							friends={data.friends}
-							bind:value={selectedFriendId}
-							placeholder="Start typing a name or email…"
-						/>
-						<p class="text-xs text-muted-foreground">
-							Or tap a friend in the list below. Use ↑/↓ + Enter to pick from suggestions.
-						</p>
-					{/if}
-				</div>
 
-				{#if selectedFriend}
-					<form
-						method="POST"
-						action="?/pay"
-						use:enhance
-						class="mt-4 flex flex-wrap items-end gap-2"
-					>
-						<input type="hidden" name="toUserId" value={selectedFriend.id} />
-						<input type="hidden" name="icon" value={iconFor(selectedFriend.id)} />
-						<div class="space-y-1">
-							<Label class="text-xs">Icon</Label>
-							<button
-								type="button"
-								onclick={() => (pickerOpen = true)}
-								aria-haspopup="dialog"
-								aria-label="Pick a payment icon"
-								class="flex h-9 w-12 items-center justify-center rounded-md border bg-muted/30 text-xl leading-none transition-colors hover:bg-accent"
+						{#if selectedFriend}
+							<form
+								method="POST"
+								action="?/pay"
+								use:enhance
+								class="mt-4 flex flex-wrap items-end gap-2"
 							>
-								{iconFor(selectedFriend.id)}
-							</button>
-						</div>
-						<div class="space-y-1">
-							<Label class="text-xs">Pay (CB)</Label>
-							<Input type="number" name="amount" min="1" required class="w-24" placeholder="0" aria-invalid={payField === 'amount'} />
-						</div>
-						<div class="flex-1 space-y-1">
-							<Label class="text-xs">Note (optional)</Label>
-							<Input name="memo" placeholder="What's it for?" maxlength={140} aria-invalid={payField === 'memo'} />
-						</div>
-						<Button type="submit">Pay {selectedFriend.displayName}</Button>
-					</form>
-				{/if}
-			</CardContent>
+								<input type="hidden" name="toUserId" value={selectedFriend.id} />
+								<input type="hidden" name="icon" value={iconFor(selectedFriend.id)} />
+								<div class="space-y-1">
+									<Label class="text-xs">Icon</Label>
+									<button
+										type="button"
+										onclick={() => (pickerOpen = true)}
+										aria-haspopup="dialog"
+										aria-label="Pick a payment icon"
+										class="flex h-9 w-12 items-center justify-center rounded-md border bg-muted/30 text-xl leading-none transition-colors hover:bg-accent"
+									>
+										{iconFor(selectedFriend.id)}
+									</button>
+								</div>
+								<div class="space-y-1">
+									<Label class="text-xs">Pay (CB)</Label>
+									<Input
+										type="number"
+										name="amount"
+										min="1"
+										required
+										class="w-24"
+										placeholder="0"
+										aria-invalid={payField === 'amount'}
+									/>
+								</div>
+								<div class="flex-1 space-y-1">
+									<Label class="text-xs">Note (optional)</Label>
+									<Input
+										name="memo"
+										placeholder="What's it for?"
+										maxlength={140}
+										aria-invalid={payField === 'memo'}
+									/>
+								</div>
+								<Button type="submit">Pay {selectedFriend.displayName}</Button>
+							</form>
+						{/if}
+					</CardContent>
 				</div>
 			</div>
 		</Card>
@@ -249,7 +272,9 @@
 	<!-- Add / request -->
 	<Card class="overflow-hidden">
 		<div class="flex items-stretch">
-			<div class="hidden w-40 shrink-0 items-center justify-center overflow-hidden border-r bg-primary/5 p-2 sm:flex lg:w-48">
+			<div
+				class="hidden w-40 shrink-0 items-center justify-center overflow-hidden border-r bg-primary/5 p-2 sm:flex lg:w-48"
+			>
 				<img
 					src="/cala-watching.png"
 					alt="Cala the dog patiently holding an envelope, waiting to deliver it."
@@ -259,18 +284,37 @@
 			<div class="min-w-0 flex-1">
 				<CardHeader>
 					<CardTitle level={2}>Add a friend</CardTitle>
-					<CardDescription>They need a Crub Bucks account, and must approve your request.</CardDescription>
+					<CardDescription
+						>They need a Crub Bucks account, and must approve your request.</CardDescription
+					>
 				</CardHeader>
 				<CardContent>
 					{#if form?.requestError}
-						<Alert variant="destructive" class="mb-4"><AlertDescription>{form.requestError}</AlertDescription></Alert>
+						<Alert variant="destructive" class="mb-4"
+							><AlertDescription>{form.requestError}</AlertDescription></Alert
+						>
 					{:else if form?.requestMessage}
-						<Alert variant="success" class="mb-4"><AlertDescription>{form.requestMessage}</AlertDescription></Alert>
+						<Alert variant="success" class="mb-4"
+							><AlertDescription>{form.requestMessage}</AlertDescription></Alert
+						>
 					{/if}
-					<form method="POST" action="?/request" use:enhance class="flex flex-col gap-3 sm:flex-row sm:items-end">
+					<form
+						method="POST"
+						action="?/request"
+						use:enhance
+						class="flex flex-col gap-3 sm:flex-row sm:items-end"
+					>
 						<div class="flex-1 space-y-2">
 							<Label for="email">Friend's email</Label>
-							<Input id="email" name="email" type="email" placeholder="friend@example.com" required value={form?.email ?? ''} aria-invalid={!!form?.requestError} />
+							<Input
+								id="email"
+								name="email"
+								type="email"
+								placeholder="friend@example.com"
+								required
+								value={form?.email ?? ''}
+								aria-invalid={!!form?.requestError}
+							/>
 						</div>
 						<Button type="submit">Send request</Button>
 					</form>
@@ -383,12 +427,16 @@
 		</div>
 
 		{#if form?.favoriteError}
-			<Alert variant="destructive" class="mt-3"><AlertDescription>{form.favoriteError}</AlertDescription></Alert>
+			<Alert variant="destructive" class="mt-3"
+				><AlertDescription>{form.favoriteError}</AlertDescription></Alert
+			>
 		{/if}
 
 		{#if data.friends.length === 0}
 			<Card class="mt-3">
-				<CardContent class="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
+				<CardContent
+					class="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground"
+				>
 					<img
 						src="/cala-empty-friends.png"
 						alt="Cala the dog sitting alone, waiting for someone to play."
@@ -438,7 +486,14 @@
 	</section>
 </div>
 
-{#snippet friendRow(f: { id: string; displayName: string; email: string; isFavorite: boolean; avatarUpdatedAt: Date | string | null; avatarIcon: string | null })}
+{#snippet friendRow(f: {
+	id: string;
+	displayName: string;
+	email: string;
+	isFavorite: boolean;
+	avatarUpdatedAt: Date | string | null;
+	avatarIcon: string | null;
+})}
 	{@const isSelected = selectedFriendId === f.id}
 	<div
 		class="group flex items-center gap-2 rounded-lg border bg-card shadow-sm transition-colors {isSelected

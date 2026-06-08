@@ -27,7 +27,10 @@ export function isCaptchaConfigured(): boolean {
 	return Boolean(env.HCAPTCHA_SECRET?.trim());
 }
 
-export async function verifyCaptcha(token: string | null | undefined, remoteIp?: string | null): Promise<CaptchaResult> {
+export async function verifyCaptcha(
+	token: string | null | undefined,
+	remoteIp?: string | null
+): Promise<CaptchaResult> {
 	const secret = env.HCAPTCHA_SECRET?.trim();
 	if (!secret) return { ok: true, skipped: true };
 

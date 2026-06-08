@@ -1,6 +1,12 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
+	import {
+		Card,
+		CardContent,
+		CardDescription,
+		CardHeader,
+		CardTitle
+	} from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Alert, AlertTitle, AlertDescription } from '$lib/components/ui/alert';
 
@@ -10,7 +16,10 @@
 <div class="kibble-bg min-h-screen bg-background py-12 px-4">
 	<div class="mx-auto max-w-md">
 		<a href="/" class="mb-6 flex items-center gap-2 font-semibold tracking-tight">
-			<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">₡</span>
+			<span
+				class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm"
+				>₡</span
+			>
 			<span>Crub Bucks</span>
 		</a>
 
@@ -41,8 +50,8 @@
 					</CardDescription>
 				</CardHeader>
 				<CardContent class="text-sm text-muted-foreground">
-					Re-register with the same email to get a fresh verification link, or use the
-					password recovery flow if you've already set a password.
+					Re-register with the same email to get a fresh verification link, or use the password
+					recovery flow if you've already set a password.
 				</CardContent>
 				<div class="px-6 pb-6 pt-0 flex gap-2">
 					<Button variant="outline" href="/register">Re-register</Button>

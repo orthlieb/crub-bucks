@@ -76,6 +76,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Lint (prettier + eslint)
+        run: npm run lint
+
       - name: Typecheck
         run: npm run check
 
@@ -87,6 +90,13 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      # Enforce the coverage ratchet floor (vite.config.ts → test.coverage).
+      # Runs the same suites again with v8 coverage; fails the deploy if any
+      # threshold regresses. The sidecar Postgres above lets the db-backed
+      # tests run, so coverage reflects the full suite.
+      - name: Coverage thresholds
+        run: npm run test:coverage
 
       - name: Production build (smoke)
         run: npm run build

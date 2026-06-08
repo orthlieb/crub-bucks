@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	verifyEmailTemplate,
-	passwordResetTemplate,
-	friendInviteTemplate
-} from './templates';
+import { verifyEmailTemplate, passwordResetTemplate, friendInviteTemplate } from './templates';
 
 const APP = 'https://crub.example';
 

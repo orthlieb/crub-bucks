@@ -8,12 +8,12 @@ public Internet — and the deploy step (Phase 10) backs it up daily.
 
 Companion files in this repo:
 
-| Path | Purpose |
-|------|---------|
-| `ecosystem.config.cjs` | PM2 process config |
-| `infra/nginx/crubbucks.conf` | Nginx site config (copy to `/etc/nginx/sites-available/`) |
-| `src/routes/health/+server.ts` | `GET /health` — used by deploy probes |
-| `.env.example` | Template for production `.env` |
+| Path                           | Purpose                                                   |
+| ------------------------------ | --------------------------------------------------------- |
+| `ecosystem.config.cjs`         | PM2 process config                                        |
+| `infra/nginx/crubbucks.conf`   | Nginx site config (copy to `/etc/nginx/sites-available/`) |
+| `src/routes/health/+server.ts` | `GET /health` — used by deploy probes                     |
+| `.env.example`                 | Template for production `.env`                            |
 
 ---
 
@@ -60,11 +60,11 @@ Internet
 Running Postgres on the same box raises the floor — both the DB and
 the Node build need to coexist with OS overhead.
 
-| Tier | Specs | Verdict |
-|---|---|---|
-| VPS Linux S | 1 vCPU / 1 GB RAM / 10 GB SSD | **Don't.** Postgres + Node + Nginx + Ubuntu base ≈ 900 MB resident before you've served a request; `npm ci` will OOM during deploy. |
-| **VPS Linux M** ⭐ | 2 vCPU / 4 GB RAM / 80 GB NVMe | **Recommended.** Postgres (default tuning) ≈ 300 MB, Node 150–300 MB, Nginx 30 MB, OS 250 MB — leaves 3 GB free for OS cache + build bursts. |
-| VPS Linux L | 4 vCPU / 8 GB RAM / 160 GB NVMe | Pick this if you expect to grow past 100 active users or want a bigger Postgres `shared_buffers` and OS page cache without thinking about it. |
+| Tier               | Specs                           | Verdict                                                                                                                                       |
+| ------------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| VPS Linux S        | 1 vCPU / 1 GB RAM / 10 GB SSD   | **Don't.** Postgres + Node + Nginx + Ubuntu base ≈ 900 MB resident before you've served a request; `npm ci` will OOM during deploy.           |
+| **VPS Linux M** ⭐ | 2 vCPU / 4 GB RAM / 80 GB NVMe  | **Recommended.** Postgres (default tuning) ≈ 300 MB, Node 150–300 MB, Nginx 30 MB, OS 250 MB — leaves 3 GB free for OS cache + build bursts.  |
+| VPS Linux L        | 4 vCPU / 8 GB RAM / 160 GB NVMe | Pick this if you expect to grow past 100 active users or want a bigger Postgres `shared_buffers` and OS page cache without thinking about it. |
 
 The Node process idles around 150 MB and peaks around 300 MB; Nginx
 ~30 MB; Postgres 16 with defaults around 200–400 MB resident
@@ -104,12 +104,12 @@ is just orientation.
 
 What you're signing up for vs. a managed cluster:
 
-| You own | Managed would handle |
-|---|---|
-| `apt upgrade postgresql-16` on patch days | Maintenance windows handled |
-| Daily `pg_dump` cron + retention (Phase 10) | Automatic snapshots |
+| You own                                                      | Managed would handle           |
+| ------------------------------------------------------------ | ------------------------------ |
+| `apt upgrade postgresql-16` on patch days                    | Maintenance windows handled    |
+| Daily `pg_dump` cron + retention (Phase 10)                  | Automatic snapshots            |
 | Tuning `shared_buffers` / `work_mem` if you outgrow defaults | Pre-tuned for the cluster size |
-| Restoring from `pg_dump` after a disaster | Point-in-time recovery |
+| Restoring from `pg_dump` after a disaster                    | Point-in-time recovery         |
 
 For a friends-and-family play-currency app the defaults are fine and
 the ops load is "10 minutes a quarter" once it's set up. The savings
@@ -165,7 +165,7 @@ is the **return-path** subdomain.
    - **MX** record on the subdomain (for return-path / bounce handling)
    - **TXT (SPF)** authorising Resend's mail servers to send
    - **TXT or CNAME (DKIM)** for cryptographic signing
-   - **TXT (DMARC)** *(strongly recommended — see 0.5.4)*
+   - **TXT (DMARC)** _(strongly recommended — see 0.5.4)_
 
    Copy the exact values shown in the dashboard — don't paste guesses
    from this doc, Resend sometimes changes the host targets.
@@ -187,10 +187,9 @@ or wrong; the most common mistakes are pasting a value with extra
 quotes around it, or putting the record at the apex instead of the
 subdomain.
 
-### 0.5.4 Add a DMARC record *(strongly recommended)*
+### 0.5.4 Add a DMARC record _(strongly recommended)_
 
-Google and Yahoo's bulk-sender rules effectively require DMARC since
-2024. Add this TXT record at `_dmarc.yourdomain.com`:
+Google and Yahoo's bulk-sender rules effectively require DMARC since 2024. Add this TXT record at `_dmarc.yourdomain.com`:
 
 ```
 v=DMARC1; p=none; rua=mailto:you@yourdomain.com; pct=100; adkim=s; aspf=s
@@ -203,7 +202,7 @@ a few weeks of clean reports (`rua=` is where they land), tighten to
 ### 0.5.5 Create a sending-only API key
 
 1. Resend dashboard → **API Keys → Create API Key**.
-2. **Permission: "Sending access"** — *not* "Full access". Least
+2. **Permission: "Sending access"** — _not_ "Full access". Least
    privilege means if the VPS is ever compromised the attacker can
    send emails but can't reconfigure your domain or read previous
    sends.
@@ -212,7 +211,7 @@ a few weeks of clean reports (`rua=` is where they land), tighten to
 4. Name it `production-vps` or similar so future-you remembers what
    it's for.
 5. Copy the key (starts with `re_…`). You won't see it again — store
-   it in your password manager *and* it's about to go in the `.env`
+   it in your password manager _and_ it's about to go in the `.env`
    on the VPS in Phase 3.
 
 ### 0.5.6 Pick your `EMAIL_FROM`
@@ -261,11 +260,11 @@ account-creation bots. Server verification is a plain `fetch` to
 The app reads `PUBLIC_HCAPTCHA_SITE_KEY` (client) and `HCAPTCHA_SECRET`
 (server). What it does in each mode:
 
-| Mode | When | Behaviour |
-|---|---|---|
-| **Both unset** | Local dev default | Widget renders nothing. Server short-circuits to "ok". Frictionless. |
-| **hCaptcha public test keys** | Local UI development, staging | Real widget renders ("This is for testing only" banner), always passes verification, no signup. |
-| **Real keys from hcaptcha.com** | **Production** | Real bot detection. |
+| Mode                            | When                          | Behaviour                                                                                       |
+| ------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| **Both unset**                  | Local dev default             | Widget renders nothing. Server short-circuits to "ok". Frictionless.                            |
+| **hCaptcha public test keys**   | Local UI development, staging | Real widget renders ("This is for testing only" banner), always passes verification, no signup. |
+| **Real keys from hcaptcha.com** | **Production**                | Real bot detection.                                                                             |
 
 For staging boxes you'd typically use the test keys; for production
 you need real ones. Mixing — e.g. real site key but unset secret — is
@@ -550,20 +549,20 @@ nano .env
 
 What goes in each field:
 
-| Variable | Value |
-|---|---|
-| `DATABASE_URL` | `postgres://crubbucks:DB_PASS@127.0.0.1:5432/crubbucks` using the password from Phase 1.2. Loopback, so no `sslmode=require` needed (and no TLS overhead). |
-| `RESEND_API_KEY` | From your Resend dashboard |
-| `EMAIL_FROM` | `"Crub Bucks <no-reply@yourdomain.com>"` (sender on a verified domain) |
-| `PUBLIC_APP_URL` | `https://yourdomain.com` (no trailing slash) |
-| `PUBLIC_HCAPTCHA_SITE_KEY` | Sitekey from your hCaptcha site (Phase 0.6). Exposed to the browser. |
-| `HCAPTCHA_SECRET` | Secret from your hCaptcha site (Phase 0.6). Server-only — never put in `PUBLIC_*`. |
-| `PUBLIC_VAPID_KEY` | Web-push public key (`npx web-push generate-vapid-keys`). Exposed to the browser. Optional — push is simply disabled if unset. |
-| `VAPID_PRIVATE_KEY` | Web-push private key from the same keypair. Server-only. Don't rotate once devices subscribe. |
-| `VAPID_SUBJECT` | `mailto:you@yourdomain.com` — VAPID contact. |
-| `ORIGIN` | `https://yourdomain.com` — same as `PUBLIC_APP_URL`. **Required for CSRF.** |
-| `PORT` | `3000` (matches `ecosystem.config.cjs` + Nginx config) |
-| `HOST` | `127.0.0.1` (only Nginx talks to Node; don't expose to 0.0.0.0) |
+| Variable                   | Value                                                                                                                                                      |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`             | `postgres://crubbucks:DB_PASS@127.0.0.1:5432/crubbucks` using the password from Phase 1.2. Loopback, so no `sslmode=require` needed (and no TLS overhead). |
+| `RESEND_API_KEY`           | From your Resend dashboard                                                                                                                                 |
+| `EMAIL_FROM`               | `"Crub Bucks <no-reply@yourdomain.com>"` (sender on a verified domain)                                                                                     |
+| `PUBLIC_APP_URL`           | `https://yourdomain.com` (no trailing slash)                                                                                                               |
+| `PUBLIC_HCAPTCHA_SITE_KEY` | Sitekey from your hCaptcha site (Phase 0.6). Exposed to the browser.                                                                                       |
+| `HCAPTCHA_SECRET`          | Secret from your hCaptcha site (Phase 0.6). Server-only — never put in `PUBLIC_*`.                                                                         |
+| `PUBLIC_VAPID_KEY`         | Web-push public key (`npx web-push generate-vapid-keys`). Exposed to the browser. Optional — push is simply disabled if unset.                             |
+| `VAPID_PRIVATE_KEY`        | Web-push private key from the same keypair. Server-only. Don't rotate once devices subscribe.                                                              |
+| `VAPID_SUBJECT`            | `mailto:you@yourdomain.com` — VAPID contact.                                                                                                               |
+| `ORIGIN`                   | `https://yourdomain.com` — same as `PUBLIC_APP_URL`. **Required for CSRF.**                                                                                |
+| `PORT`                     | `3000` (matches `ecosystem.config.cjs` + Nginx config)                                                                                                     |
+| `HOST`                     | `127.0.0.1` (only Nginx talks to Node; don't expose to 0.0.0.0)                                                                                            |
 
 Lock the file down:
 
@@ -575,7 +574,7 @@ chmod 600 .env
 > Phase 5, the `ORIGIN` value must match the public HTTPS URL exactly.
 > SvelteKit compares the request's `Origin` header to this env var on
 > POST form submissions; a mismatch returns `Cross-site POST form
-> submissions are forbidden` and every login silently fails.
+submissions are forbidden` and every login silently fails.
 
 ---
 
@@ -812,7 +811,7 @@ On every push to `main` (and on demand via the Actions tab):
    - `npm run db:migrate`
    - `npm run build`
    - `pm2 reload ecosystem.config.cjs --update-env && pm2 save`
-3. Probe `https://<your domain>/health` for up to 60 seconds. A
+5. Probe `https://<your domain>/health` for up to 60 seconds. A
    non-200 fails the workflow so you'll see red in the Actions tab.
 
 Concurrency: only one deploy at a time, and in-flight deploys are NOT
@@ -833,7 +832,7 @@ cat ~/.ssh/deploy_key   # copy this private key (incl. header/footer) into GH Se
 Keep the private key in your password manager too, in case you ever
 need to rotate or troubleshoot.
 
-### 9.3 Capture the host key fingerprint *(recommended)*
+### 9.3 Capture the host key fingerprint _(recommended)_
 
 Strict host-key checking prevents a MITM if your VPS is ever replaced.
 On your **laptop**:
@@ -855,12 +854,12 @@ whatever host answers at `IONOS_HOST` on first contact.
 Repo → Settings → Secrets and variables → Actions → New repository
 secret. Add:
 
-| Secret | Value |
-|---|---|
-| `IONOS_HOST` | VPS IP address or DNS name |
-| `IONOS_DEPLOY_KEY` | Contents of `~/.ssh/deploy_key` — the **private** key, including the `-----BEGIN OPENSSH PRIVATE KEY-----` / `-----END…` lines |
-| `IONOS_DOMAIN` | `yourdomain.com` — what the health probe hits |
-| `IONOS_SSH_FINGERPRINT` | `SHA256:…` from 9.3 (optional but recommended) |
+| Secret                  | Value                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `IONOS_HOST`            | VPS IP address or DNS name                                                                                                     |
+| `IONOS_DEPLOY_KEY`      | Contents of `~/.ssh/deploy_key` — the **private** key, including the `-----BEGIN OPENSSH PRIVATE KEY-----` / `-----END…` lines |
+| `IONOS_DOMAIN`          | `yourdomain.com` — what the health probe hits                                                                                  |
+| `IONOS_SSH_FINGERPRINT` | `SHA256:…` from 9.3 (optional but recommended)                                                                                 |
 
 Also create a GitHub **environment** named `production` (Settings →
 Environments → New) — the workflow targets it, which gives you a place
@@ -896,7 +895,7 @@ CI redeploys the revert.
 
 Bear in mind: **migrations are forward-only.** If the bad deploy
 included a destructive migration (e.g. dropping a column), the revert
-of the code does *not* automatically restore the DB shape — you'd need
+of the code does _not_ automatically restore the DB shape — you'd need
 a follow-up "fix-up" migration. For app-only bugs (UI, ledger logic,
 etc.) this never comes up.
 
@@ -1139,7 +1138,7 @@ will tell you. Tail `/var/log/crubbucks-backup.log` after the first
 
 ### Postgres bound to `0.0.0.0` after an apt upgrade
 
-A future Postgres major-version upgrade *can* reset
+A future Postgres major-version upgrade _can_ reset
 `listen_addresses` to the package default. Phase 8 covers re-binding
 to localhost; bake it into your post-apt routine to re-run
 `sudo ss -lntp | grep 5432` after every `apt upgrade postgresql-*`.
@@ -1289,14 +1288,14 @@ curl -sf -o /dev/null -w "%{http_code}\n" https://yourdomain.com/health  # → 2
 
 ## Cost estimate (rough)
 
-| Item | Approx. monthly |
-|---|---|
-| Ionos VPS Linux M (2 vCPU / 4 GB / 80 GB) — runs app + Postgres | ~€9–13 |
-| Domain | ~€1 |
-| Off-box backup storage (Backblaze B2 / IONOS Object Storage, ~5 GB) | ~€1 |
-| Resend (free tier covers 3 000 emails/mo) | €0 |
-| hCaptcha (free tier covers 1 M verifications/mo) | €0 |
-| **Total** | **~€11–15 / mo** |
+| Item                                                                | Approx. monthly  |
+| ------------------------------------------------------------------- | ---------------- |
+| Ionos VPS Linux M (2 vCPU / 4 GB / 80 GB) — runs app + Postgres     | ~€9–13           |
+| Domain                                                              | ~€1              |
+| Off-box backup storage (Backblaze B2 / IONOS Object Storage, ~5 GB) | ~€1              |
+| Resend (free tier covers 3 000 emails/mo)                           | €0               |
+| hCaptcha (free tier covers 1 M verifications/mo)                    | €0               |
+| **Total**                                                           | **~€11–15 / mo** |
 
 Numbers are illustrative — check current pricing for your region.
 Co-locating Postgres on the VPS saves the ~€10–20/mo of a managed

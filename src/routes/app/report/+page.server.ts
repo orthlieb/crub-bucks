@@ -22,7 +22,10 @@ export const actions: Actions = {
 		const targetId = String(form.get('targetId') ?? '').trim();
 		const targetLabel = String(form.get('targetLabel') ?? '').trim();
 		const content = String(form.get('content') ?? '').trim() || null;
-		const reason = String(form.get('reason') ?? '').trim().slice(0, 500) || null;
+		const reason =
+			String(form.get('reason') ?? '')
+				.trim()
+				.slice(0, 500) || null;
 
 		if (!TYPES.has(targetType) || !targetId) {
 			return fail(400, { error: "We couldn't tell what you're reporting." });

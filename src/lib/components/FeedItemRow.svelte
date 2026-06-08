@@ -57,18 +57,13 @@
 	const label = $derived(
 		item.type === 'badge_earned' ? TIER_LABEL[item.tier] : STATE[item.type].label
 	);
-	const tone: BetTone = $derived(
-		item.type === 'badge_earned' ? 'violet' : STATE[item.type].tone
-	);
-	const icon = $derived(
-		item.type === 'badge_earned' ? (badgeDef?.emoji ?? '🏅') : item.icon
-	);
+	const tone: BetTone = $derived(item.type === 'badge_earned' ? 'violet' : STATE[item.type].tone);
+	const icon = $derived(item.type === 'badge_earned' ? (badgeDef?.emoji ?? '🏅') : item.icon);
 	// Badge feed items prefer the tier art PNG over the emoji (which doesn't
 	// theme well); BetCard falls back to `icon` if the image fails to load.
 	const iconImg = $derived(
 		item.type === 'badge_earned' ? badgeIcon(item.badgeKey, item.tier) : null
 	);
-	const amount = $derived(item.type === 'badge_earned' ? null : item.amount);
 
 	// Standardised body shared with the dashboard: title, amount, comment, date.
 	const title = $derived.by(() => {
@@ -95,7 +90,8 @@
 		}
 	});
 	const href = $derived(
-		linkBets && (item.type === 'bet_created' || item.type === 'bet_resolved' || item.type === 'bet_cancelled')
+		linkBets &&
+			(item.type === 'bet_created' || item.type === 'bet_resolved' || item.type === 'bet_cancelled')
 			? `/app/bet/${item.betId}`
 			: undefined
 	);

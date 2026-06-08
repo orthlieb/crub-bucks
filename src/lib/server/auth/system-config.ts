@@ -28,7 +28,11 @@ export interface SystemConfig {
 }
 
 export async function getSystemConfig(): Promise<SystemConfig> {
-	const [row] = await db.select().from(systemConfig).where(eq(systemConfig.id, SYSTEM_KEY)).limit(1);
+	const [row] = await db
+		.select()
+		.from(systemConfig)
+		.where(eq(systemConfig.id, SYSTEM_KEY))
+		.limit(1);
 	if (row) {
 		return {
 			maintenanceMode: row.maintenanceMode,

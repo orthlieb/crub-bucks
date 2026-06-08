@@ -105,10 +105,7 @@ export const actions: Actions = {
 		const id = String(form.get('userId') ?? '');
 		const target = await loadUser(id);
 		if (!target) throw error(404, 'User not found');
-		await db
-			.update(users)
-			.set({ isActive: true, failedLoginCount: 0 })
-			.where(eq(users.id, id));
+		await db.update(users).set({ isActive: true, failedLoginCount: 0 }).where(eq(users.id, id));
 		await logSecurityEvent({
 			userId: id,
 			eventType: 'admin_unsuspend',
@@ -161,7 +158,8 @@ export const actions: Actions = {
 				target: Number(raw)
 			});
 		} catch (e) {
-			if (e instanceof LedgerError) return fail(400, { error: e.message, field: 'balance', userId: id });
+			if (e instanceof LedgerError)
+				return fail(400, { error: e.message, field: 'balance', userId: id });
 			throw e;
 		}
 		await logSecurityEvent({

@@ -26,8 +26,13 @@
 		reset: (id?: string) => void;
 		remove?: (id: string) => void;
 	};
+	// SSR-safe: Svelte runs onDestroy on the server too, and it calls getHc().
+	// Touching `window` during SSR throws (ReferenceError: window is not defined)
+	// and 500s the whole page, so guard the access.
 	const getHc = (): HCaptcha | undefined =>
-		(window as unknown as { hcaptcha?: HCaptcha }).hcaptcha;
+		typeof window === 'undefined'
+			? undefined
+			: (window as unknown as { hcaptcha?: HCaptcha }).hcaptcha;
 
 	let container: HTMLDivElement | undefined = $state();
 	let widgetId: string | undefined;

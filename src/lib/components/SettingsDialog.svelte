@@ -245,7 +245,9 @@
 							{user.avatarIcon ? 'Change icon' : 'Choose icon'}
 						</Button>
 						{#if hasCustomAvatar}
-							<Button variant="ghost" size="sm" disabled={busy} onclick={removeAvatar}>Remove</Button>
+							<Button variant="ghost" size="sm" disabled={busy} onclick={removeAvatar}
+								>Remove</Button
+							>
 						{/if}
 					</div>
 					<p class="text-xs text-muted-foreground">
@@ -259,13 +261,7 @@
 				<div bind:this={pickerMount} class="overflow-hidden rounded-md border"></div>
 			</div>
 
-			<input
-				bind:this={fileInput}
-				type="file"
-				accept="image/*"
-				class="hidden"
-				onchange={onPick}
-			/>
+			<input bind:this={fileInput} type="file" accept="image/*" class="hidden" onchange={onPick} />
 		</div>
 		<!-- Display name -->
 		<div class="space-y-2 border-t pt-3">
@@ -307,7 +303,9 @@
 			<div class="flex items-center justify-between py-3">
 				<div>
 					<div class="text-sm font-medium">Sound effects</div>
-					<div class="text-xs text-muted-foreground">Cues for gains, losses, bets, and friend requests.</div>
+					<div class="text-xs text-muted-foreground">
+						Cues for gains, losses, bets, and friend requests.
+					</div>
 				</div>
 				<SoundToggle />
 			</div>
@@ -315,7 +313,9 @@
 			<div class="flex items-center justify-between py-3">
 				<div>
 					<div class="text-sm font-medium">Notifications</div>
-					<div class="text-xs text-muted-foreground">Push alerts for bets, payments, friends, and awards.</div>
+					<div class="text-xs text-muted-foreground">
+						Push alerts for bets, payments, friends, and awards.
+					</div>
 				</div>
 				<NotificationToggle />
 			</div>

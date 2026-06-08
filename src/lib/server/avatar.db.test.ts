@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { users, userAvatars } from '$lib/server/db/schema';
+import { users } from '$lib/server/db/schema';
 import { setAvatar, setAvatarIcon, clearAvatar, getAvatar } from './avatar';
 import { hasTestDb, resetDb, createUser } from '../../test/db';
 

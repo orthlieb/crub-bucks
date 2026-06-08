@@ -2,12 +2,8 @@ import { fail, redirect } from '@sveltejs/kit';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
-import { verifyPassword, dummyVerify } from '$lib/server/auth/password';
-import {
-	generateSessionToken,
-	createSession,
-	setSessionCookie
-} from '$lib/server/auth/session';
+import { verifyPassword, dummyVerify, needsRehash, hashPassword } from '$lib/server/auth/password';
+import { generateSessionToken, createSession, setSessionCookie } from '$lib/server/auth/session';
 import { verifyCaptcha } from '$lib/server/captcha';
 import { logSecurityEvent } from '$lib/server/auth/audit';
 import { grantWelcomeIfNeeded } from '$lib/server/ledger';
@@ -62,7 +58,7 @@ export const actions: Actions = {
 		// Unknown email: spend the time of a real verify to keep response time
 		// consistent, then return the generic failure message.
 		if (!user) {
-			dummyVerify(password);
+			await dummyVerify(password);
 			await logSecurityEvent({
 				userId: null,
 				eventType: 'login_failure',
@@ -73,7 +69,7 @@ export const actions: Actions = {
 		}
 
 		// Known email, wrong password → bump counter, maybe lock out.
-		if (!verifyPassword(password, user.passwordHash)) {
+		if (!(await verifyPassword(password, user.passwordHash))) {
 			const newCount = user.failedLoginCount + 1;
 			const shouldLock = newCount >= LOCKOUT_THRESHOLD && user.isActive;
 			await db
@@ -142,9 +138,25 @@ export const actions: Actions = {
 			console.warn('[login] welcome grant failed (non-fatal):', err);
 		}
 
+		// Transparently migrate legacy scrypt hashes to Argon2id now that we have
+		// the plaintext in hand and it verified. Non-fatal: a failure here just
+		// means we'll try again on the next login.
+		let rehashed: string | undefined;
+		if (needsRehash(user.passwordHash)) {
+			try {
+				rehashed = await hashPassword(password);
+			} catch (err) {
+				console.warn('[login] password rehash failed (non-fatal):', err);
+			}
+		}
+
 		await db
 			.update(users)
-			.set({ failedLoginCount: 0, lastLoginAt: sql`now()` })
+			.set({
+				failedLoginCount: 0,
+				lastLoginAt: sql`now()`,
+				...(rehashed ? { passwordHash: rehashed } : {})
+			})
 			.where(eq(users.id, user.id));
 
 		const token = generateSessionToken();

@@ -106,7 +106,8 @@
 	<div class="flex min-w-0 flex-1 items-center justify-between gap-3 p-4">
 		<div class="min-w-0 flex-1 space-y-1">
 			<div class="truncate text-sm font-semibold">
-				{#if amount != null}<span class="tabular-nums">{formatAmount(amount, locale)} ₡</span>{' — '}{/if}{title}
+				{#if amount != null}<span class="tabular-nums">{formatAmount(amount, locale)} ₡</span> —
+				{/if}{title}
 			</div>
 			{#if comment}
 				<div class="break-words text-xs text-muted-foreground">
@@ -116,7 +117,10 @@
 			<div class="text-xs text-muted-foreground">{fmtDate(date)}</div>
 		</div>
 		{#if people.length > 0}
-			<div class="grid shrink-0 gap-1.5" style={`grid-template-columns:repeat(${avatarCols}, auto)`}>
+			<div
+				class="grid shrink-0 gap-1.5"
+				style={`grid-template-columns:repeat(${avatarCols}, auto)`}
+			>
 				{#each people as p (p.id)}
 					<Avatar
 						id={p.id}

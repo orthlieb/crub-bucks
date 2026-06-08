@@ -13,6 +13,7 @@ Stack: **SvelteKit + TypeScript + Drizzle ORM + Postgres** (Node adapter), with
 ## What's in the box
 
 ### Data model
+
 - **Global wallets**: one wallet per user across the whole system, plus a single
   system-wide Bank wallet. The zero-sum invariant is global.
 - **Friends**: there are no named groups. Users send friend requests by email;
@@ -37,10 +38,11 @@ Stack: **SvelteKit + TypeScript + Drizzle ORM + Postgres** (Node adapter), with
   `sum(winners.payout) == sum(losers.loss)` at resolution and rejects
   unbalanced settlements.
 - **Immutable double-entry ledger**: every economic event is a transfer of
-  two equal-and-opposite rows in one DB transaction. Balances are *derived*,
+  two equal-and-opposite rows in one DB transaction. Balances are _derived_,
   never stored — they cannot drift.
 
 ### Auth (modelled on the Iron Ledger project)
+
 - Cookie sessions, scrypt password hashing, sliding 30-day expiry.
 - Email verification on registration (Resend, with console fallback in dev).
 - Password recovery via one-time hashed tokens.
@@ -50,6 +52,7 @@ Stack: **SvelteKit + TypeScript + Drizzle ORM + Postgres** (Node adapter), with
 - Immutable `security_events` audit log of every notable action.
 
 ### Admin panel (`/admin`, gated by `users.role='admin'`)
+
 - User list with suspend / unsuspend / promote / demote.
 - Security-events viewer with filter by event type.
 - System controls: maintenance mode (gates non-admin traffic), registration
@@ -57,14 +60,15 @@ Stack: **SvelteKit + TypeScript + Drizzle ORM + Postgres** (Node adapter), with
   shown on every page.
 
 ### Pages
-- `/`             — landing
-- `/about`        — about page
+
+- `/` — landing
+- `/about` — about page
 - `/register`, `/verify-email/[token]`, `/login`, `/forgot-password`,
   `/reset-password/[token]`, `/logout`
-- `/app`          — bets (balance, your bets, recent activity)
-- `/app/feed`     — public activity feed (bets + payments)
-- `/app/friends`  — friend requests (send/approve/deny), friends list, pay a friend
-- `/app/bet/new`  — create a bet (pick from friends)
+- `/app` — bets (balance, your bets, recent activity)
+- `/app/feed` — public activity feed (bets + payments)
+- `/app/friends` — friend requests (send/approve/deny), friends list, pay a friend
+- `/app/bet/new` — create a bet (pick from friends)
 - `/app/bet/[bid]` — bet detail + resolve
 - `/admin`, `/admin/users`, `/admin/security-events`, `/admin/system`
 - `/maintenance` — landing shown to non-admins when maintenance mode is on

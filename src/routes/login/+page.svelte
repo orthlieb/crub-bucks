@@ -27,7 +27,10 @@
 <div class="kibble-bg min-h-screen bg-background py-12 px-4">
 	<div class="mx-auto max-w-md">
 		<a href="/" class="mb-6 flex items-center gap-2 font-semibold tracking-tight">
-			<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">₡</span>
+			<span
+				class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm"
+				>₡</span
+			>
 			<span>Crub Bucks</span>
 		</a>
 
@@ -83,7 +86,10 @@
 					<div class="space-y-2">
 						<div class="flex items-center justify-between">
 							<Label for="password">Password</Label>
-							<a href="/forgot-password" class="text-xs text-muted-foreground hover:text-primary hover:underline">
+							<a
+								href="/forgot-password"
+								class="text-xs text-muted-foreground hover:text-primary hover:underline"
+							>
 								Forgot?
 							</a>
 						</div>
@@ -112,13 +118,17 @@
 
 					<Button type="submit" class="w-full" disabled={!captchaToken}>Log in</Button>
 					{#if !captchaToken}
-						<p class="text-center text-xs text-muted-foreground">Complete the captcha to continue.</p>
+						<p class="text-center text-xs text-muted-foreground">
+							Complete the captcha to continue.
+						</p>
 					{/if}
 				</form>
 			</CardContent>
 
 			<CardFooter class="justify-center text-sm text-muted-foreground">
-				New here?&nbsp;<a href="/register" class="font-medium text-primary hover:underline">Create an account</a>
+				New here?&nbsp;<a href="/register" class="font-medium text-primary hover:underline"
+					>Create an account</a
+				>
 			</CardFooter>
 		</Card>
 	</div>

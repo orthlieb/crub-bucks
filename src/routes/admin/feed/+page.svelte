@@ -21,8 +21,7 @@
 	<header>
 		<h1 class="text-2xl font-bold tracking-tight">Global feed</h1>
 		<p class="mt-1 text-sm text-muted-foreground">
-			Every user's bets and payments. Search across titles, parties, comments, and resolution
-			notes.
+			Every user's bets and payments. Search across titles, parties, comments, and resolution notes.
 		</p>
 	</header>
 

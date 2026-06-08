@@ -49,15 +49,14 @@
 		const taken = new Set(multiple ? selectedIds : value ? [value] : []);
 		return friends
 			.filter((f) => !taken.has(f.id))
-			.filter(
-				(f) => f.displayName.toLowerCase().includes(q) || f.email.toLowerCase().includes(q)
-			)
+			.filter((f) => f.displayName.toLowerCase().includes(q) || f.email.toLowerCase().includes(q))
 			.slice(0, max);
 	});
 
-	// Reset the keyboard highlight whenever the suggestion set changes.
+	// Reset the keyboard highlight whenever the suggestion set changes. Reading
+	// `suggestions.length` registers the reactive dependency that drives the effect.
 	$effect(() => {
-		suggestions.length;
+		const _trackLength = suggestions.length;
 		highlight = 0;
 	});
 
@@ -105,7 +104,8 @@
 				<span
 					class="inline-flex items-center gap-1 rounded-full border bg-muted py-1 pl-2.5 pr-1 text-xs"
 				>
-					{#if f.isFavorite}<span aria-hidden="true" class="text-yellow-500">★</span>{/if}{f.displayName}
+					{#if f.isFavorite}<span aria-hidden="true" class="text-yellow-500">★</span
+						>{/if}{f.displayName}
 					<button
 						type="button"
 						class="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
@@ -157,7 +157,8 @@
 						onmouseenter={() => (highlight = i)}
 					>
 						<div class="font-medium">
-							{#if f.isFavorite}<span aria-hidden="true" class="text-yellow-500">★</span> {/if}{f.displayName}
+							{#if f.isFavorite}<span aria-hidden="true" class="text-yellow-500">★</span>
+							{/if}{f.displayName}
 						</div>
 						<div class="text-xs text-muted-foreground">{f.email}</div>
 					</li>

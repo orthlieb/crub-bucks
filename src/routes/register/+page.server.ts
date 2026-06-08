@@ -3,16 +3,14 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { users, friendInvites } from '$lib/server/db/schema';
 import { hashPassword, validatePassword } from '$lib/server/auth/password';
+import { assertPasswordNotPwned, PwnedPasswordError } from '$lib/server/auth/hibp';
 import { sanitizeDisplayName, validateDisplayName } from '$lib/server/display-name';
 import { issueAuthToken, TOKEN_EXPIRY_MS } from '$lib/server/auth/tokens';
 import { sendVerificationEmail } from '$lib/server/email';
 import { verifyCaptcha } from '$lib/server/captcha';
 import { countRegistrationsToday, logSecurityEvent } from '$lib/server/auth/audit';
 import { getSystemConfig } from '$lib/server/auth/system-config';
-import {
-	DEFAULT_DAILY_FULL_MESSAGE,
-	evaluateSignupGate
-} from '$lib/server/auth/signup-gate';
+import { DEFAULT_DAILY_FULL_MESSAGE, evaluateSignupGate } from '$lib/server/auth/signup-gate';
 import { materializeInvitesForUser, materializeInviteById } from '$lib/server/ledger';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -118,6 +116,15 @@ export const actions: Actions = {
 				displayName
 			});
 		}
+		// Reject passwords found in known breaches (fail-open if HIBP is down).
+		try {
+			await assertPasswordNotPwned(password);
+		} catch (err) {
+			if (err instanceof PwnedPasswordError) {
+				return fail(400, { error: err.message, email, displayName });
+			}
+			throw err;
+		}
 
 		// Look up existing — but ALWAYS respond as if registration succeeded,
 		// so an attacker can't enumerate which emails are signed up.
@@ -137,7 +144,7 @@ export const actions: Actions = {
 				.values({
 					email,
 					displayName,
-					passwordHash: hashPassword(password),
+					passwordHash: await hashPassword(password),
 					role: 'user',
 					isActive: true,
 					emailVerifiedAt: null

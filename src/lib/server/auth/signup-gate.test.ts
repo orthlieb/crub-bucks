@@ -148,10 +148,7 @@ describe('evaluateSignupGate', () => {
 		it('locks even when the daily cap has not been reached yet', () => {
 			// Admin manually locked, but only 1 signup today out of a cap of 10.
 			// The lock is still in force — that's the whole point of a manual lock.
-			const r = evaluateSignupGate(
-				cfg({ registrationLock: true, registrationDailyLimit: 10 }),
-				1
-			);
+			const r = evaluateSignupGate(cfg({ registrationLock: true, registrationDailyLimit: 10 }), 1);
 			expect(r.allow).toBe(false);
 			if (!r.allow) expect(r.reason).toBe('locked');
 		});

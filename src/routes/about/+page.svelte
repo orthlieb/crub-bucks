@@ -11,7 +11,10 @@
 	<header class="border-b">
 		<div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
 			<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
-				<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">₡</span>
+				<span
+					class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm"
+					>₡</span
+				>
 				<span>Crub Bucks</span>
 			</a>
 			<nav class="flex items-center gap-2">
@@ -31,10 +34,10 @@
 		<h1 class="mt-3 text-4xl font-bold tracking-tight">A closed-loop play currency.</h1>
 
 		<p class="mt-6 text-lg leading-relaxed text-muted-foreground">
-			Crub Bucks (CB) is a way to track bets, chores, and IOUs among friends without anybody
-			ever putting real money in. The whole system sums to zero by construction — for every CB
-			that someone is up, someone else is down. Wallets are allowed to go negative, and the bank
-			is bottomless.
+			Crub Bucks (CB) is a way to track bets, chores, and IOUs among friends without anybody ever
+			putting real money in. The whole system sums to zero by construction — for every CB that
+			someone is up, someone else is down. Wallets are allowed to go negative, and the bank is
+			bottomless.
 		</p>
 
 		<figure class="mt-10">
@@ -46,8 +49,8 @@
 				class="w-full rounded-md shadow-xl ring-1 ring-primary/20"
 			/>
 			<figcaption class="mt-2 text-center text-xs text-muted-foreground">
-				Issued by <em>The Republic of Crub</em>. Backed by the Tail Tuft Guarantee.
-				Signed by the Governor of Bark and the Registrar of Puppiness.
+				Issued by <em>The Republic of Crub</em>. Backed by the Tail Tuft Guarantee. Signed by the
+				Governor of Bark and the Registrar of Puppiness.
 			</figcaption>
 		</figure>
 
@@ -59,10 +62,9 @@
 					<CardTitle level={2}>Zero-sum by construction</CardTitle>
 				</CardHeader>
 				<CardContent class="text-muted-foreground">
-					Every economic event is a transfer: one wallet's balance goes down, another's goes up,
-					by the same amount, in one database transaction. Balances are never stored — they're
-					derived by summing the ledger — so they cannot drift. Cumulative bugs in the math are
-					impossible.
+					Every economic event is a transfer: one wallet's balance goes down, another's goes up, by
+					the same amount, in one database transaction. Balances are never stored — they're derived
+					by summing the ledger — so they cannot drift. Cumulative bugs in the math are impossible.
 				</CardContent>
 			</Card>
 
@@ -71,10 +73,10 @@
 					<CardTitle level={2}>One wallet, your friends</CardTitle>
 				</CardHeader>
 				<CardContent class="text-muted-foreground">
-					Send a friend request by email; once they approve, you're connected (and either of you
-					can unfriend later). Your single CB balance follows you everywhere. New players get a
-					100 CB welcome grant from the Bank on first login — the Bank just goes that much more
-					negative, keeping the books at zero.
+					Send a friend request by email; once they approve, you're connected (and either of you can
+					unfriend later). Your single CB balance follows you everywhere. New players get a 100 CB
+					welcome grant from the Bank on first login — the Bank just goes that much more negative,
+					keeping the books at zero.
 				</CardContent>
 			</Card>
 
@@ -83,8 +85,8 @@
 					<CardTitle level={2}>A public feed</CardTitle>
 				</CardHeader>
 				<CardContent class="text-muted-foreground">
-					Like Venmo, there's a shared feed: who started a bet, who won (team games can have
-					several winners), and who paid whom. Everyone signed in can follow along.
+					Like Venmo, there's a shared feed: who started a bet, who won (team games can have several
+					winners), and who paid whom. Everyone signed in can follow along.
 				</CardContent>
 			</Card>
 
@@ -93,11 +95,10 @@
 					<CardTitle level={2}>Bets, made flexible</CardTitle>
 				</CardHeader>
 				<CardContent class="text-muted-foreground">
-					No groups to set up — a bet <em>is</em> the grouping. You make a bet, add some friends
-					(you're always in it too), and declare each person's potential payout (if they win) and
-					loss (if they lose) — they don't have to be 1:1. Resolve it whenever the result is in;
-					the ledger moves CB from losers to winners. Payouts and losses must balance, or we
-					refuse to settle.
+					No groups to set up — a bet <em>is</em> the grouping. You make a bet, add some friends (you're
+					always in it too), and declare each person's potential payout (if they win) and loss (if they
+					lose) — they don't have to be 1:1. Resolve it whenever the result is in; the ledger moves CB
+					from losers to winners. Payouts and losses must balance, or we refuse to settle.
 				</CardContent>
 			</Card>
 
@@ -106,9 +107,9 @@
 					<CardTitle level={2}>No real money</CardTitle>
 				</CardHeader>
 				<CardContent class="text-muted-foreground">
-					Crub Bucks have no real-world value. Don't try to send people USD via the app, don't
-					try to redeem CB for anything tangible, and please don't get any of your friends
-					arrested over a poker debt.
+					Crub Bucks have no real-world value. Don't try to send people USD via the app, don't try
+					to redeem CB for anything tangible, and please don't get any of your friends arrested over
+					a poker debt.
 				</CardContent>
 			</Card>
 		</section>

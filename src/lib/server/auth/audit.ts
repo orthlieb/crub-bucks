@@ -96,10 +96,7 @@ export async function countRegistrationsToday(): Promise<number> {
 		.select({ n: sql<number>`count(*)::int` })
 		.from(securityEvents)
 		.where(
-			and(
-				eq(securityEvents.eventType, 'register'),
-				gte(securityEvents.createdAt, startOfDay)
-			)
+			and(eq(securityEvents.eventType, 'register'), gte(securityEvents.createdAt, startOfDay))
 		);
 	return Number(row?.n ?? 0);
 }

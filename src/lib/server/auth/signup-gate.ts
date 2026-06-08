@@ -57,10 +57,7 @@ export function evaluateSignupGate(config: GateConfig, countToday: number): Sign
 
 	// (2) Daily soft cap. A cap of 0 is allowed and refuses every signup
 	// today — equivalent to a quota-shaped lock.
-	if (
-		config.registrationDailyLimit !== null &&
-		countToday >= config.registrationDailyLimit
-	) {
+	if (config.registrationDailyLimit !== null && countToday >= config.registrationDailyLimit) {
 		return {
 			allow: false,
 			reason: 'full_today',

@@ -29,7 +29,10 @@
 <div class="kibble-bg min-h-screen bg-background py-12 px-4">
 	<div class="mx-auto max-w-md">
 		<a href="/" class="mb-6 flex items-center gap-2 font-semibold tracking-tight">
-			<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">₡</span>
+			<span
+				class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm"
+				>₡</span
+			>
 			<span>Crub Bucks</span>
 		</a>
 
@@ -46,8 +49,8 @@
 					<Alert variant="success">
 						<AlertTitle>Check your email.</AlertTitle>
 						<AlertDescription>
-							If there's an account associated with that address, a password reset link is on
-							its way. The link expires in 1 hour.
+							If there's an account associated with that address, a password reset link is on its
+							way. The link expires in 1 hour.
 						</AlertDescription>
 					</Alert>
 				{:else}
@@ -85,7 +88,9 @@
 
 						<Button type="submit" class="w-full" disabled={!captchaToken}>Send reset link</Button>
 						{#if !captchaToken}
-							<p class="text-center text-xs text-muted-foreground">Complete the captcha to continue.</p>
+							<p class="text-center text-xs text-muted-foreground">
+								Complete the captcha to continue.
+							</p>
 						{/if}
 					</form>
 				{/if}

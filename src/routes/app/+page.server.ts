@@ -87,10 +87,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.from(bets)
 			.innerJoin(betParticipants, eq(betParticipants.betId, bets.id))
 			.where(
-				and(
-					eq(betParticipants.userId, userId),
-					inArray(bets.status, ['resolved', 'cancelled'])
-				)
+				and(eq(betParticipants.userId, userId), inArray(bets.status, ['resolved', 'cancelled']))
 			)
 			.orderBy(desc(finishedAt))
 			.limit(SETTLED_LIMIT + 1)
@@ -187,8 +184,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}));
 		// Total wagered: the pot for pooled modes, else the sum of each player's
 		// stake (loss-if-lose) for custom bets, which have no single pot.
-		const amount =
-			b.pool != null ? b.pool : ps.reduce((s, p) => s + (p.lossIfLose ?? 0), 0);
+		const amount = b.pool != null ? b.pool : ps.reduce((s, p) => s + (p.lossIfLose ?? 0), 0);
 		// Comment: a written note when present, else an auto-generated summary.
 		// Open bets get nothing.
 		let comment: string | null = null;
@@ -196,7 +192,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			comment = pendingSummary(ps.filter((p) => p.acceptedAt === null).map((p) => p.name));
 		} else if (b.status === 'resolved') {
 			comment =
-				b.resolutionNote ?? resolvedSummary(ps.filter((p) => p.outcome === 'won').map((p) => p.name));
+				b.resolutionNote ??
+				resolvedSummary(ps.filter((p) => p.outcome === 'won').map((p) => p.name));
 		} else if (b.status === 'cancelled') {
 			comment = cancelledSummary(ps.find((p) => p.id === b.cancelledBy)?.name ?? null);
 		}

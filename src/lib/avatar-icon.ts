@@ -30,9 +30,11 @@ export function sanitizeAvatarIcon(input: unknown): string | null {
 		if (graphemes.length !== 1) return null;
 	}
 
-	// Reject plain ASCII / whitespace-only "icons" — an avatar emoji should be a
-	// pictographic character, not a letter or digit.
-	if (/^[\x00-\x7F]*$/.test(trimmed)) return null;
+	// Reject plain ASCII "icons" — an avatar emoji should be a pictographic
+	// character, not a letter, digit, or punctuation. (Checked via code points
+	// rather than a regex to avoid a control-character range in the pattern.)
+	const isAscii = [...trimmed].every((ch) => (ch.codePointAt(0) ?? 0) < 0x80);
+	if (isAscii) return null;
 
 	return trimmed;
 }

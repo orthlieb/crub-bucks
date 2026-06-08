@@ -51,7 +51,13 @@
 		<Flag class="size-4" />
 	</Button>
 {:else}
-	<Button type="button" variant={triggerVariant} size="sm" class="gap-1.5" onclick={() => (open = true)}>
+	<Button
+		type="button"
+		variant={triggerVariant}
+		size="sm"
+		class="gap-1.5"
+		onclick={() => (open = true)}
+	>
 		<Flag class="size-4" />
 		{triggerLabel}
 	</Button>
@@ -84,7 +90,9 @@
 						submitting = false;
 						if (result.type === 'success') sent = true;
 						else if (result.type === 'failure')
-							errorMsg = String(result.data?.error ?? 'Could not send the report. Please try again.');
+							errorMsg = String(
+								result.data?.error ?? 'Could not send the report. Please try again.'
+							);
 						else errorMsg = 'Could not send the report. Please try again.';
 					};
 				}}

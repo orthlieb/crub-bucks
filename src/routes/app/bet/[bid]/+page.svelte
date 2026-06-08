@@ -2,7 +2,13 @@
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 	import { Button } from '$lib/components/ui/button';
-	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
+	import {
+		Card,
+		CardContent,
+		CardDescription,
+		CardHeader,
+		CardTitle
+	} from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import {
@@ -37,9 +43,7 @@
 	const oddsStakeByUser = $derived(
 		new Map(data.participants.map((p) => [p.userId, Number(p.boughtIn ?? 0)]))
 	);
-	const oddsPot = $derived(
-		data.participants.reduce((s, p) => s + Number(p.boughtIn ?? 0), 0)
-	);
+	const oddsPot = $derived(data.participants.reduce((s, p) => s + Number(p.boughtIn ?? 0), 0));
 	const oddsStakesReady = $derived(
 		mode === 'odds' && data.participants.every((p) => Number(p.boughtIn ?? 0) >= 1)
 	);
@@ -66,7 +70,9 @@
 	let loserId = $state(''); // winner_loser
 	let loserOrderIds = $state<string[]>([]); // tiered (least → most)
 
-	const nonWinnerIds = $derived(data.participants.map((p) => p.userId).filter((u) => u !== winnerId));
+	const nonWinnerIds = $derived(
+		data.participants.map((p) => p.userId).filter((u) => u !== winnerId)
+	);
 
 	// Reset tiered order whenever the winner changes.
 	$effect(() => {
@@ -204,7 +210,9 @@
 	<header>
 		<a href="/app" class="text-sm text-muted-foreground hover:text-foreground">← Bets</a>
 		<div class="mt-1 flex items-start gap-4">
-			<div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border bg-muted/40 text-4xl leading-none sm:h-20 sm:w-20 sm:text-5xl">
+			<div
+				class="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border bg-muted/40 text-4xl leading-none sm:h-20 sm:w-20 sm:text-5xl"
+			>
 				{data.bet.icon ?? '💰'}
 			</div>
 			<div class="min-w-0 flex-1">
@@ -219,8 +227,12 @@
 									? 'secondary'
 									: 'destructive'}>{data.bet.status}</Badge
 					>
-					<Badge variant="secondary" class="gap-1"><BetModeIcon mode={mode as BetMode} size={12} />{modeLabel[mode]}</Badge>
-					{#if mode === 'odds'}<span>pot {fmt(oddsPot)} ₡</span>{:else if mode !== 'custom'}<span>pot {fmt(pool)} ₡</span>{/if}
+					<Badge variant="secondary" class="gap-1"
+						><BetModeIcon mode={mode as BetMode} size={12} />{modeLabel[mode]}</Badge
+					>
+					{#if mode === 'odds'}<span>pot {fmt(oddsPot)} ₡</span>{:else if mode !== 'custom'}<span
+							>pot {fmt(pool)} ₡</span
+						>{/if}
 					<span>· by {data.creatorName} · {fmtDate(data.bet.createdAt)}</span>
 					{#if data.bet.resolvedAt}<span>· resolved {fmtDate(data.bet.resolvedAt)}</span>{/if}
 				</div>
@@ -235,7 +247,8 @@
 		</div>
 		{#if data.bet.status === 'resolved' && data.bet.resolutionNote}
 			<p class="mt-2 rounded-md border bg-muted/30 p-3 text-sm">
-				<span class="font-medium">Note:</span> {data.bet.resolutionNote}
+				<span class="font-medium">Note:</span>
+				{data.bet.resolutionNote}
 			</p>
 		{/if}
 	</header>
@@ -276,7 +289,9 @@
 						draggable="false"
 					/>
 					<div class="min-w-0 flex-1">
-						<div class="text-xs font-semibold uppercase tracking-wide text-destructive">Oof — you lost</div>
+						<div class="text-xs font-semibold uppercase tracking-wide text-destructive">
+							Oof — you lost
+						</div>
 						<div class="text-3xl font-bold tabular-nums text-destructive">
 							−{fmt(Math.abs(me.settledDelta ?? 0))} ₡
 						</div>
@@ -294,7 +309,8 @@
 			<CardHeader>
 				<CardTitle level={2}>Waiting for everyone to accept</CardTitle>
 				<CardDescription>
-					This bet goes live once all {data.participants.length} participants accept. If anyone declines, it's called off.
+					This bet goes live once all {data.participants.length} participants accept. If anyone declines,
+					it's called off.
 				</CardDescription>
 			</CardHeader>
 			<CardContent class="space-y-4">
@@ -305,11 +321,20 @@
 					{#each data.participants as p (p.userId)}
 						<li class="flex items-center justify-between rounded-md border p-2 text-sm">
 							<span>
-								{p.displayName}{#if p.userId === data.myUserId}<span class="ml-1 text-xs text-muted-foreground">(you)</span>{/if}{#if p.userId === data.bet.createdBy}<span class="ml-1 text-xs text-muted-foreground">· creator</span>{/if}
+								{p.displayName}{#if p.userId === data.myUserId}<span
+										class="ml-1 text-xs text-muted-foreground">(you)</span
+									>{/if}{#if p.userId === data.bet.createdBy}<span
+										class="ml-1 text-xs text-muted-foreground">· creator</span
+									>{/if}
 							</span>
 							<span class="flex items-center gap-2">
-								{#if mode === 'odds' && p.acceptedAt}<span class="text-xs tabular-nums text-muted-foreground">wagered {fmt(Number(p.boughtIn ?? 0))} ₡</span>{/if}
-								{#if p.acceptedAt}<Badge variant="success">accepted</Badge>{:else}<Badge variant="secondary">awaiting</Badge>{/if}
+								{#if mode === 'odds' && p.acceptedAt}<span
+										class="text-xs tabular-nums text-muted-foreground"
+										>wagered {fmt(Number(p.boughtIn ?? 0))} ₡</span
+									>{/if}
+								{#if p.acceptedAt}<Badge variant="success">accepted</Badge>{:else}<Badge
+										variant="secondary">awaiting</Badge
+									>{/if}
 							</span>
 						</li>
 					{/each}
@@ -322,8 +347,8 @@
 								<Label for="my-wager">Your wager</Label>
 								<Input id="my-wager" name="stake" type="number" min="1" required class="max-w-40" />
 								<p class="text-xs text-muted-foreground">
-									{#if oddsPot > 0}Pot so far: <strong class="tabular-nums">{fmt(oddsPot)}</strong> ₡. {/if}The
-									winner takes everyone else's wagers — bet what you're willing to risk.
+									{#if oddsPot > 0}Pot so far: <strong class="tabular-nums">{fmt(oddsPot)}</strong> ₡.
+									{/if}The winner takes everyone else's wagers — bet what you're willing to risk.
 								</p>
 							</div>
 							<Button type="submit">Accept &amp; wager</Button>
@@ -394,14 +419,19 @@
 						{#each data.participants as p (p.userId)}
 							<TableRow>
 								<TableCell>
-									{p.displayName}{#if p.userId === data.myUserId}<span class="ml-1 text-xs text-muted-foreground">(you)</span>{/if}
+									{p.displayName}{#if p.userId === data.myUserId}<span
+											class="ml-1 text-xs text-muted-foreground">(you)</span
+										>{/if}
 								</TableCell>
 								<TableCell class="text-right tabular-nums {deltaClass(p.settledDelta ?? 0)}">
 									{signed(p.settledDelta ?? 0)}
 								</TableCell>
 								<TableCell>
 									{#if p.outcome === 'won'}<Badge variant="success">won</Badge>
-									{:else if p.outcome === 'lost'}<Badge variant="destructive">lost{#if p.lossRank}<span class="ml-1 opacity-80">#{p.lossRank}</span>{/if}</Badge>
+									{:else if p.outcome === 'lost'}<Badge variant="destructive"
+											>lost{#if p.lossRank}<span class="ml-1 opacity-80">#{p.lossRank}</span
+												>{/if}</Badge
+										>
 									{:else if p.outcome === 'none'}<Badge variant="secondary">—</Badge>
 									{:else}<Badge variant="secondary">pending</Badge>{/if}
 								</TableCell>
@@ -417,15 +447,21 @@
 		<Card>
 			<CardHeader>
 				<CardTitle level={2}>Buy back in</CardTitle>
-				<CardDescription>
-					Add more to the pot. You can only re-buy for yourself.
-				</CardDescription>
+				<CardDescription>Add more to the pot. You can only re-buy for yourself.</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<form method="POST" action="?/rebuy" use:enhance class="flex flex-wrap items-end gap-2">
 					<div class="space-y-2">
 						<Label for="rebuy-amount">Amount (₡)</Label>
-						<Input id="rebuy-amount" name="amount" type="number" min="1" required class="w-32" placeholder="100" />
+						<Input
+							id="rebuy-amount"
+							name="amount"
+							type="number"
+							min="1"
+							required
+							class="w-32"
+							placeholder="100"
+						/>
 					</div>
 					<Button type="submit">Re-buy</Button>
 				</form>
@@ -439,17 +475,24 @@
 				<CardTitle level={2}>Resolve this bet</CardTitle>
 				<CardDescription>
 					{#if mode === 'even_split'}Pick the winner — everyone else splits the {fmt(pool)} ₡ pot equally.
-					{:else if mode === 'winner_loser'}Pick the winner and the loser; the loser pays the {fmt(pool)} ₡ pot, others net zero.
-					{:else if mode === 'tiered'}Pick the winner, then order the losers — last place pays the most.
-					{:else if mode === 'pot'}Enter each player's winnings. They must total the {fmt(pool)} ₡ pot exactly.
-					{:else if mode === 'odds'}Pick the winner — they take the whole {fmt(oddsPot)} ₡ pot; everyone else loses their wager.
+					{:else if mode === 'winner_loser'}Pick the winner and the loser; the loser pays the {fmt(
+							pool
+						)} ₡ pot, others net zero.
+					{:else if mode === 'tiered'}Pick the winner, then order the losers — last place pays the
+						most.
+					{:else if mode === 'pot'}Enter each player's winnings. They must total the {fmt(pool)} ₡ pot
+						exactly.
+					{:else if mode === 'odds'}Pick the winner — they take the whole {fmt(oddsPot)} ₡ pot; everyone
+						else loses their wager.
 					{:else}Mark each participant won or lost; winner payouts must equal loser losses.
 					{/if}
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
 				{#if form?.error}
-					<Alert variant="destructive" class="mb-4"><AlertDescription>{form.error}</AlertDescription></Alert>
+					<Alert variant="destructive" class="mb-4"
+						><AlertDescription>{form.error}</AlertDescription></Alert
+					>
 				{/if}
 
 				<form method="POST" action="?/resolve" use:enhance class="space-y-4">
@@ -459,11 +502,29 @@
 								<div class="flex items-center justify-between rounded-md border p-3">
 									<div>
 										<div class="font-medium">{p.displayName}</div>
-										<div class="text-xs text-muted-foreground">+{fmt(p.payoutIfWin ?? 0)} if win · −{fmt(p.lossIfLose ?? 0)} if lose</div>
+										<div class="text-xs text-muted-foreground">
+											+{fmt(p.payoutIfWin ?? 0)} if win · −{fmt(p.lossIfLose ?? 0)} if lose
+										</div>
 									</div>
 									<div class="flex gap-3 text-sm">
-										<label class="flex items-center gap-1.5"><input type="radio" name={`outcome[${p.userId}]`} value="won" bind:group={outcomes[p.userId]} class="h-4 w-4" /> won</label>
-										<label class="flex items-center gap-1.5"><input type="radio" name={`outcome[${p.userId}]`} value="lost" bind:group={outcomes[p.userId]} class="h-4 w-4" /> lost</label>
+										<label class="flex items-center gap-1.5"
+											><input
+												type="radio"
+												name={`outcome[${p.userId}]`}
+												value="won"
+												bind:group={outcomes[p.userId]}
+												class="h-4 w-4"
+											/> won</label
+										>
+										<label class="flex items-center gap-1.5"
+											><input
+												type="radio"
+												name={`outcome[${p.userId}]`}
+												value="lost"
+												bind:group={outcomes[p.userId]}
+												class="h-4 w-4"
+											/> lost</label
+										>
 									</div>
 								</div>
 							{/each}
@@ -471,7 +532,8 @@
 						<div class="rounded-md border bg-muted/30 p-3 text-sm">
 							winners total: <strong class="tabular-nums">{fmt(cWin)}</strong> · losers total:
 							<strong class="tabular-nums">{fmt(cLose)}</strong>
-							{#if cAllChosen}{#if cBalanced}<Badge variant="success" class="ml-2">balanced</Badge>{:else}<Badge variant="destructive" class="ml-2">won't balance</Badge>{/if}{/if}
+							{#if cAllChosen}{#if cBalanced}<Badge variant="success" class="ml-2">balanced</Badge
+									>{:else}<Badge variant="destructive" class="ml-2">won't balance</Badge>{/if}{/if}
 						</div>
 					{:else if mode === 'pot'}
 						<!-- Pot: enter each player's winnings; sum must equal the pot -->
@@ -487,7 +549,11 @@
 									{@const net = (Number.isFinite(w) ? w : 0) - bi}
 									<div class="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm">
 										<div class="flex-1">
-											<div class="font-medium">{p.displayName}{#if p.userId === data.myUserId}<span class="ml-1 text-xs text-muted-foreground">(you)</span>{/if}</div>
+											<div class="font-medium">
+												{p.displayName}{#if p.userId === data.myUserId}<span
+														class="ml-1 text-xs text-muted-foreground">(you)</span
+													>{/if}
+											</div>
 											<div class="text-xs text-muted-foreground">bought in {fmt(bi)} ₡</div>
 										</div>
 										<div class="flex items-center gap-2">
@@ -511,8 +577,14 @@
 							<div class="rounded-md border bg-muted/30 p-3 text-sm">
 								allocated: <strong class="tabular-nums">{fmt(winningsTotal)}</strong> of
 								<strong class="tabular-nums">{fmt(potTotal)}</strong> ₡ · remaining:
-								<strong class="tabular-nums {potRemaining === 0 ? 'text-success' : 'text-destructive'}">{fmt(potRemaining)}</strong>
-								{#if potBalanced}<Badge variant="success" class="ml-2">balanced</Badge>{:else if winningsTotal > 0}<Badge variant="destructive" class="ml-2">{potRemaining > 0 ? 'short' : 'over'}</Badge>{/if}
+								<strong
+									class="tabular-nums {potRemaining === 0 ? 'text-success' : 'text-destructive'}"
+									>{fmt(potRemaining)}</strong
+								>
+								{#if potBalanced}<Badge variant="success" class="ml-2">balanced</Badge
+									>{:else if winningsTotal > 0}<Badge variant="destructive" class="ml-2"
+										>{potRemaining > 0 ? 'short' : 'over'}</Badge
+									>{/if}
 							</div>
 						</div>
 					{:else}
@@ -522,10 +594,21 @@
 							<div class="space-y-1">
 								{#each data.participants as p (p.userId)}
 									<label class="flex items-center gap-2 rounded-md border p-2 text-sm">
-										<input type="radio" name="winnerId" value={p.userId} bind:group={winnerId} class="h-4 w-4" />
+										<input
+											type="radio"
+											name="winnerId"
+											value={p.userId}
+											bind:group={winnerId}
+											class="h-4 w-4"
+										/>
 										<span class="flex-1">{p.displayName}</span>
-										{#if mode === 'odds'}<span class="text-xs tabular-nums text-muted-foreground">wagered {fmt(oddsStakeByUser.get(p.userId) ?? 0)} ₡</span>{/if}
-										{#if preview.has(p.userId)}<span class="tabular-nums {deltaClass(preview.get(p.userId) ?? 0)}">{signed(preview.get(p.userId) ?? 0)} ₡</span>{/if}
+										{#if mode === 'odds'}<span class="text-xs tabular-nums text-muted-foreground"
+												>wagered {fmt(oddsStakeByUser.get(p.userId) ?? 0)} ₡</span
+											>{/if}
+										{#if preview.has(p.userId)}<span
+												class="tabular-nums {deltaClass(preview.get(p.userId) ?? 0)}"
+												>{signed(preview.get(p.userId) ?? 0)} ₡</span
+											>{/if}
 									</label>
 								{/each}
 							</div>
@@ -537,9 +620,18 @@
 								<div class="space-y-1">
 									{#each data.participants.filter((p) => p.userId !== winnerId) as p (p.userId)}
 										<label class="flex items-center gap-2 rounded-md border p-2 text-sm">
-											<input type="radio" name="loserId" value={p.userId} bind:group={loserId} class="h-4 w-4" />
+											<input
+												type="radio"
+												name="loserId"
+												value={p.userId}
+												bind:group={loserId}
+												class="h-4 w-4"
+											/>
 											<span class="flex-1">{p.displayName}</span>
-											{#if preview.has(p.userId)}<span class="tabular-nums {deltaClass(preview.get(p.userId) ?? 0)}">{signed(preview.get(p.userId) ?? 0)} ₡</span>{/if}
+											{#if preview.has(p.userId)}<span
+													class="tabular-nums {deltaClass(preview.get(p.userId) ?? 0)}"
+													>{signed(preview.get(p.userId) ?? 0)} ₡</span
+												>{/if}
 										</label>
 									{/each}
 								</div>
@@ -585,8 +677,22 @@
 												>{signed(preview.get(id) ?? 0)} ₡</span
 											>
 											<div class="flex gap-1">
-												<Button type="button" variant="ghost" size="icon" onclick={() => moveLoser(i, -1)} disabled={i === 0} aria-label="Move up">↑</Button>
-												<Button type="button" variant="ghost" size="icon" onclick={() => moveLoser(i, 1)} disabled={i === loserOrderIds.length - 1} aria-label="Move down">↓</Button>
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon"
+													onclick={() => moveLoser(i, -1)}
+													disabled={i === 0}
+													aria-label="Move up">↑</Button
+												>
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon"
+													onclick={() => moveLoser(i, 1)}
+													disabled={i === loserOrderIds.length - 1}
+													aria-label="Move down">↓</Button
+												>
 											</div>
 										</div>
 									{/each}
@@ -603,7 +709,9 @@
 					<div class="flex flex-wrap gap-2">
 						<Button type="submit" disabled={!canSettle}>Settle</Button>
 						{#if mode !== 'pot' && mode !== 'odds'}
-							<Button type="button" variant="outline" onclick={() => (manualOpen = true)}>Tied?</Button>
+							<Button type="button" variant="outline" onclick={() => (manualOpen = true)}
+								>Tied?</Button
+							>
 						{/if}
 						<!-- Same form, but this submitter posts to the cancel action and
 						     skips the resolve-field validation. -->
@@ -621,16 +729,18 @@
 			<Dialog.Content class="max-w-md">
 				<Dialog.Title>Settle a tie</Dialog.Title>
 				<Dialog.Description>
-					Enter each player's net result — the winnings (+) must total the {fmt(pool)} ₡ pot and the
-					losses (−) must cover it (net zero). A note is required, and this settles the bet
-					immediately. If everyone tied and no one pays, cancel the bet instead.
+					Enter each player's net result — the winnings (+) must total the {fmt(pool)} ₡ pot and the losses
+					(−) must cover it (net zero). A note is required, and this settles the bet immediately. If everyone
+					tied and no one pays, cancel the bet instead.
 				</Dialog.Description>
 				<form method="POST" action="?/resolve" use:enhance class="space-y-3">
 					<div class="space-y-1">
 						{#each data.participants as p (p.userId)}
 							<div class="flex items-center justify-between gap-2">
 								<span class="min-w-0 flex-1 truncate text-sm">
-									{p.displayName}{#if p.userId === data.myUserId}<span class="ml-1 text-xs text-muted-foreground">(you)</span>{/if}
+									{p.displayName}{#if p.userId === data.myUserId}<span
+											class="ml-1 text-xs text-muted-foreground">(you)</span
+										>{/if}
 								</span>
 								<Input
 									type="number"
@@ -646,16 +756,21 @@
 					<div class="rounded-md border bg-muted/30 p-2 text-sm">
 						<div>
 							Winnings:
-							<strong class="tabular-nums {manualWon === pool ? 'text-success' : 'text-destructive'}">
+							<strong
+								class="tabular-nums {manualWon === pool ? 'text-success' : 'text-destructive'}"
+							>
 								{manualWon}
 							</strong>
-							/ {fmt(pool)} ₡{#if manualWon !== pool}<span class="text-muted-foreground"> — must total the pot</span>{/if}
+							/ {fmt(pool)} ₡{#if manualWon !== pool}<span class="text-muted-foreground">
+									— must total the pot</span
+								>{/if}
 						</div>
 						<div>
 							Balance:
 							<strong class="tabular-nums {manualSum === 0 ? 'text-success' : 'text-destructive'}">
 								{manualSum}
-							</strong> ₡{#if manualSum !== 0}<span class="text-muted-foreground"> — must net 0</span>{/if}
+							</strong>
+							₡{#if manualSum !== 0}<span class="text-muted-foreground"> — must net 0</span>{/if}
 						</div>
 					</div>
 					<div class="space-y-1">

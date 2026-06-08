@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { users, authTokens } from '$lib/server/db/schema';
 import { hashPassword, validatePassword } from '$lib/server/auth/password';
+import { assertPasswordNotPwned, PwnedPasswordError } from '$lib/server/auth/hibp';
 import { findValidToken } from '$lib/server/auth/tokens';
 import { invalidateAllSessionsForUser } from '$lib/server/auth/session';
 import { logSecurityEvent } from '$lib/server/auth/audit';
@@ -45,8 +46,17 @@ export const actions: Actions = {
 		if (!pw.ok) {
 			return fail(400, { error: pw.message ?? 'Invalid password.', field: 'password' });
 		}
+		// Reject passwords found in known breaches (fail-open if HIBP is down).
+		try {
+			await assertPasswordNotPwned(password);
+		} catch (err) {
+			if (err instanceof PwnedPasswordError) {
+				return fail(400, { error: err.message });
+			}
+			throw err;
+		}
 
-		const passwordHash = hashPassword(password);
+		const passwordHash = await hashPassword(password);
 
 		await db.transaction(async (tx) => {
 			await tx
@@ -58,10 +68,7 @@ export const actions: Actions = {
 					failedLoginCount: 0
 				})
 				.where(eq(users.id, found.userId));
-			await tx
-				.update(authTokens)
-				.set({ usedAt: new Date() })
-				.where(eq(authTokens.id, found.id));
+			await tx.update(authTokens).set({ usedAt: new Date() }).where(eq(authTokens.id, found.id));
 		});
 
 		// Revoke every existing session so a hijacked session can't ride

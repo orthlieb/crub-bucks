@@ -120,7 +120,10 @@ export const actions: Actions = {
 		const memo = String(form.get('memo') ?? '').trim() || null;
 		// Cap at 8 chars to allow multi-codepoint emoji (skin tones, ZWJ) while
 		// preventing prose abuse.
-		const icon = String(form.get('icon') ?? '').trim().slice(0, 8) || null;
+		const icon =
+			String(form.get('icon') ?? '')
+				.trim()
+				.slice(0, 8) || null;
 
 		if (!toUserId || toUserId === userId) {
 			return fail(400, { payError: 'Pick a friend to pay.' });

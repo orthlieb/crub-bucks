@@ -1,13 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import {
-	users,
-	friendships,
-	friendInvites,
-	bets,
-	betParticipants
-} from '$lib/server/db/schema';
+import { users, friendships, friendInvites, bets, betParticipants } from '$lib/server/db/schema';
 import { hashPassword } from '$lib/server/auth/password';
 import {
 	grantWelcomeIfNeeded,
@@ -115,11 +109,13 @@ suite('ledger workflows (DB)', () => {
 
 		it('enforces the 99-friend cap', async () => {
 			const a = await createUser();
-			// Bulk-create 99 accepted friends for A.
+			// Bulk-create 99 accepted friends for A. Hash once and reuse — argon2
+			// is deliberately slow, and the password is identical for all rows.
+			const capHash = await hashPassword('password1234!');
 			const rows = Array.from({ length: 99 }, (_, i) => ({
 				email: `cap${i}@test.local`,
 				displayName: `Cap${i}`,
-				passwordHash: hashPassword('password1234!'),
+				passwordHash: capHash,
 				emailVerifiedAt: new Date()
 			}));
 			const created = await db.insert(users).values(rows).returning({ id: users.id });
@@ -270,10 +266,7 @@ suite('ledger workflows (DB)', () => {
 			const betId = await customBet(a, b, 'Pending');
 			const [row] = await db.select().from(bets).where(eq(bets.id, betId));
 			expect(row.status).toBe('pending');
-			const ps = await db
-				.select()
-				.from(betParticipants)
-				.where(eq(betParticipants.betId, betId));
+			const ps = await db.select().from(betParticipants).where(eq(betParticipants.betId, betId));
 			expect(ps.find((p) => p.userId === a.id)!.acceptedAt).not.toBeNull();
 			expect(ps.find((p) => p.userId === b.id)!.acceptedAt).toBeNull();
 		});
@@ -532,9 +525,9 @@ suite('ledger workflows (DB)', () => {
 			expect(Number(bRow.boughtIn)).toBe(100);
 
 			// can't re-buy on behalf of someone else
-			await expect(
-				rebuy({ betId, userId: c.id, amount: 50, requestedBy: a.id })
-			).rejects.toThrow(/yourself/i);
+			await expect(rebuy({ betId, userId: c.id, amount: 50, requestedBy: a.id })).rejects.toThrow(
+				/yourself/i
+			);
 		});
 
 		it('resolves with winnings, supports break-even, stays zero-sum', async () => {
@@ -628,7 +621,10 @@ suite('ledger workflows (DB)', () => {
 				.where(and(eq(friendships.requesterId, a.id), eq(friendships.addresseeId, newbie.id)));
 			expect(pending?.status).toBe('pending');
 
-			const [claimed] = await db.select().from(friendInvites).where(eq(friendInvites.id, invite.id));
+			const [claimed] = await db
+				.select()
+				.from(friendInvites)
+				.where(eq(friendInvites.id, invite.id));
 			expect(claimed.claimedAt).not.toBeNull();
 			expect(claimed.claimedUserId).toBe(newbie.id);
 		});
@@ -648,7 +644,10 @@ suite('ledger workflows (DB)', () => {
 			const second = await createUser();
 			await materializeInviteById(invite.id, second.id);
 
-			const [claimed] = await db.select().from(friendInvites).where(eq(friendInvites.id, invite.id));
+			const [claimed] = await db
+				.select()
+				.from(friendInvites)
+				.where(eq(friendInvites.id, invite.id));
 			expect(claimed.claimedUserId).toBe(first.id);
 			const link = await db
 				.select()

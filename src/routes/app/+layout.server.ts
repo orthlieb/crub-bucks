@@ -1,5 +1,10 @@
 import { redirect } from '@sveltejs/kit';
-import { countIncomingRequests, userActivity, betSoundSignals, userBalance } from '$lib/server/ledger';
+import {
+	countIncomingRequests,
+	userActivity,
+	betSoundSignals,
+	userBalance
+} from '$lib/server/ledger';
 import { listActiveForUser } from '$lib/server/notifications';
 import { latestBadgeAt } from '$lib/server/badges';
 import type { LayoutServerLoad } from './$types';

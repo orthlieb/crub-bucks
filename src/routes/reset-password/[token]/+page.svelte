@@ -24,7 +24,10 @@
 <div class="kibble-bg min-h-screen bg-background py-12 px-4">
 	<div class="mx-auto max-w-md">
 		<a href="/" class="mb-6 flex items-center gap-2 font-semibold tracking-tight">
-			<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">₡</span>
+			<span
+				class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm"
+				>₡</span
+			>
 			<span>Crub Bucks</span>
 		</a>
 
@@ -61,7 +64,9 @@
 								required
 								aria-invalid={errField === 'password'}
 							/>
-							{#if errField === 'password'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
+							{#if errField === 'password'}<p class="text-sm text-destructive">
+									{form?.error}
+								</p>{/if}
 							<p class="text-xs text-muted-foreground">
 								At least {PASSWORD_MIN_LENGTH} characters with {PASSWORD_MIN_DISTINCT} different characters.
 							</p>
@@ -77,7 +82,9 @@
 								required
 								aria-invalid={errField === 'confirmPassword'}
 							/>
-							{#if errField === 'confirmPassword'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
+							{#if errField === 'confirmPassword'}<p class="text-sm text-destructive">
+									{form?.error}
+								</p>{/if}
 						</div>
 
 						<Button type="submit" class="w-full">Update password</Button>
@@ -87,7 +94,9 @@
 
 			<CardFooter class="justify-center text-sm text-muted-foreground">
 				{#if !data.tokenValid}
-					<a href="/forgot-password" class="font-medium text-primary hover:underline">Request a new link</a>
+					<a href="/forgot-password" class="font-medium text-primary hover:underline"
+						>Request a new link</a
+					>
 				{:else}
 					<a href="/login" class="font-medium text-primary hover:underline">Back to log in</a>
 				{/if}

@@ -78,13 +78,19 @@ suite('push subscriptions (DB)', () => {
 		// b cannot remove a's endpoint (scoped to the owner) → no-op.
 		await removePushSubscription(b.id, 'https://push/aep');
 		expect(
-			await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, 'https://push/aep'))
+			await db
+				.select()
+				.from(pushSubscriptions)
+				.where(eq(pushSubscriptions.endpoint, 'https://push/aep'))
 		).toHaveLength(1);
 
 		// a removes its own → gone.
 		await removePushSubscription(a.id, 'https://push/aep');
 		expect(
-			await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, 'https://push/aep'))
+			await db
+				.select()
+				.from(pushSubscriptions)
+				.where(eq(pushSubscriptions.endpoint, 'https://push/aep'))
 		).toHaveLength(0);
 	});
 });

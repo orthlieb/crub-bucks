@@ -34,16 +34,17 @@
 <div class="kibble-bg min-h-screen bg-background py-12 px-4">
 	<div class="mx-auto max-w-md">
 		<a href="/" class="mb-6 flex items-center gap-2 font-semibold tracking-tight">
-			<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">₡</span>
+			<span
+				class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm"
+				>₡</span
+			>
 			<span>Crub Bucks</span>
 		</a>
 
 		<Card>
 			<CardHeader>
 				<CardTitle level={1}>Create your account</CardTitle>
-				<CardDescription>
-					We'll send a verification link before you can log in.
-				</CardDescription>
+				<CardDescription>We'll send a verification link before you can log in.</CardDescription>
 			</CardHeader>
 
 			<CardContent>
@@ -95,7 +96,9 @@
 							disabled={signupBlocked}
 							aria-invalid={errField === 'displayName'}
 						/>
-						{#if errField === 'displayName'}<p class="text-sm text-destructive">{form?.error}</p>{/if}
+						{#if errField === 'displayName'}<p class="text-sm text-destructive">
+								{form?.error}
+							</p>{/if}
 					</div>
 
 					<div class="space-y-2">
@@ -136,13 +139,17 @@
 						Create account
 					</Button>
 					{#if !signupBlocked && !captchaToken}
-						<p class="text-center text-xs text-muted-foreground">Complete the captcha to continue.</p>
+						<p class="text-center text-xs text-muted-foreground">
+							Complete the captcha to continue.
+						</p>
 					{/if}
 				</form>
 			</CardContent>
 
 			<CardFooter class="justify-center text-sm text-muted-foreground">
-				Already have one?&nbsp;<a href="/login" class="font-medium text-primary hover:underline">Log in</a>
+				Already have one?&nbsp;<a href="/login" class="font-medium text-primary hover:underline"
+					>Log in</a
+				>
 			</CardFooter>
 		</Card>
 	</div>

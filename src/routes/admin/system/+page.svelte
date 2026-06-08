@@ -30,8 +30,8 @@
 				<div>
 					<CardTitle level={2}>Maintenance mode</CardTitle>
 					<CardDescription>
-						When on, non-admin traffic is bounced to a maintenance page. Use during migrations
-						or incidents.
+						When on, non-admin traffic is bounced to a maintenance page. Use during migrations or
+						incidents.
 					</CardDescription>
 				</div>
 				{#if cfg.maintenanceMode}
@@ -123,9 +123,9 @@
 				<div>
 					<CardTitle level={2}>Daily signup limit</CardTitle>
 					<CardDescription>
-						Soft cap on successful signups per calendar day (server time). Use this to
-						ease in a release. Once today's count hits the cap, new accounts are
-						refused until midnight. Blank = unlimited.
+						Soft cap on successful signups per calendar day (server time). Use this to ease in a
+						release. Once today's count hits the cap, new accounts are refused until midnight. Blank
+						= unlimited.
 					</CardDescription>
 				</div>
 				{#if cfg.registrationDailyLimit !== null}
@@ -142,12 +142,7 @@
 			</div>
 		</CardHeader>
 		<CardContent>
-			<form
-				method="POST"
-				action="?/registrationDailyLimit"
-				use:enhance
-				class="space-y-3"
-			>
+			<form method="POST" action="?/registrationDailyLimit" use:enhance class="space-y-3">
 				<div class="space-y-2">
 					<Label for="daily-limit">New accounts per day</Label>
 					<Input
@@ -163,13 +158,10 @@
 					/>
 					<p class="text-xs text-muted-foreground">
 						{#if cfg.registrationDailyLimit !== null}
-							{data.registrationsToday} successful signup{data.registrationsToday === 1
-								? ''
-								: 's'} today out of {cfg.registrationDailyLimit}.
+							{data.registrationsToday} successful signup{data.registrationsToday === 1 ? '' : 's'} today
+							out of {cfg.registrationDailyLimit}.
 						{:else}
-							{data.registrationsToday} successful signup{data.registrationsToday === 1
-								? ''
-								: 's'} today.
+							{data.registrationsToday} successful signup{data.registrationsToday === 1 ? '' : 's'} today.
 						{/if}
 					</p>
 				</div>
@@ -195,7 +187,7 @@
 
 	<p class="text-sm text-muted-foreground">
 		Looking for the broadcast banner? It moved to
-		<a href="/admin/notifications" class="text-primary hover:underline">Notifications</a> — now
-		dismissible per user, and you can target a single user too.
+		<a href="/admin/notifications" class="text-primary hover:underline">Notifications</a> — now dismissible
+		per user, and you can target a single user too.
 	</p>
 </div>

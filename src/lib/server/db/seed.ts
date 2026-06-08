@@ -1,16 +1,9 @@
 import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { scryptSync, randomBytes } from 'node:crypto';
+import argon2 from 'argon2';
 import * as schema from './schema';
-import {
-	users,
-	friendships,
-	wallets,
-	bets,
-	betParticipants,
-	ledgerEntries
-} from './schema';
+import { users, friendships, wallets, bets, betParticipants, ledgerEntries } from './schema';
 
 /**
  * Standalone seed for local dev. Builds a friends + bets scenario:
@@ -28,15 +21,10 @@ if (!url) throw new Error('DATABASE_URL is not set');
 const sql = postgres(url, { max: 1 });
 const db = drizzle(sql, { schema });
 
-function hashPassword(pw: string): string {
-	const salt = randomBytes(16).toString('hex');
-	const key = scryptSync(pw.normalize('NFKC'), salt, 64, {
-		N: 16384,
-		r: 8,
-		p: 1,
-		maxmem: 64 * 1024 * 1024
-	});
-	return `scrypt$${salt}$${key.toString('hex')}`;
+function hashPassword(pw: string): Promise<string> {
+	// Mirrors $lib/server/auth/password.hashPassword, reimplemented here so the
+	// seed script doesn't need SvelteKit's $lib/$env aliases.
+	return argon2.hash(pw.normalize('NFKC'), { type: argon2.argon2id });
 }
 
 async function transfer(opts: {
@@ -70,7 +58,7 @@ async function transfer(opts: {
 
 console.log('Seeding demo data…');
 
-const hash = hashPassword('password123');
+const hash = await hashPassword('password123');
 const now = new Date();
 
 const [carl, dana, theo, mira, nina] = await db
@@ -104,7 +92,12 @@ for (const u of [...userList, nina]) {
 }
 
 // Accepted friendships: every pair among the clique (one canonical row each).
-const acceptedRows: { requesterId: string; addresseeId: string; status: 'accepted'; respondedAt: Date }[] = [];
+const acceptedRows: {
+	requesterId: string;
+	addresseeId: string;
+	status: 'accepted';
+	respondedAt: Date;
+}[] = [];
 for (let i = 0; i < userList.length; i++) {
 	for (let j = i + 1; j < userList.length; j++) {
 		acceptedRows.push({
@@ -118,7 +111,9 @@ for (let i = 0; i < userList.length; i++) {
 await db.insert(friendships).values(acceptedRows);
 
 // Pending: Nina → Carl (incoming request shows up when you log in as Carl).
-await db.insert(friendships).values({ requesterId: nina.id, addresseeId: carl.id, status: 'pending' });
+await db
+	.insert(friendships)
+	.values({ requesterId: nina.id, addresseeId: carl.id, status: 'pending' });
 
 // Welcome grants: 100 CB each from the bank (bank ends at -400).
 for (const u of userList) {
@@ -146,10 +141,38 @@ const [resolvedBet] = await db
 	.returning();
 
 await db.insert(betParticipants).values([
-	{ betId: resolvedBet.id, userId: carl.id, payoutIfWin: 15, lossIfLose: 15, outcome: 'won', settledDelta: 15 },
-	{ betId: resolvedBet.id, userId: dana.id, payoutIfWin: 15, lossIfLose: 15, outcome: 'won', settledDelta: 15 },
-	{ betId: resolvedBet.id, userId: theo.id, payoutIfWin: 15, lossIfLose: 15, outcome: 'lost', settledDelta: -15 },
-	{ betId: resolvedBet.id, userId: mira.id, payoutIfWin: 15, lossIfLose: 15, outcome: 'lost', settledDelta: -15 }
+	{
+		betId: resolvedBet.id,
+		userId: carl.id,
+		payoutIfWin: 15,
+		lossIfLose: 15,
+		outcome: 'won',
+		settledDelta: 15
+	},
+	{
+		betId: resolvedBet.id,
+		userId: dana.id,
+		payoutIfWin: 15,
+		lossIfLose: 15,
+		outcome: 'won',
+		settledDelta: 15
+	},
+	{
+		betId: resolvedBet.id,
+		userId: theo.id,
+		payoutIfWin: 15,
+		lossIfLose: 15,
+		outcome: 'lost',
+		settledDelta: -15
+	},
+	{
+		betId: resolvedBet.id,
+		userId: mira.id,
+		payoutIfWin: 15,
+		lossIfLose: 15,
+		outcome: 'lost',
+		settledDelta: -15
+	}
 ]);
 
 // Settle: Theo -> Carl 15, Mira -> Dana 15.

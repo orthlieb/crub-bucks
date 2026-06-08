@@ -27,7 +27,10 @@
 		<div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
 			<div class="flex items-center gap-3">
 				<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
-					<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">₡</span>
+					<span
+						class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm"
+						>₡</span
+					>
 					<span>Crub Bucks</span>
 				</a>
 				<span class="text-muted-foreground">/</span>

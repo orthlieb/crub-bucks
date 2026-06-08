@@ -108,9 +108,7 @@ export function potSplitDeltas(parties: PotParty[]): ParticipantDelta[] {
 		won += p.winnings;
 	}
 	if (pot !== won) {
-		throw new BetMathError(
-			`Winnings must total the pot exactly: pot ${pot}, allocated ${won}`
-		);
+		throw new BetMathError(`Winnings must total the pot exactly: pot ${pot}, allocated ${won}`);
 	}
 	return parties.map((p) => ({ userId: p.userId, delta: p.winnings - p.boughtIn }));
 }
@@ -130,7 +128,7 @@ export function allocate(total: number, weights: number[]): number[] {
 	if (sumW <= 0) return weights.map(() => 0);
 	const exact = weights.map((w) => (total * w) / sumW);
 	const parts = exact.map(Math.floor);
-	let rem = total - parts.reduce((a, b) => a + b, 0);
+	const rem = total - parts.reduce((a, b) => a + b, 0);
 	const byFrac = exact
 		.map((e, i) => ({ i, frac: e - Math.floor(e) }))
 		.sort((a, b) => b.frac - a.frac);

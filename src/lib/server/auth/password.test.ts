@@ -1,12 +1,27 @@
 import { describe, it, expect } from 'vitest';
+import { scryptSync } from 'node:crypto';
 import {
 	hashPassword,
 	verifyPassword,
 	validatePassword,
+	needsRehash,
 	dummyVerify,
 	PASSWORD_MIN_LENGTH,
 	PASSWORD_MIN_DISTINCT
 } from './password';
+
+/** Produce a legacy scrypt hash (matching the format password.ts used before
+ * the Argon2id migration) so we can assert backward-compatible verification. */
+function legacyScryptHash(pw: string): string {
+	const salt = 'a'.repeat(32);
+	const key = scryptSync(pw.normalize('NFKC'), salt, 64, {
+		N: 16384,
+		r: 8,
+		p: 1,
+		maxmem: 64 * 1024 * 1024
+	});
+	return `scrypt$${salt}$${key.toString('hex')}`;
+}
 
 describe('validatePassword', () => {
 	it('rejects passwords shorter than the minimum length', () => {
@@ -61,28 +76,52 @@ describe('validatePassword', () => {
 });
 
 describe('hashPassword / verifyPassword', () => {
-	it('round-trips a correct password', () => {
-		const stored = hashPassword('correct-horse-battery');
-		expect(verifyPassword('correct-horse-battery', stored)).toBe(true);
+	it('produces an Argon2id hash', async () => {
+		const stored = await hashPassword('correct-horse-battery');
+		expect(stored.startsWith('$argon2id$')).toBe(true);
 	});
 
-	it('rejects the wrong password', () => {
-		const stored = hashPassword('correct-horse-battery');
-		expect(verifyPassword('wrong-horse-battery', stored)).toBe(false);
+	it('round-trips a correct password', async () => {
+		const stored = await hashPassword('correct-horse-battery');
+		expect(await verifyPassword('correct-horse-battery', stored)).toBe(true);
 	});
 
-	it('produces a unique salt per hash', () => {
-		expect(hashPassword('same-password-123')).not.toBe(hashPassword('same-password-123'));
+	it('rejects the wrong password', async () => {
+		const stored = await hashPassword('correct-horse-battery');
+		expect(await verifyPassword('wrong-horse-battery', stored)).toBe(false);
 	});
 
-	it('rejects a malformed stored value', () => {
-		expect(verifyPassword('whatever', 'not$a$valid$hash')).toBe(false);
-		expect(verifyPassword('whatever', 'plain')).toBe(false);
+	it('produces a unique hash per call (random salt)', async () => {
+		expect(await hashPassword('same-password-123')).not.toBe(
+			await hashPassword('same-password-123')
+		);
+	});
+
+	it('rejects a malformed stored value', async () => {
+		expect(await verifyPassword('whatever', 'not$a$valid$hash')).toBe(false);
+		expect(await verifyPassword('whatever', 'plain')).toBe(false);
+		expect(await verifyPassword('whatever', '')).toBe(false);
+	});
+
+	it('still verifies legacy scrypt hashes (backward compatibility)', async () => {
+		const legacy = legacyScryptHash('correct-horse-battery');
+		expect(await verifyPassword('correct-horse-battery', legacy)).toBe(true);
+		expect(await verifyPassword('wrong-horse-battery', legacy)).toBe(false);
+	});
+});
+
+describe('needsRehash', () => {
+	it('flags legacy scrypt hashes for rehashing', () => {
+		expect(needsRehash(legacyScryptHash('whatever'))).toBe(true);
+	});
+
+	it('does not flag current Argon2id hashes', async () => {
+		expect(needsRehash(await hashPassword('whatever'))).toBe(false);
 	});
 });
 
 describe('dummyVerify', () => {
-	it('always returns false (used to equalise timing)', () => {
-		expect(dummyVerify('anything')).toBe(false);
+	it('always returns false (used to equalise timing)', async () => {
+		expect(await dummyVerify('anything')).toBe(false);
 	});
 });

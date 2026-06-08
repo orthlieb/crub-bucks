@@ -99,8 +99,7 @@ export async function sendReportEmail(opts: {
 		.filter((l) => l !== null)
 		.join('\n');
 
-	const esc = (s: string) =>
-		s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 	const row = (k: string, v: string) =>
 		`<tr><td style="padding:4px 8px;color:#6b7280"><strong>${k}</strong></td><td style="padding:4px 8px">${v}</td></tr>`;
 	const html = `<div style="font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:#1f2937">

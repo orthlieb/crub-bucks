@@ -271,17 +271,35 @@ describe('oddsDeltas', () => {
 	});
 
 	it('rejects a non-positive or fractional wager', () => {
-		expect(() => oddsDeltas([{ userId: 'a', stake: 0 }, { userId: 'b', stake: 5 }], 'b')).toThrow(
-			BetMathError
-		);
 		expect(() =>
-			oddsDeltas([{ userId: 'a', stake: 5.5 }, { userId: 'b', stake: 5 }], 'a')
+			oddsDeltas(
+				[
+					{ userId: 'a', stake: 0 },
+					{ userId: 'b', stake: 5 }
+				],
+				'b'
+			)
+		).toThrow(BetMathError);
+		expect(() =>
+			oddsDeltas(
+				[
+					{ userId: 'a', stake: 5.5 },
+					{ userId: 'b', stake: 5 }
+				],
+				'a'
+			)
 		).toThrow(BetMathError);
 	});
 
 	it('rejects a winner who is not a participant', () => {
 		expect(() =>
-			oddsDeltas([{ userId: 'a', stake: 5 }, { userId: 'b', stake: 5 }], 'z')
+			oddsDeltas(
+				[
+					{ userId: 'a', stake: 5 },
+					{ userId: 'b', stake: 5 }
+				],
+				'z'
+			)
 		).toThrow(BetMathError);
 	});
 });

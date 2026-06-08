@@ -13,6 +13,10 @@ vite.config.ts.timestamp-*
 
 # Test / build artifacts
 /coverage
+/test-results
+/playwright-report
+/playwright/.cache
+/e2e/.auth
 
 # Per-developer Claude Code local permission grants
 .claude/settings.local.json

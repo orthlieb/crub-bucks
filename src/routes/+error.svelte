@@ -14,7 +14,9 @@
 	const headline = $derived(lines[status] ?? "Something's off.");
 </script>
 
-<div class="kibble-bg flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
+<div
+	class="kibble-bg flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center"
+>
 	<img
 		src="/cala-confused.png"
 		alt="Cala the dog tilting her head with a question mark above her — confused."

@@ -41,10 +41,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		.from(users)
 		.where(or(ilike(users.displayName, needle), ilike(users.email, needle)))
 		// Prefer matches whose display name leads with the query.
-		.orderBy(
-			sql`(${users.displayName} ILIKE ${escaped + '%'}) DESC`,
-			asc(users.displayName)
-		)
+		.orderBy(sql`(${users.displayName} ILIKE ${escaped + '%'}) DESC`, asc(users.displayName))
 		.limit(LIMIT);
 
 	return json(rows);
