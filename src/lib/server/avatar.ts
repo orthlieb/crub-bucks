@@ -48,7 +48,10 @@ export interface StoredAvatar {
 	updatedAt: Date;
 }
 
-/** Upsert a user's avatar bytes and stamp users.avatar_updated_at. */
+/**
+ * Upsert a user's avatar bytes and stamp users.avatar_updated_at. Clears any
+ * emoji icon — a photo and an icon are mutually exclusive.
+ */
 export async function setAvatar(
 	userId: string,
 	data: Buffer,
@@ -63,7 +66,26 @@ export async function setAvatar(
 				target: userAvatars.userId,
 				set: { data, contentType, updatedAt: now }
 			});
-		await tx.update(users).set({ avatarUpdatedAt: now }).where(eq(users.id, userId));
+		await tx
+			.update(users)
+			.set({ avatarUpdatedAt: now, avatarIcon: null })
+			.where(eq(users.id, userId));
+	});
+}
+
+/**
+ * Set a user's emoji avatar icon. Clears any uploaded photo (deleting the
+ * user_avatars row and nulling avatar_updated_at) — a photo and an icon are
+ * mutually exclusive. The caller is responsible for validating `icon` with
+ * sanitizeAvatarIcon first.
+ */
+export async function setAvatarIcon(userId: string, icon: string): Promise<void> {
+	await db.transaction(async (tx) => {
+		await tx.delete(userAvatars).where(eq(userAvatars.userId, userId));
+		await tx
+			.update(users)
+			.set({ avatarIcon: icon, avatarUpdatedAt: null })
+			.where(eq(users.id, userId));
 	});
 }
 
@@ -80,10 +102,16 @@ export async function getAvatar(userId: string): Promise<StoredAvatar | null> {
 	return row ?? null;
 }
 
-/** Remove a user's uploaded photo, reverting them to the generated initials. */
+/**
+ * Remove a user's custom avatar — both an uploaded photo and an emoji icon —
+ * reverting them to the generated initials.
+ */
 export async function clearAvatar(userId: string): Promise<void> {
 	await db.transaction(async (tx) => {
 		await tx.delete(userAvatars).where(eq(userAvatars.userId, userId));
-		await tx.update(users).set({ avatarUpdatedAt: null }).where(eq(users.id, userId));
+		await tx
+			.update(users)
+			.set({ avatarUpdatedAt: null, avatarIcon: null })
+			.where(eq(users.id, userId));
 	});
 }

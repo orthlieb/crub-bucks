@@ -483,6 +483,7 @@ export async function getFriends(
 		since: Date | null;
 		isFavorite: boolean;
 		avatarUpdatedAt: Date | null;
+		avatarIcon: string | null;
 	}>
 > {
 	// LEFT JOIN to friend_favorites so we can sort favorites first without a
@@ -497,6 +498,7 @@ export async function getFriends(
 			displayName: users.displayName,
 			email: users.email,
 			avatarUpdatedAt: users.avatarUpdatedAt,
+			avatarIcon: users.avatarIcon,
 			favoritedAt: friendFavorites.createdAt
 		})
 		.from(friendships)
@@ -521,7 +523,8 @@ export async function getFriends(
 		email: r.email,
 		since: r.respondedAt,
 		isFavorite: r.favoritedAt !== null,
-		avatarUpdatedAt: r.avatarUpdatedAt
+		avatarUpdatedAt: r.avatarUpdatedAt,
+		avatarIcon: r.avatarIcon
 	}));
 }
 

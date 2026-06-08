@@ -24,6 +24,7 @@
 		id,
 		name,
 		avatarUpdatedAt = null,
+		avatarIcon = null,
 		ring = null,
 		size = 32,
 		class: className
@@ -32,6 +33,8 @@
 		name: string;
 		/** Set when the user has an uploaded photo; also cache-busts the URL. */
 		avatarUpdatedAt?: Date | string | null;
+		/** A single emoji chosen instead of a photo (mutually exclusive with one). */
+		avatarIcon?: string | null;
 		/** Coloured status ring (bet acceptance / outcome / cancellation). */
 		ring?: AvatarRing;
 		size?: number;
@@ -42,13 +45,16 @@
 	let imgFailed = $state(false);
 
 	const version = $derived(avatarUpdatedAt ? new Date(avatarUpdatedAt).getTime() : null);
+	// Precedence: uploaded photo → emoji icon → generated initials.
 	const showImg = $derived(version !== null && !imgFailed);
+	const showIcon = $derived(!showImg && !!avatarIcon);
 	const initials = $derived(initialsOf(name));
 </script>
 
 <span
 	class={cn(
-		'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary font-medium text-primary-foreground select-none',
+		'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-medium select-none',
+		showImg ? '' : showIcon ? 'bg-muted' : 'bg-primary text-primary-foreground',
 		ring && RINGS[ring],
 		className
 	)}
@@ -68,6 +74,8 @@
 			loading="lazy"
 			onerror={() => (imgFailed = true)}
 		/>
+	{:else if showIcon}
+		<span style={`font-size:${Math.round(size * 0.58)}px;line-height:1`}>{avatarIcon}</span>
 	{:else}
 		<span style={`font-size:${Math.round(size * 0.4)}px`}>{initials}</span>
 	{/if}
