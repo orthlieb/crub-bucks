@@ -35,9 +35,7 @@ export function sanitizeDisplayName(raw: string): string {
 	return out.replace(/\s+/g, ' ').trim();
 }
 
-export type DisplayNameResult =
-	| { ok: true; value: string }
-	| { ok: false; message: string };
+export type DisplayNameResult = { ok: true; value: string } | { ok: false; message: string };
 
 /** Sanitize and bounds-check a raw display name in one step. */
 export function validateDisplayName(raw: string): DisplayNameResult {

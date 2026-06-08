@@ -159,8 +159,7 @@ export const actions: Actions = {
 		// Odds bets carry the accepting player's own wager; other modes ignore it.
 		const form = await request.formData();
 		const stakeRaw = form.get('stake');
-		const stake =
-			stakeRaw != null && String(stakeRaw).trim() !== '' ? Number(stakeRaw) : undefined;
+		const stake = stakeRaw != null && String(stakeRaw).trim() !== '' ? Number(stakeRaw) : undefined;
 
 		try {
 			await acceptBet({ betId, userId, stake });

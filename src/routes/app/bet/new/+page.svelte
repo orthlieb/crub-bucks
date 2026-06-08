@@ -5,15 +5,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import {
-		Card,
-		CardContent,
-		CardDescription,
-		CardHeader,
-		CardTitle
-	} from '$lib/components/ui/card';
+	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import { Badge } from '$lib/components/ui/badge';
 	import BetModeIcon from '$lib/components/icons/BetModeIcon.svelte';
 	import FriendCombobox from '$lib/components/FriendCombobox.svelte';
 	import { tooltip } from '$lib/actions/tooltip';
@@ -192,7 +185,9 @@
 	<Card>
 		<CardContent class="pt-6">
 			{#if form?.error}
-				<Alert variant="destructive" class="mb-4"><AlertDescription>{form.error}</AlertDescription></Alert>
+				<Alert variant="destructive" class="mb-4"
+					><AlertDescription>{form.error}</AlertDescription></Alert
+				>
 			{/if}
 
 			<form method="POST" use:enhance class="space-y-5">
@@ -207,7 +202,8 @@
 								type="button"
 								onclick={() => (mode = m as Mode)}
 								use:tooltip={m === 'tiered' ? tieredBlurb : info.blurb}
-								class="flex items-center gap-2 rounded-md border p-3 text-left text-sm transition-colors {mode === m
+								class="flex items-center gap-2 rounded-md border p-3 text-left text-sm transition-colors {mode ===
+								m
 									? 'border-primary bg-accent'
 									: 'hover:bg-accent'}"
 							>
@@ -247,102 +243,142 @@
 					</div>
 					<div class="space-y-2">
 						<Label for="title">Title</Label>
-						<Input id="title" name="title" required placeholder="What's the bet?" value={form?.title ?? ''} />
+						<Input
+							id="title"
+							name="title"
+							required
+							placeholder="What's the bet?"
+							value={form?.title ?? ''}
+						/>
 					</div>
 				</div>
 
-					<!-- Pooled modes: amount/stake + friend multi-select -->
-					{#if mode === 'pot'}
-						<div class="space-y-2">
-							<Label for="stake">Buy-in per player</Label>
-							<Input id="stake" name="stake" type="number" min="1" required bind:value={buyIn} class="max-w-40" />
-							<p class="text-xs text-muted-foreground">
-								Pot to start: <strong class="tabular-nums">{(buyIn * selectedCount).toLocaleString()}</strong>
-								₡ ({selectedCount} player{selectedCount === 1 ? '' : 's'} × {buyIn} ₡). Re-buys grow the pot.
-							</p>
-						</div>
-					{:else if mode === 'odds'}
-						<div class="space-y-2">
-							<Label for="stake">Your wager</Label>
-							<Input id="stake" name="stake" type="number" min="1" required bind:value={myWager} class="max-w-40" />
-							<p class="text-xs text-muted-foreground">
-								Each player sets their own wager when they accept. The winner takes everyone
-								else's wagers — the odds come from how much each person risks.
-							</p>
-						</div>
-					{:else}
-						<div class="space-y-2">
-							<Label for="amount">Amount wagered (the pot the winner takes)</Label>
-							<Input id="amount" name="amount" type="number" min="1" required placeholder="30" class="max-w-40" />
-						</div>
-					{/if}
-
+				<!-- Pooled modes: amount/stake + friend multi-select -->
+				{#if mode === 'pot'}
 					<div class="space-y-2">
-						<div class="flex items-center justify-between">
-							<Label>Who's in?</Label>
-							<span class="text-xs text-muted-foreground">{selectedCount} player{selectedCount === 1 ? '' : 's'}</span>
-						</div>
-						<div class="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
-							<input type="checkbox" checked disabled class="h-4 w-4" />
-							{data.me.displayName} <span class="text-xs text-muted-foreground">(you — always in)</span>
-						</div>
-						{#if data.friends.length === 0}
-							<p class="text-sm text-muted-foreground">
-								No friends yet — <a href="/app/friends" class="text-primary hover:underline">add some</a>.
-							</p>
-						{:else}
-							<FriendCombobox
-								id="bet-participants"
-								friends={data.friends}
-								multiple
-								bind:selectedIds={selectedFriendIds}
-								placeholder="Add a friend by name or email…"
-							/>
-							{#if favorites.length > 0}
-								<div class="space-y-1.5">
-									<p class="text-xs text-muted-foreground">Quick add favourites</p>
-									<div class="flex flex-wrap gap-1.5">
-										{#each favorites as f (f.id)}
-											<label
-												class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border py-1 pl-2 pr-2.5 text-xs transition-colors hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-accent"
-											>
-												<input
-													type="checkbox"
-													class="h-3.5 w-3.5"
-													checked={selectedFriendIds.includes(f.id)}
-													onchange={(e) => toggleFriend(f.id, e.currentTarget.checked)}
-												/>
-												<span aria-hidden="true" class="text-yellow-500">★</span>{f.displayName}
-											</label>
-										{/each}
-									</div>
-								</div>
-							{/if}
-							{#each selectedFriendIds as fid (fid)}
-								<input type="hidden" name="participantId" value={fid} />
-							{/each}
-						{/if}
-						{#if mode === 'winner_loser'}
-							<p class="text-xs text-muted-foreground">
-								You'll name the one winner and the one loser when you resolve; extra players just
-								ride along at 0.
-							</p>
-						{:else if mode === 'pot'}
-							<p class="text-xs text-muted-foreground">
-								Anyone in can re-buy while the bet's open (each grows the pot). At resolution you
-								enter each player's winnings — they must total the pot.
-							</p>
-						{:else if mode === 'odds'}
-							<p class="text-xs text-muted-foreground">
-								Each player declares their wager when they accept. You'll name the single winner
-								when you resolve — they take the whole pot.
-							</p>
-						{:else}
-							<p class="text-xs text-muted-foreground">
-								You'll name the winner when you resolve{mode === 'tiered' ? ' and rank the losers' : ''}.
-							</p>
-						{/if}
+						<Label for="stake">Buy-in per player</Label>
+						<Input
+							id="stake"
+							name="stake"
+							type="number"
+							min="1"
+							required
+							bind:value={buyIn}
+							class="max-w-40"
+						/>
+						<p class="text-xs text-muted-foreground">
+							Pot to start: <strong class="tabular-nums"
+								>{(buyIn * selectedCount).toLocaleString()}</strong
+							>
+							₡ ({selectedCount} player{selectedCount === 1 ? '' : 's'} × {buyIn} ₡). Re-buys grow the
+							pot.
+						</p>
 					</div>
+				{:else if mode === 'odds'}
+					<div class="space-y-2">
+						<Label for="stake">Your wager</Label>
+						<Input
+							id="stake"
+							name="stake"
+							type="number"
+							min="1"
+							required
+							bind:value={myWager}
+							class="max-w-40"
+						/>
+						<p class="text-xs text-muted-foreground">
+							Each player sets their own wager when they accept. The winner takes everyone else's
+							wagers — the odds come from how much each person risks.
+						</p>
+					</div>
+				{:else}
+					<div class="space-y-2">
+						<Label for="amount">Amount wagered (the pot the winner takes)</Label>
+						<Input
+							id="amount"
+							name="amount"
+							type="number"
+							min="1"
+							required
+							placeholder="30"
+							class="max-w-40"
+						/>
+					</div>
+				{/if}
+
+				<div class="space-y-2">
+					<div class="flex items-center justify-between">
+						<Label>Who's in?</Label>
+						<span class="text-xs text-muted-foreground"
+							>{selectedCount} player{selectedCount === 1 ? '' : 's'}</span
+						>
+					</div>
+					<div class="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+						<input type="checkbox" checked disabled class="h-4 w-4" />
+						{data.me.displayName}
+						<span class="text-xs text-muted-foreground">(you — always in)</span>
+					</div>
+					{#if data.friends.length === 0}
+						<p class="text-sm text-muted-foreground">
+							No friends yet — <a href="/app/friends" class="text-primary hover:underline"
+								>add some</a
+							>.
+						</p>
+					{:else}
+						<FriendCombobox
+							id="bet-participants"
+							friends={data.friends}
+							multiple
+							bind:selectedIds={selectedFriendIds}
+							placeholder="Add a friend by name or email…"
+						/>
+						{#if favorites.length > 0}
+							<div class="space-y-1.5">
+								<p class="text-xs text-muted-foreground">Quick add favourites</p>
+								<div class="flex flex-wrap gap-1.5">
+									{#each favorites as f (f.id)}
+										<label
+											class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border py-1 pl-2 pr-2.5 text-xs transition-colors hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-accent"
+										>
+											<input
+												type="checkbox"
+												class="h-3.5 w-3.5"
+												checked={selectedFriendIds.includes(f.id)}
+												onchange={(e) => toggleFriend(f.id, e.currentTarget.checked)}
+											/>
+											<span aria-hidden="true" class="text-yellow-500">★</span>{f.displayName}
+										</label>
+									{/each}
+								</div>
+							</div>
+						{/if}
+						{#each selectedFriendIds as fid (fid)}
+							<input type="hidden" name="participantId" value={fid} />
+						{/each}
+					{/if}
+					{#if mode === 'winner_loser'}
+						<p class="text-xs text-muted-foreground">
+							You'll name the one winner and the one loser when you resolve; extra players just ride
+							along at 0.
+						</p>
+					{:else if mode === 'pot'}
+						<p class="text-xs text-muted-foreground">
+							Anyone in can re-buy while the bet's open (each grows the pot). At resolution you
+							enter each player's winnings — they must total the pot.
+						</p>
+					{:else if mode === 'odds'}
+						<p class="text-xs text-muted-foreground">
+							Each player declares their wager when they accept. You'll name the single winner when
+							you resolve — they take the whole pot.
+						</p>
+					{:else}
+						<p class="text-xs text-muted-foreground">
+							You'll name the winner when you resolve{mode === 'tiered'
+								? ' and rank the losers'
+								: ''}.
+						</p>
+					{/if}
+				</div>
 
 				<div class="flex gap-2">
 					<Button type="submit">Create bet</Button>

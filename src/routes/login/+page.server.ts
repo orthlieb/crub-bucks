@@ -3,11 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
 import { verifyPassword, dummyVerify, needsRehash, hashPassword } from '$lib/server/auth/password';
-import {
-	generateSessionToken,
-	createSession,
-	setSessionCookie
-} from '$lib/server/auth/session';
+import { generateSessionToken, createSession, setSessionCookie } from '$lib/server/auth/session';
 import { verifyCaptcha } from '$lib/server/captcha';
 import { logSecurityEvent } from '$lib/server/auth/audit';
 import { grantWelcomeIfNeeded } from '$lib/server/ledger';

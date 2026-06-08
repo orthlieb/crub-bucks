@@ -142,7 +142,9 @@
 									<Badge variant="success">Active</Badge>
 								{/if}
 								{#if u.failedLoginCount > 0}
-									<span class="ml-2 text-xs text-muted-foreground">{u.failedLoginCount} fail{u.failedLoginCount === 1 ? '' : 's'}</span>
+									<span class="ml-2 text-xs text-muted-foreground"
+										>{u.failedLoginCount} fail{u.failedLoginCount === 1 ? '' : 's'}</span
+									>
 								{/if}
 							</TableCell>
 							<TableCell>

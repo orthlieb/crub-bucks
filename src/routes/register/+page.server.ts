@@ -10,10 +10,7 @@ import { sendVerificationEmail } from '$lib/server/email';
 import { verifyCaptcha } from '$lib/server/captcha';
 import { countRegistrationsToday, logSecurityEvent } from '$lib/server/auth/audit';
 import { getSystemConfig } from '$lib/server/auth/system-config';
-import {
-	DEFAULT_DAILY_FULL_MESSAGE,
-	evaluateSignupGate
-} from '$lib/server/auth/signup-gate';
+import { DEFAULT_DAILY_FULL_MESSAGE, evaluateSignupGate } from '$lib/server/auth/signup-gate';
 import { materializeInvitesForUser, materializeInviteById } from '$lib/server/ledger';
 import type { Actions, PageServerLoad } from './$types';
 

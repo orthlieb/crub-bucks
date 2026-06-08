@@ -1,0 +1,11 @@
+# Generated / vendored — not ours to format
+.svelte-kit
+build
+package
+coverage
+playwright-report
+test-results
+node_modules
+drizzle
+package-lock.json
+src/lib/components/ui

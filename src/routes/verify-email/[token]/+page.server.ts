@@ -25,14 +25,8 @@ export const load: PageServerLoad = async (event) => {
 
 	// Mark verified + consume token atomically.
 	await db.transaction(async (tx) => {
-		await tx
-			.update(users)
-			.set({ emailVerifiedAt: new Date() })
-			.where(eq(users.id, found.userId));
-		await tx
-			.update(authTokens)
-			.set({ usedAt: new Date() })
-			.where(eq(authTokens.id, found.id));
+		await tx.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, found.userId));
+		await tx.update(authTokens).set({ usedAt: new Date() }).where(eq(authTokens.id, found.id));
 	});
 
 	// Provision wallet outside the tx. Idempotent — safe to call repeatedly.

@@ -4,7 +4,6 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import type { LayoutData } from './$types';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
 	import { isSoundEnabled, play, warmUpSound, type SoundName } from '$lib/sound';
@@ -172,7 +171,6 @@
 		if (next < 0 || next >= navlinks.length) return;
 		goto(navlinks[next].href);
 	}
-
 </script>
 
 <div class="kibble-bg min-h-screen bg-background text-foreground">
@@ -180,9 +178,14 @@
 		<div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
 			<div class="flex items-center gap-4">
 				<a href="/app" class="flex items-center gap-2 font-semibold tracking-tight">
-					<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm">₡</span>
+					<span
+						class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm"
+						>₡</span
+					>
 					<span>Crub Bucks</span>
-					<span class="tabular-nums {balanceClass}">{formatAmount(data.balance, data.locale)} ₡</span>
+					<span class="tabular-nums {balanceClass}"
+						>{formatAmount(data.balance, data.locale)} ₡</span
+					>
 				</a>
 				<!-- Desktop nav lives inline with the brand. The mobile tab strip
 				     below the brand row takes over under sm. -->
@@ -199,7 +202,9 @@
 						>
 							{l.label}
 							{#if l.href === '/app/friends' && data.pendingFriendRequests > 0}
-								<span class="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground">
+								<span
+									class="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground"
+								>
 									{data.pendingFriendRequests}
 								</span>
 							{/if}
@@ -231,7 +236,9 @@
 				>
 					{l.label}
 					{#if l.href === '/app/friends' && data.pendingFriendRequests > 0}
-						<span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground">
+						<span
+							class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground"
+						>
 							{data.pendingFriendRequests}
 						</span>
 					{/if}
@@ -240,17 +247,16 @@
 		</nav>
 	</header>
 
-	<main
-		class="mx-auto max-w-5xl px-6 py-8"
-		ontouchstart={onTouchStart}
-		ontouchend={onTouchEnd}
-	>
+	<main class="mx-auto max-w-5xl px-6 py-8" ontouchstart={onTouchStart} ontouchend={onTouchEnd}>
 		{#if data.notifications.length > 0}
 			<div class="mb-6 space-y-2">
 				{#each data.notifications as n (n.id)}
 					<Alert variant={alertVariantFor(n.level)} class="relative pr-12">
 						{#if n.link}
-							<a href={n.link} class="block rounded-sm hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+							<a
+								href={n.link}
+								class="block rounded-sm hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							>
 								<AlertTitle>{n.title}</AlertTitle>
 								{#if n.body}
 									<AlertDescription class="no-underline">{n.body}</AlertDescription>

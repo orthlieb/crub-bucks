@@ -173,9 +173,7 @@ export async function getFeed(opts: {
 			// Total wagered: the pot for pooled modes, else the sum of each
 			// player's stake (loss-if-lose) for custom bets, which have no pot.
 			const amount =
-				b.pool != null
-					? Number(b.pool)
-					: ps.reduce((s, p) => s + Number(p.lossIfLose ?? 0), 0);
+				b.pool != null ? Number(b.pool) : ps.reduce((s, p) => s + Number(p.lossIfLose ?? 0), 0);
 
 			const creator: FeedUser = {
 				id: b.creatorId,
@@ -305,9 +303,12 @@ export async function getFeed(opts: {
 		}
 	>();
 	for (const r of payRows) {
-		const entry =
-			byTransfer.get(r.transferId) ??
-			{ createdAt: r.createdAt, memo: r.memo, icon: r.icon, legs: [] };
+		const entry = byTransfer.get(r.transferId) ?? {
+			createdAt: r.createdAt,
+			memo: r.memo,
+			icon: r.icon,
+			legs: []
+		};
 		entry.legs.push({
 			delta: Number(r.delta),
 			kind: r.kind,

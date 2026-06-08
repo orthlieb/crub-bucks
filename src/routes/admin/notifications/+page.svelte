@@ -116,8 +116,8 @@
 	<header>
 		<h1 class="text-3xl font-bold tracking-tight">Notifications</h1>
 		<p class="mt-1 text-muted-foreground">
-			Send a message to everyone or to one user. Recipients see it at the top of every app
-			page and can dismiss it for themselves. Deleting here retracts it for everyone.
+			Send a message to everyone or to one user. Recipients see it at the top of every app page and
+			can dismiss it for themselves. Deleting here retracts it for everyone.
 		</p>
 	</header>
 
@@ -126,8 +126,8 @@
 		<CardHeader>
 			<CardTitle level={2}>Test push notification</CardTitle>
 			<CardDescription>
-				Sends a Web Push to your own subscribed devices to verify delivery end-to-end.
-				Enable Notifications in Settings first (in a real browser — not the embedded preview).
+				Sends a Web Push to your own subscribed devices to verify delivery end-to-end. Enable
+				Notifications in Settings first (in a real browser — not the embedded preview).
 			</CardDescription>
 		</CardHeader>
 		<CardContent>
@@ -201,7 +201,9 @@
 
 						{#if selected}
 							<!-- Selected chip: shows who's targeted, with a Clear button to pick someone else. -->
-							<div class="flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+							<div
+								class="flex items-center justify-between gap-3 rounded-md border bg-muted/40 px-3 py-2 text-sm"
+							>
 								<div class="min-w-0">
 									<div class="truncate font-medium">
 										{selected.displayName}
@@ -268,7 +270,9 @@
 										{/each}
 									</ul>
 								{:else if query.trim().length >= 2 && !isSearching && results.length === 0}
-									<div class="absolute left-0 right-0 z-10 mt-1 rounded-md border bg-popover px-3 py-2 text-sm text-muted-foreground shadow-lg">
+									<div
+										class="absolute left-0 right-0 z-10 mt-1 rounded-md border bg-popover px-3 py-2 text-sm text-muted-foreground shadow-lg"
+									>
 										No users match “{query}”.
 									</div>
 								{/if}
@@ -300,11 +304,20 @@
 
 				<div class="space-y-2">
 					<Label for="title">Title</Label>
-					<Input id="title" name="title" required placeholder="Heads up: scheduled downtime tonight at 9 PM." />
+					<Input
+						id="title"
+						name="title"
+						required
+						placeholder="Heads up: scheduled downtime tonight at 9 PM."
+					/>
 				</div>
 				<div class="space-y-2">
 					<Label for="body">Body (optional)</Label>
-					<Input id="body" name="body" placeholder="Should take about 15 minutes. Thanks for your patience." />
+					<Input
+						id="body"
+						name="body"
+						placeholder="Should take about 15 minutes. Thanks for your patience."
+					/>
 				</div>
 
 				<div class="space-y-2">
@@ -331,10 +344,15 @@
 							</button>
 						{/if}
 					</div>
-					<Input id="link" name="link" bind:value={link} placeholder="/app/bet/<id> — where tapping the notification goes" />
+					<Input
+						id="link"
+						name="link"
+						bind:value={link}
+						placeholder="/app/bet/<id> — where tapping the notification goes"
+					/>
 					<p class="text-xs text-muted-foreground">
-						Must be an in-app path starting with “/”. Drives both the in-app banner and the
-						push notification's tap target.
+						Must be an in-app path starting with “/”. Drives both the in-app banner and the push
+						notification's tap target.
 					</p>
 				</div>
 
@@ -348,8 +366,8 @@
 		<CardHeader>
 			<CardTitle level={2}>Active notifications</CardTitle>
 			<CardDescription>
-				Newest first. Delete to retract a notification for everyone (the user-side dismiss
-				button only hides it for that one user).
+				Newest first. Delete to retract a notification for everyone (the user-side dismiss button
+				only hides it for that one user).
 			</CardDescription>
 		</CardHeader>
 		<CardContent>
@@ -387,7 +405,9 @@
 										<span class="text-xs text-muted-foreground">· system</span>
 									{/if}
 									{#if n.isBroadcast && n.dismissCount > 0}
-										<span class="text-xs text-muted-foreground">· dismissed by {n.dismissCount}</span>
+										<span class="text-xs text-muted-foreground"
+											>· dismissed by {n.dismissCount}</span
+										>
 									{/if}
 								</div>
 								<div class="font-medium">{n.title}</div>

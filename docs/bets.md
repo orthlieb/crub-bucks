@@ -6,19 +6,19 @@ authoritative description of the betting engine as it ships today.
 
 Companion code:
 
-| Path | Purpose |
-|------|---------|
-| `src/lib/ledger-math.ts` | Pure settlement math (no DB) — split/allocate/plan |
-| `src/lib/server/ledger.ts` | `createBet` / `acceptBet` / `resolveBet` / `rebuy` / `cancelBet` |
-| `src/routes/app/bet/new/+page.svelte` | Create-a-bet UI |
-| `src/routes/app/bet/[bid]/+page.svelte` | Bet detail + resolve UI (incl. the **Tied?** dialog) |
+| Path                                    | Purpose                                                          |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| `src/lib/ledger-math.ts`                | Pure settlement math (no DB) — split/allocate/plan               |
+| `src/lib/server/ledger.ts`              | `createBet` / `acceptBet` / `resolveBet` / `rebuy` / `cancelBet` |
+| `src/routes/app/bet/new/+page.svelte`   | Create-a-bet UI                                                  |
+| `src/routes/app/bet/[bid]/+page.svelte` | Bet detail + resolve UI (incl. the **Tied?** dialog)             |
 
 ---
 
 ## Core principles
 
 1. **The ledger is zero-sum.** Every economic event is a transfer of a
-   *positive* amount from one wallet to another, written as two ledger rows
+   _positive_ amount from one wallet to another, written as two ledger rows
    whose deltas sum to zero. The sum of all balances in the system is always
    zero. Bets never mint or burn Crub Bucks — they only move them between
    players.
@@ -51,12 +51,12 @@ Companion code:
                      cancelled  ◀───────────── cancelled
 ```
 
-| Status | Meaning |
-|--------|---------|
-| `pending` | Created. The creator is auto-accepted; every other participant has been invited and must accept. |
-| `open` | Everyone accepted — the bet is live. Can now be resolved (or cancelled). Pot mode allows re-buys here. |
-| `resolved` | Settled. Transfers executed, each participant's outcome and net recorded. Terminal. |
-| `cancelled` | Called off (by a decline while pending, or a cancel while pending/open). No money moved. Terminal. |
+| Status      | Meaning                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------ |
+| `pending`   | Created. The creator is auto-accepted; every other participant has been invited and must accept.       |
+| `open`      | Everyone accepted — the bet is live. Can now be resolved (or cancelled). Pot mode allows re-buys here. |
+| `resolved`  | Settled. Transfers executed, each participant's outcome and net recorded. Terminal.                    |
+| `cancelled` | Called off (by a decline while pending, or a cancel while pending/open). No money moved. Terminal.     |
 
 **Acceptance handshake.** A bet only goes live once **all** participants
 accept. A single **decline** calls the whole thing off (status → `cancelled`).
@@ -65,6 +65,7 @@ nothing to unwind. (In `odds` mode, accepting also means declaring your own
 wager — see mode 5.)
 
 **Who can do what**
+
 - Any participant can **accept** / **decline** while `pending`, and **cancel**
   while `pending` or `open`.
 - Any participant can **resolve** an `open` bet (it's a friendly app — there's
@@ -83,7 +84,7 @@ Four modes pool around a single **pot** (the amount the winner takes); `odds`
 lets each player wager their own self-chosen stake; `custom` is a legacy
 per-person model. All of them resolve to zero-sum deltas.
 
-> **Note:** `custom` can no longer be *created* in the UI (it was confusing);
+> **Note:** `custom` can no longer be _created_ in the UI (it was confusing);
 > existing custom bets still resolve and display. It's documented here for
 > completeness.
 
@@ -98,11 +99,11 @@ One winner takes the whole pot; everyone else splits the loss **equally**.
 
 **Example** — pool 30, three players, A wins:
 
-| Player | Delta |
-|--------|------:|
-| A (winner) | +30 |
-| B | −15 |
-| C | −15 |
+| Player     | Delta |
+| ---------- | ----: |
+| A (winner) |   +30 |
+| B          |   −15 |
+| C          |   −15 |
 
 ### 2. Winner / Loser — `winner_loser`
 
@@ -116,11 +117,11 @@ along at zero.
 
 **Example** — pool 20, three players, A wins, B loses:
 
-| Player | Delta |
-|--------|------:|
-| A (winner) | +20 |
-| B (loser) | −20 |
-| C (bystander) | 0 |
+| Player        | Delta |
+| ------------- | ----: |
+| A (winner)    |   +20 |
+| B (loser)     |   −20 |
+| C (bystander) |     0 |
 
 ### 3. Tiered — `tiered`
 
@@ -135,11 +136,11 @@ One winner; losers pay by **rank**. Last place pays the most.
 
 **Example** — pool 30, A wins, B ranked first-loser, C ranked last:
 
-| Player | Share | Delta |
-|--------|------:|------:|
-| A (winner) | — | +30 |
-| B | 1/3 | −10 |
-| C | 2/3 | −20 |
+| Player     | Share | Delta |
+| ---------- | ----: | ----: |
+| A (winner) |     — |   +30 |
+| B          |   1/3 |   −10 |
+| C          |   2/3 |   −20 |
 
 ### 4. Pot — `pot`
 
@@ -159,10 +160,10 @@ each player's **winnings** (their share of the pot).
 the whole pot:
 
 | Player | Bought in | Winnings | Delta |
-|--------|----------:|---------:|------:|
-| A | 100 | 300 | +200 |
-| B | 100 | 0 | −100 |
-| C | 100 | 0 | −100 |
+| ------ | --------: | -------: | ----: |
+| A      |       100 |      300 |  +200 |
+| B      |       100 |        0 |  −100 |
+| C      |       100 |        0 |  −100 |
 
 ### 5. Odds — `odds`
 
@@ -171,7 +172,7 @@ everyone else's wagers. The "odds" are emergent — they come from the relative
 stake sizes, nobody types a ratio.
 
 - **Create with:** the creator's own `stake` (their wager). The creator is
-  auto-accepted with it; the pot is *dynamic* (`pool` stays null).
+  auto-accepted with it; the pot is _dynamic_ (`pool` stays null).
 - **Accept with:** each invited player declares **their own** `stake` when they
   accept (stored as `boughtIn`). Accepting without a positive wager is rejected.
   A decline still calls the whole bet off.
@@ -181,11 +182,11 @@ stake sizes, nobody types a ratio.
 
 **Example** — A wagers 50, B wagers 20, C wagers 10; C (the longshot) wins:
 
-| Player | Wager | Delta | Implied odds |
-|--------|------:|------:|--------------|
-| A | 50 | −50 | risked 50 to win 30 (favorite) |
-| B | 20 | −20 | risked 20 to win 60 |
-| C (winner) | 10 | +70 | risked 10 to win 70 (longshot) |
+| Player     | Wager | Delta | Implied odds                   |
+| ---------- | ----: | ----: | ------------------------------ |
+| A          |    50 |   −50 | risked 50 to win 30 (favorite) |
+| B          |    20 |   −20 | risked 20 to win 60            |
+| C (winner) |    10 |   +70 | risked 10 to win 70 (longshot) |
 
 ### 6. Custom (legacy) — `custom`
 
@@ -225,12 +226,12 @@ from their delta: `> 0` → won, `< 0` → lost, `0` → none.
 A and B split the 30 pot; C covers it:
 
 | Player | Delta |
-|--------|------:|
-| A | +15 |
-| B | +15 |
-| C | −30 |
+| ------ | ----: |
+| A      |   +15 |
+| B      |   +15 |
+| C      |   −30 |
 
-**All-tie wash.** If *everyone* tied and nobody should pay, that's not a
+**All-tie wash.** If _everyone_ tied and nobody should pay, that's not a
 resolution — there's no money to move. **Cancel** the bet instead (in these
 modes nothing was escrowed, so cancelling moves nothing). The tie-split
 deliberately rejects a "distribute 0" settlement so a real partial tie can't be
@@ -286,12 +287,12 @@ When a bet resolves, in the same transaction:
 
 ## Quick reference
 
-| Mode | Create input | Resolve input | Winner gets | Losers pay |
-|------|--------------|---------------|-------------|------------|
-| `even_split` | `pool` | `winnerId` | +pool | pool split equally |
-| `winner_loser` | `pool` | `winnerId`, `loserId` | +pool | one loser pays pool; rest 0 |
-| `tiered` | `pool` | `winnerId`, `loserOrder` | +pool | by rank: `1…L` over `L(L+1)/2` |
-| `pot` | `stake` (+re-buys) | `winnings[]` (sum = pot) | winnings − boughtIn | winnings − boughtIn |
-| `odds` | per-player `stake` (set on accept) | `winnerId` | +Σ other stakes | −own stake |
-| `custom` *(legacy)* | `payoutIfWin`/`lossIfLose` | `outcomes[]` | +payoutIfWin | −lossIfLose |
-| **tie-split** | *(any non-pot bet)* | `manual[]` (Σ=0, wins=pool) | the + you typed | the − you typed |
+| Mode                | Create input                       | Resolve input               | Winner gets         | Losers pay                     |
+| ------------------- | ---------------------------------- | --------------------------- | ------------------- | ------------------------------ |
+| `even_split`        | `pool`                             | `winnerId`                  | +pool               | pool split equally             |
+| `winner_loser`      | `pool`                             | `winnerId`, `loserId`       | +pool               | one loser pays pool; rest 0    |
+| `tiered`            | `pool`                             | `winnerId`, `loserOrder`    | +pool               | by rank: `1…L` over `L(L+1)/2` |
+| `pot`               | `stake` (+re-buys)                 | `winnings[]` (sum = pot)    | winnings − boughtIn | winnings − boughtIn            |
+| `odds`              | per-player `stake` (set on accept) | `winnerId`                  | +Σ other stakes     | −own stake                     |
+| `custom` _(legacy)_ | `payoutIfWin`/`lossIfLose`         | `outcomes[]`                | +payoutIfWin        | −lossIfLose                    |
+| **tie-split**       | _(any non-pot bet)_                | `manual[]` (Σ=0, wins=pool) | the + you typed     | the − you typed                |

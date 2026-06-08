@@ -18,7 +18,9 @@
 		return date.toLocaleString();
 	}
 
-	function badgeVariant(t: string): 'default' | 'destructive' | 'success' | 'secondary' | 'outline' {
+	function badgeVariant(
+		t: string
+	): 'default' | 'destructive' | 'success' | 'secondary' | 'outline' {
 		if (t === 'login_failure' || t === 'lockout') return 'destructive';
 		if (t === 'login_success' || t === 'email_verified' || t === 'password_reset_completed')
 			return 'success';
@@ -42,7 +44,9 @@
 			<h1 class="text-3xl font-bold tracking-tight">Security events</h1>
 			<p class="mt-1 text-muted-foreground">
 				Latest {data.pageSize} events
-				{#if data.typeFilter} · filter: <code class="rounded bg-muted px-1.5 py-0.5 text-xs">{data.typeFilter}</code>{/if}
+				{#if data.typeFilter}
+					· filter: <code class="rounded bg-muted px-1.5 py-0.5 text-xs">{data.typeFilter}</code
+					>{/if}
 			</p>
 		</div>
 

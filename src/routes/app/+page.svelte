@@ -58,7 +58,9 @@
 		<h2 class="text-xl font-semibold tracking-tight">Open bets</h2>
 		{#if data.openBets.length === 0}
 			<Card class="mt-3">
-				<CardContent class="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
+				<CardContent
+					class="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground"
+				>
 					<img
 						src="/cala-napping.png"
 						alt="Cala the dog curled up napping — no open bets to keep her awake."

@@ -105,10 +105,7 @@ export const actions: Actions = {
 		const id = String(form.get('userId') ?? '');
 		const target = await loadUser(id);
 		if (!target) throw error(404, 'User not found');
-		await db
-			.update(users)
-			.set({ isActive: true, failedLoginCount: 0 })
-			.where(eq(users.id, id));
+		await db.update(users).set({ isActive: true, failedLoginCount: 0 }).where(eq(users.id, id));
 		await logSecurityEvent({
 			userId: id,
 			eventType: 'admin_unsuspend',

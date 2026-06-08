@@ -141,10 +141,7 @@ export async function dismissForUser(notificationId: string, userId: string): Pr
 	if (!n) return false;
 	if (n.userId !== null && n.userId !== userId) return false;
 
-	await db
-		.insert(notificationDismissals)
-		.values({ notificationId, userId })
-		.onConflictDoNothing();
+	await db.insert(notificationDismissals).values({ notificationId, userId }).onConflictDoNothing();
 
 	// Garbage-collect once everyone who can see it has dismissed it. Deleting the
 	// notification cascades its dismissal rows away (FK onDelete: cascade).

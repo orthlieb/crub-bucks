@@ -18,10 +18,7 @@ export const actions: Actions = {
 		const message = String(form.get('message') ?? '').trim() || null;
 		const actor = event.locals.user?.id ?? null;
 
-		await updateSystemConfig(
-			{ maintenanceMode: enabled, maintenanceMessage: message },
-			actor
-		);
+		await updateSystemConfig({ maintenanceMode: enabled, maintenanceMessage: message }, actor);
 		await logSecurityEvent({
 			userId: actor,
 			eventType: 'maintenance_mode_change',

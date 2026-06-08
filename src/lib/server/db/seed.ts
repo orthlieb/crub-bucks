@@ -3,14 +3,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import argon2 from 'argon2';
 import * as schema from './schema';
-import {
-	users,
-	friendships,
-	wallets,
-	bets,
-	betParticipants,
-	ledgerEntries
-} from './schema';
+import { users, friendships, wallets, bets, betParticipants, ledgerEntries } from './schema';
 
 /**
  * Standalone seed for local dev. Builds a friends + bets scenario:
@@ -97,7 +90,12 @@ for (const u of [...userList, nina]) {
 }
 
 // Accepted friendships: every pair among the clique (one canonical row each).
-const acceptedRows: { requesterId: string; addresseeId: string; status: 'accepted'; respondedAt: Date }[] = [];
+const acceptedRows: {
+	requesterId: string;
+	addresseeId: string;
+	status: 'accepted';
+	respondedAt: Date;
+}[] = [];
 for (let i = 0; i < userList.length; i++) {
 	for (let j = i + 1; j < userList.length; j++) {
 		acceptedRows.push({
@@ -111,7 +109,9 @@ for (let i = 0; i < userList.length; i++) {
 await db.insert(friendships).values(acceptedRows);
 
 // Pending: Nina → Carl (incoming request shows up when you log in as Carl).
-await db.insert(friendships).values({ requesterId: nina.id, addresseeId: carl.id, status: 'pending' });
+await db
+	.insert(friendships)
+	.values({ requesterId: nina.id, addresseeId: carl.id, status: 'pending' });
 
 // Welcome grants: 100 CB each from the bank (bank ends at -400).
 for (const u of userList) {
@@ -139,10 +139,38 @@ const [resolvedBet] = await db
 	.returning();
 
 await db.insert(betParticipants).values([
-	{ betId: resolvedBet.id, userId: carl.id, payoutIfWin: 15, lossIfLose: 15, outcome: 'won', settledDelta: 15 },
-	{ betId: resolvedBet.id, userId: dana.id, payoutIfWin: 15, lossIfLose: 15, outcome: 'won', settledDelta: 15 },
-	{ betId: resolvedBet.id, userId: theo.id, payoutIfWin: 15, lossIfLose: 15, outcome: 'lost', settledDelta: -15 },
-	{ betId: resolvedBet.id, userId: mira.id, payoutIfWin: 15, lossIfLose: 15, outcome: 'lost', settledDelta: -15 }
+	{
+		betId: resolvedBet.id,
+		userId: carl.id,
+		payoutIfWin: 15,
+		lossIfLose: 15,
+		outcome: 'won',
+		settledDelta: 15
+	},
+	{
+		betId: resolvedBet.id,
+		userId: dana.id,
+		payoutIfWin: 15,
+		lossIfLose: 15,
+		outcome: 'won',
+		settledDelta: 15
+	},
+	{
+		betId: resolvedBet.id,
+		userId: theo.id,
+		payoutIfWin: 15,
+		lossIfLose: 15,
+		outcome: 'lost',
+		settledDelta: -15
+	},
+	{
+		betId: resolvedBet.id,
+		userId: mira.id,
+		payoutIfWin: 15,
+		lossIfLose: 15,
+		outcome: 'lost',
+		settledDelta: -15
+	}
 ]);
 
 // Settle: Theo -> Carl 15, Mira -> Dana 15.

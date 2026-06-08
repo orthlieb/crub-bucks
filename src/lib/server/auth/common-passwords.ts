@@ -169,7 +169,7 @@ const LEET: Record<string, string> = {
 	'7': 't',
 	'8': 'b',
 	'@': 'a',
-	'$': 's'
+	$: 's'
 };
 
 function leetFold(s: string): string {

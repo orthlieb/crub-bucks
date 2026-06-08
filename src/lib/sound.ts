@@ -186,13 +186,7 @@ function slideWhistle(c: AudioContext, t0: number): void {
 }
 
 /** Two clean notes in sequence (used for the rising "yes"). */
-function twoNote(
-	c: AudioContext,
-	t0: number,
-	f1: number,
-	f2: number,
-	type: OscillatorType
-): void {
+function twoNote(c: AudioContext, t0: number, f1: number, f2: number, type: OscillatorType): void {
 	const blip = (t: number, f: number) => {
 		const osc = c.createOscillator();
 		osc.type = type;

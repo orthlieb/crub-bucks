@@ -8,9 +8,7 @@
 </script>
 
 <div class="kibble-bg min-h-screen bg-background text-foreground">
-	<header
-		class="mx-auto flex max-w-5xl items-center justify-between px-6 py-5"
-	>
+	<header class="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
 		<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
 			<span
 				class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm"
@@ -38,9 +36,7 @@
 				<p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
 					A closed-loop play currency
 				</p>
-				<h1
-					class="mt-3 text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl"
-				>
+				<h1 class="mt-3 text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl">
 					Settle bets, chores, and IOUs in
 					<span class="text-primary">Crub Bucks</span>.
 				</h1>
@@ -77,8 +73,8 @@
 					<CardTitle level={3}>Zero-sum by design</CardTitle>
 				</CardHeader>
 				<CardContent class="text-sm text-muted-foreground">
-					Every transfer debits one wallet and credits another by the same amount. The ledger
-					can't drift out of balance.
+					Every transfer debits one wallet and credits another by the same amount. The ledger can't
+					drift out of balance.
 				</CardContent>
 			</Card>
 
@@ -103,4 +99,3 @@
 		</section>
 	</main>
 </div>
-

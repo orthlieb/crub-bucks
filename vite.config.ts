@@ -44,10 +44,7 @@ export default defineConfig({
 					name: 'unit',
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
-					exclude: [
-						'src/**/*.svelte.{test,spec}.{js,ts}',
-						'src/**/*.db.{test,spec}.{js,ts}'
-					]
+					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}', 'src/**/*.db.{test,spec}.{js,ts}']
 				}
 			},
 			// DB-backed tests. All currently live in src/lib/server/ledger.db.test.ts,

@@ -43,9 +43,7 @@
 		apply(mode);
 	}
 
-	const label = $derived(
-		mode === 'light' ? 'Light' : mode === 'dark' ? 'Dark' : 'System'
-	);
+	const label = $derived(mode === 'light' ? 'Light' : mode === 'dark' ? 'Dark' : 'System');
 </script>
 
 <Button

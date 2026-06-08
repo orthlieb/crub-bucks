@@ -68,10 +68,7 @@ export const actions: Actions = {
 					failedLoginCount: 0
 				})
 				.where(eq(users.id, found.userId));
-			await tx
-				.update(authTokens)
-				.set({ usedAt: new Date() })
-				.where(eq(authTokens.id, found.id));
+			await tx.update(authTokens).set({ usedAt: new Date() }).where(eq(authTokens.id, found.id));
 		});
 
 		// Revoke every existing session so a hijacked session can't ride

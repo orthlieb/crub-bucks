@@ -206,9 +206,7 @@ export async function transferBetweenUsers(opts: {
 	}).catch(() => {});
 
 	// The payer just spent → re-evaluate Throwing Bones. Best-effort.
-	await evaluateBadges(opts.fromUserId).catch((err) =>
-		console.warn('[badges] eval failed:', err)
-	);
+	await evaluateBadges(opts.fromUserId).catch((err) => console.warn('[badges] eval failed:', err));
 
 	return transferId;
 }
@@ -473,9 +471,7 @@ export async function areFriends(a: string, b: string): Promise<boolean> {
 }
 
 /** Accepted friends of a user (the other party in each accepted row). */
-export async function getFriends(
-	userId: string
-): Promise<
+export async function getFriends(userId: string): Promise<
 	Array<{
 		id: string;
 		displayName: string;
@@ -541,10 +537,7 @@ export async function setFavorite(
 		throw new LedgerError('You can only favorite your friends');
 	}
 	if (isFavorite) {
-		await db
-			.insert(friendFavorites)
-			.values({ userId, friendId })
-			.onConflictDoNothing();
+		await db.insert(friendFavorites).values({ userId, friendId }).onConflictDoNothing();
 	} else {
 		await db
 			.delete(friendFavorites)
@@ -555,7 +548,9 @@ export async function setFavorite(
 /** Pending requests sent TO this user (awaiting their approval). */
 export async function getIncomingRequests(
 	userId: string
-): Promise<Array<{ requestId: string; fromId: string; displayName: string; email: string; sentAt: Date }>> {
+): Promise<
+	Array<{ requestId: string; fromId: string; displayName: string; email: string; sentAt: Date }>
+> {
 	const rows = await db
 		.select({
 			requestId: friendships.id,
@@ -574,7 +569,9 @@ export async function getIncomingRequests(
 /** Pending requests this user has sent (awaiting the other's approval). */
 export async function getOutgoingRequests(
 	userId: string
-): Promise<Array<{ requestId: string; toId: string; displayName: string; email: string; sentAt: Date }>> {
+): Promise<
+	Array<{ requestId: string; toId: string; displayName: string; email: string; sentAt: Date }>
+> {
 	const rows = await db
 		.select({
 			requestId: friendships.id,
@@ -686,9 +683,7 @@ export async function sendFriendRequest(
 	const accepted = existing.find((r) => r.status === 'accepted');
 	if (accepted) return { result: 'already', otherId: other.id };
 
-	const minePending = existing.find(
-		(r) => r.status === 'pending' && r.requesterId === requesterId
-	);
+	const minePending = existing.find((r) => r.status === 'pending' && r.requesterId === requesterId);
 	if (minePending) return { result: 'already_sent', otherId: other.id };
 
 	// About to create or enable a friendship — both sides must be under cap.
@@ -708,9 +703,7 @@ export async function sendFriendRequest(
 		.limit(1);
 	const requesterName = requester?.displayName ?? 'Someone';
 
-	const theirsPending = existing.find(
-		(r) => r.status === 'pending' && r.requesterId === other.id
-	);
+	const theirsPending = existing.find((r) => r.status === 'pending' && r.requesterId === other.id);
 	if (theirsPending) {
 		// They already asked us — accept their request (mutual intent).
 		await db
@@ -1070,11 +1063,11 @@ export async function createBet(opts: {
 								acceptedAt: acceptedAtFor(id)
 							}))
 						: ids.map((id) => ({
-							betId: bet.id,
-							userId: id,
-							outcome: 'pending' as const,
-							acceptedAt: acceptedAtFor(id)
-						}));
+								betId: bet.id,
+								userId: id,
+								outcome: 'pending' as const,
+								acceptedAt: acceptedAtFor(id)
+							}));
 		await tx.insert(betParticipants).values(rows);
 		return bet.id;
 	});
@@ -1120,7 +1113,12 @@ export async function acceptBet(opts: {
 		// otherwise two simultaneous accepts could each miss the other's
 		// not-yet-committed acceptance and leave a fully-accepted bet stuck.
 		const [bet] = await tx
-			.select({ status: bets.status, createdBy: bets.createdBy, title: bets.title, mode: bets.mode })
+			.select({
+				status: bets.status,
+				createdBy: bets.createdBy,
+				title: bets.title,
+				mode: bets.mode
+			})
 			.from(bets)
 			.where(eq(bets.id, betId))
 			.limit(1)
@@ -1344,9 +1342,13 @@ export async function resolveBet(opts: {
 			// (no inventing or shrinking stakes), and carry a note for the record.
 			if (!note) throw new LedgerError('Add a note explaining the split.');
 			const manual = opts.manual;
-			deltas = parts.map((p) => ({ userId: p.userId, delta: Math.trunc(Number(manual[p.userId] ?? 0)) }));
+			deltas = parts.map((p) => ({
+				userId: p.userId,
+				delta: Math.trunc(Number(manual[p.userId] ?? 0))
+			}));
 			for (const d of deltas) {
-				if (!Number.isFinite(d.delta)) throw new LedgerError('Enter a whole number for each player.');
+				if (!Number.isFinite(d.delta))
+					throw new LedgerError('Enter a whole number for each player.');
 			}
 			const sum = deltas.reduce((s, d) => s + d.delta, 0);
 			if (sum !== 0) {

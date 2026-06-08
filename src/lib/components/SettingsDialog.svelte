@@ -111,7 +111,12 @@
 				aria-label="Settings"
 				title="Settings"
 			>
-				<Avatar id={user.id} name={user.displayName} avatarUpdatedAt={user.avatarUpdatedAt} size={32} />
+				<Avatar
+					id={user.id}
+					name={user.displayName}
+					avatarUpdatedAt={user.avatarUpdatedAt}
+					size={32}
+				/>
 			</button>
 		{/snippet}
 	</Dialog.Trigger>
@@ -122,7 +127,12 @@
 
 		<!-- Profile photo -->
 		<div class="flex items-center gap-4">
-			<Avatar id={user.id} name={user.displayName} avatarUpdatedAt={user.avatarUpdatedAt} size={56} />
+			<Avatar
+				id={user.id}
+				name={user.displayName}
+				avatarUpdatedAt={user.avatarUpdatedAt}
+				size={56}
+			/>
 			<div class="flex flex-col gap-2">
 				<div class="flex gap-2">
 					<Button variant="outline" size="sm" disabled={busy} onclick={() => fileInput.click()}>
@@ -134,13 +144,7 @@
 				</div>
 				<p class="text-xs text-muted-foreground">Square, downsized to 512px. Max 512&nbsp;KB.</p>
 			</div>
-			<input
-				bind:this={fileInput}
-				type="file"
-				accept="image/*"
-				class="hidden"
-				onchange={onPick}
-			/>
+			<input bind:this={fileInput} type="file" accept="image/*" class="hidden" onchange={onPick} />
 		</div>
 		<!-- Display name -->
 		<div class="space-y-2 border-t pt-3">
@@ -181,7 +185,9 @@
 			<div class="flex items-center justify-between py-3">
 				<div>
 					<div class="text-sm font-medium">Sound effects</div>
-					<div class="text-xs text-muted-foreground">Cues for gains, losses, bets, and friend requests.</div>
+					<div class="text-xs text-muted-foreground">
+						Cues for gains, losses, bets, and friend requests.
+					</div>
 				</div>
 				<SoundToggle />
 			</div>
@@ -189,7 +195,9 @@
 			<div class="flex items-center justify-between py-3">
 				<div>
 					<div class="text-sm font-medium">Notifications</div>
-					<div class="text-xs text-muted-foreground">Push alerts for bets, payments, friends, and awards.</div>
+					<div class="text-xs text-muted-foreground">
+						Push alerts for bets, payments, friends, and awards.
+					</div>
 				</div>
 				<NotificationToggle />
 			</div>

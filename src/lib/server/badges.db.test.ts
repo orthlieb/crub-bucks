@@ -196,17 +196,25 @@ suite('badges (DB)', () => {
 		// Two where a is the requester, one where a is the addressee → 3 accepted.
 		for (let i = 0; i < 2; i++) {
 			const f = await createUser();
-			await db
-				.insert(friendships)
-				.values({ requesterId: a.id, addresseeId: f.id, status: 'accepted', respondedAt: new Date() });
+			await db.insert(friendships).values({
+				requesterId: a.id,
+				addresseeId: f.id,
+				status: 'accepted',
+				respondedAt: new Date()
+			});
 		}
 		const g = await createUser();
-		await db
-			.insert(friendships)
-			.values({ requesterId: g.id, addresseeId: a.id, status: 'accepted', respondedAt: new Date() });
+		await db.insert(friendships).values({
+			requesterId: g.id,
+			addresseeId: a.id,
+			status: 'accepted',
+			respondedAt: new Date()
+		});
 		// A pending request must not count.
 		const h = await createUser();
-		await db.insert(friendships).values({ requesterId: a.id, addresseeId: h.id, status: 'pending' });
+		await db
+			.insert(friendships)
+			.values({ requesterId: a.id, addresseeId: h.id, status: 'pending' });
 
 		expect((await computeMetrics(a.id)).friends).toBe(3);
 

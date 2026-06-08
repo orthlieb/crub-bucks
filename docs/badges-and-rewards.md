@@ -11,7 +11,7 @@
 
 A framework for awarding **badges** to players for one-time accomplishments.
 Each badge has **bronze / silver / gold** tiers representing escalating levels
-of the same achievement. Earning a badge notifies the earner *and* their
+of the same achievement. Earning a badge notifies the earner _and_ their
 friends.
 
 ---
@@ -23,7 +23,7 @@ friends.
 - **Tiered.** Every badge has three thresholds — bronze (entry), silver (solid),
   gold (impressive). The same achievement, three altitudes.
 - **Progressive.** You climb a badge over time: bronze → silver → gold. Your
-  *displayed* badge is the highest tier you've reached.
+  _displayed_ badge is the highest tier you've reached.
 - **Social.** When you earn a badge, you get a celebratory notification and each
   of your friends gets an informational one. Achievements are meant to be seen.
 - **Derived, not gamed.** Badges are computed from real ledger/bet history, so
@@ -36,19 +36,19 @@ friends.
 
 ## 2. Core concepts
 
-| Term | Meaning |
-| --- | --- |
-| **Badge** | A category of achievement, identified by a stable `key` (e.g. `high_roller`). Defined in code. |
-| **Tier** | `bronze` \| `silver` \| `gold`. Ordered. Each tier has its own threshold. |
-| **Metric** | The number a badge measures (e.g. lifetime CB wagered, bets won, friends). |
-| **Award** | A row recording that a user crossed a tier threshold, with a timestamp. Immutable. |
-| **Holding** | The set of a user's awards. Their *current* tier for a badge = the highest tier they've been awarded. |
+| Term        | Meaning                                                                                               |
+| ----------- | ----------------------------------------------------------------------------------------------------- |
+| **Badge**   | A category of achievement, identified by a stable `key` (e.g. `high_roller`). Defined in code.        |
+| **Tier**    | `bronze` \| `silver` \| `gold`. Ordered. Each tier has its own threshold.                             |
+| **Metric**  | The number a badge measures (e.g. lifetime CB wagered, bets won, friends).                            |
+| **Award**   | A row recording that a user crossed a tier threshold, with a timestamp. Immutable.                    |
+| **Holding** | The set of a user's awards. Their _current_ tier for a badge = the highest tier they've been awarded. |
 
 ### One-time semantics (decided: climb, keep only highest)
 
 - A user holds **at most one row per badge** — `UNIQUE (user_id, badge_key)`.
   The row stores the **current highest tier**, upgraded in place as you climb.
-- You can't earn the same *tier* twice: an award only ever moves **forward**
+- You can't earn the same _tier_ twice: an award only ever moves **forward**
   (bronze → silver → gold). Re-evaluating never re-fires a tier you already hold.
 - Each forward step (first-time bronze, the silver upgrade, the gold upgrade) is
   a distinct one-time event and triggers one notification + friend fan-out.
@@ -66,28 +66,29 @@ friends.
 Thresholds are starting points to tune against real data. All metrics are
 **lifetime** and **monotonic** (they only go up), which is what keeps badges
 one-time and recomputable. Metrics that could otherwise decrease (e.g. current
-balance, friend count) use a *high-water mark* so a badge already earned is
+balance, friend count) use a _high-water mark_ so a badge already earned is
 never revoked.
 
-| Badge | `key` | Metric | 🥉 Bronze | 🥈 Silver | 🥇 Gold |
-| --- | --- | --- | --- | --- | --- |
-| **Running with the Pack** | `first_steps` | Bets joined (any outcome) | 5 | 25 | 100 |
-| **Winner, winner, chicken dinner!** | `winner` | Bets won | 5 | 25 | 50 |
-| **All Bones In** | `all_in` | Lifetime ₡ wagered ("zero impulse control") | 100 | 1,000 | 10,000 |
-| **Big Bowl** | `big_bowl` | Largest single bet pot you were in ("when the kibble piles up") | 50 | 250 | 1,000 |
-| **Bark-to-Bark Wins** | `bark_to_bark` | Longest win streak ("back-to-back, now with more woof") | 3 | 5 | 10 |
-| **The Dog House** | `dog_house` | Bets you settled — the resolver ("where every bet comes to heel") | 5 | 25 | 100 |
-| **Throwing Bones** | `throwing_bones` | Lifetime ₡ sent as peer payments ("easy come, easy bury") | 100 | 1,000 | 10,000 |
-| **Social Butterfly** | `social` | Accepted friends ("a friend is just someone you haven't sniffed yet") | 3 | 10 | 25 |
-| **Recruiter** | `recruiter` | Invited friends who joined | 1 | 5 | 15 |
-| **Comeback Kid** | `comeback` | Climbed from ≤ −50 ₡ back to ≥ +100 ₡ | — | — | once 🥇 |
-| **Veteran** | `veteran` | Account age in days | 30 | 180 | 365 |
+| Badge                               | `key`            | Metric                                                                | 🥉 Bronze | 🥈 Silver | 🥇 Gold |
+| ----------------------------------- | ---------------- | --------------------------------------------------------------------- | --------- | --------- | ------- |
+| **Running with the Pack**           | `first_steps`    | Bets joined (any outcome)                                             | 5         | 25        | 100     |
+| **Winner, winner, chicken dinner!** | `winner`         | Bets won                                                              | 5         | 25        | 50      |
+| **All Bones In**                    | `all_in`         | Lifetime ₡ wagered ("zero impulse control")                           | 100       | 1,000     | 10,000  |
+| **Big Bowl**                        | `big_bowl`       | Largest single bet pot you were in ("when the kibble piles up")       | 50        | 250       | 1,000   |
+| **Bark-to-Bark Wins**               | `bark_to_bark`   | Longest win streak ("back-to-back, now with more woof")               | 3         | 5         | 10      |
+| **The Dog House**                   | `dog_house`      | Bets you settled — the resolver ("where every bet comes to heel")     | 5         | 25        | 100     |
+| **Throwing Bones**                  | `throwing_bones` | Lifetime ₡ sent as peer payments ("easy come, easy bury")             | 100       | 1,000     | 10,000  |
+| **Social Butterfly**                | `social`         | Accepted friends ("a friend is just someone you haven't sniffed yet") | 3         | 10        | 25      |
+| **Recruiter**                       | `recruiter`      | Invited friends who joined                                            | 1         | 5         | 15      |
+| **Comeback Kid**                    | `comeback`       | Climbed from ≤ −50 ₡ back to ≥ +100 ₡                                 | —         | —         | once 🥇 |
+| **Veteran**                         | `veteran`        | Account age in days                                                   | 30        | 180       | 365     |
 
 Notes:
+
 - **Comeback Kid** is a single-tier (gold) one-shot. Badges may define 1–3
   tiers; the registry's `thresholds` map is a partial, so a one-shot just
   specifies one tier (designer's choice of color).
-- **Bark-to-Bark Wins** measures the *longest* streak ever, so losing a streak
+- **Bark-to-Bark Wins** measures the _longest_ streak ever, so losing a streak
   never removes the badge.
 - **Social Butterfly** behaves like a high-water mark for free: awarding is
   forward-only (a held tier is never revoked), so unfriending someone later
@@ -107,7 +108,7 @@ falling back to the emoji while art is unfinished):
 - **Single tintable silhouette (preferred — one image per badge).**
   `static/awards/<slug>.svg` (slug = key with `_`→`-`). The UI CSS-masks the
   silhouette and fills it with the **tier color** when earned, or a muted gray
-  when locked — so one asset covers bronze, silver, gold, *and* the ghost. No
+  when locked — so one asset covers bronze, silver, gold, _and_ the ghost. No
   separate ghost image is ever needed. Trade-off: a flat single color (no
   metallic gradient), so a silhouette/alpha shape works best. SVG is crispest;
   a transparent grayscale PNG also works as the mask.
@@ -126,8 +127,8 @@ falling back to the emoji while art is unfinished):
 
 ## 5. Data model
 
-Two new tables + a code-side registry. Badge *definitions* live in code (static,
-versioned, easy to tune); only *awards* are persisted.
+Two new tables + a code-side registry. Badge _definitions_ live in code (static,
+versioned, easy to tune); only _awards_ are persisted.
 
 ### 5.1 Migration `0019_badges.sql` (proposed)
 
@@ -176,19 +177,21 @@ notify exactly on real upgrades and never twice for the same tier.
 export type BadgeTier = 'bronze' | 'silver' | 'gold';
 
 export interface BadgeDef {
-  key: string;                   // snake_case, e.g. 'first_steps'
-  title: string;                 // "High Roller"
-  description: string;           // shown on the badge
-  emoji?: string;                // tier-agnostic emoji for text (notifications/feed)
-  // Tier art is resolved by convention, no field needed:
-  //   /awards/${key.replaceAll('_','-')}-${tier}.png
-  /** Which lifetime metric this reads. */
-  metric: MetricKey;
-  /** Ascending thresholds; omit a tier for single/double-level badges. */
-  thresholds: Partial<Record<BadgeTier, number>>;
+	key: string; // snake_case, e.g. 'first_steps'
+	title: string; // "High Roller"
+	description: string; // shown on the badge
+	emoji?: string; // tier-agnostic emoji for text (notifications/feed)
+	// Tier art is resolved by convention, no field needed:
+	//   /awards/${key.replaceAll('_','-')}-${tier}.png
+	/** Which lifetime metric this reads. */
+	metric: MetricKey;
+	/** Ascending thresholds; omit a tier for single/double-level badges. */
+	thresholds: Partial<Record<BadgeTier, number>>;
 }
 
-export const BADGES: BadgeDef[] = [ /* the catalog from §3 */ ];
+export const BADGES: BadgeDef[] = [
+	/* the catalog from §3 */
+];
 ```
 
 Keeping definitions in code means tuning a threshold is a code change (review +
@@ -204,14 +207,14 @@ Badges are evaluated **right after the events that can change a metric**, inside
 or just after the same transaction (mirroring how `bumpStats()` is called in the
 ledger today):
 
-| Event | Badges potentially affected |
-| --- | --- |
-| Bet resolved (`resolveBet`) | Running with the Pack, Winner, All Bones In, Big Bowl, Bark-to-Bark Wins, The Dog House (resolver) |
-| Peer payment (`transferBetweenUsers`) | Throwing Bones (the payer) |
-| Friend request accepted (`acceptFriendRequest`) | Social Butterfly |
-| Invite claimed on signup (`materializeInvite*`) | Recruiter (for the inviter) |
-| Balance change (any transfer) | Comeback Kid |
-| Login / daily tick | Veteran (age-based; can also be a nightly cron) |
+| Event                                           | Badges potentially affected                                                                        |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Bet resolved (`resolveBet`)                     | Running with the Pack, Winner, All Bones In, Big Bowl, Bark-to-Bark Wins, The Dog House (resolver) |
+| Peer payment (`transferBetweenUsers`)           | Throwing Bones (the payer)                                                                         |
+| Friend request accepted (`acceptFriendRequest`) | Social Butterfly                                                                                   |
+| Invite claimed on signup (`materializeInvite*`) | Recruiter (for the inviter)                                                                        |
+| Balance change (any transfer)                   | Comeback Kid                                                                                       |
+| Login / daily tick                              | Veteran (age-based; can also be a nightly cron)                                                    |
 
 A single entry point keeps it tidy:
 
@@ -221,6 +224,7 @@ await evaluateBadges(userId, { only: ['winner', 'high_roller', 'big_pot'] });
 ```
 
 `evaluateBadges`:
+
 1. Computes the current value of each relevant metric from source tables
    (and bumps `user_badge_progress` high-water marks where needed).
 2. For each badge, finds the highest tier whose threshold is met.
@@ -234,7 +238,7 @@ backfill/recompute safe to run anytime.
 
 ### 6.2 Failure isolation
 
-Badge evaluation is a *best-effort side effect* — like the existing
+Badge evaluation is a _best-effort side effect_ — like the existing
 `createNotification(...).catch(() => {})` calls. A failure to award a badge must
 never roll back a bet resolution or a payment. Run it after the core transaction
 commits, wrapped in try/catch with a warning log.
@@ -249,11 +253,13 @@ notification infrastructure.
 For each newly awarded badge tier:
 
 - **To the earner** — one `success` notification:
+
   > 🥇 You earned **Gold High Roller** — 10,000 ₡ wagered. Nice.
 
   `link: /app/u/<earnerId>` (their profile/badge wall).
 
 - **To each accepted friend** — one `info` notification:
+
   > 🥇 **Alice** earned the **Gold High Roller** badge.
 
   `link: /app/u/<earnerId>`.
@@ -266,7 +272,7 @@ Fan-out uses `getFriends(earnerId)`. With the 99-friend cap, that's at most 99 +
   a badge could trigger a celebratory sound for the earner (reuse `play('yes')`
   or a new `badge` sound).
 - **Feed (decided — include):** badge awards surface as a `badge_earned` feed
-  item alongside bets and payments. The feed is *derived* (no events table), so
+  item alongside bets and payments. The feed is _derived_ (no events table), so
   this adds one source query over `user_badges` (recent rows, audience-filtered
   to viewer + friends, ordered by `earned_at`) producing items like
   "Alice earned 🥇 Gold High Roller." Renders through the existing
@@ -302,7 +308,7 @@ Fan-out uses `getFriends(earnerId)`. With the 99-friend cap, that's at most 99 +
   metric later drops (unfriending, going negative). High-water marks enforce
   this for non-monotonic metrics.
 - **Self-dealing guard.** Metrics built on social actions should resist gaming:
-  e.g. Recruiter counts only invites that result in a *distinct* real signup;
+  e.g. Recruiter counts only invites that result in a _distinct_ real signup;
   Philanthropist counts peer payments but we may want to exclude immediate
   round-trips (A→B→A) — see open questions.
 - **Account deletion.** `ON DELETE CASCADE` drops a departed user's awards; their
@@ -310,10 +316,10 @@ Fan-out uses `getFriends(earnerId)`. With the 99-friend cap, that's at most 99 +
 - **Backfill.** On first ship, run `recomputeBadges()` across all users so
   existing players immediately hold the badges their history earned —
   **silently** (no retroactive notification storm). Notifications only fire for
-  awards earned *after* the feature is live.
+  awards earned _after_ the feature is live.
 - **Threshold changes.** Lowering a threshold may award new badges on the next
   evaluation (fine). Raising one never revokes already-granted awards.
-- **Broadcasts vs targeted.** Badge notifications are always *targeted*
+- **Broadcasts vs targeted.** Badge notifications are always _targeted_
   (`user_id` set), never broadcasts.
 
 ---
@@ -321,7 +327,7 @@ Fan-out uses `getFriends(earnerId)`. With the 99-friend cap, that's at most 99 +
 ## 10. Open questions (need your call)
 
 1. **Tier vs. badge uniqueness.** "Can't earn the same badge twice" — confirmed
-   reading is *can't earn the same `(badge, tier)` twice*, but you progress
+   reading is _can't earn the same `(badge, tier)` twice_, but you progress
    bronze→silver→gold over time. Correct? Or should a badge be a single
    one-shot award where the tier is just its difficulty at the moment earned?
 2. ~~**Multi-tier jump notifications.**~~ **Resolved by Q1:** keep-only-highest
@@ -336,7 +342,7 @@ Fan-out uses `getFriends(earnerId)`. With the 99-friend cap, that's at most 99 +
    invite farming)? Strict = more queries; lenient = simpler.
 7. ~~**Profile route.**~~ **Resolved:** a new top-level **Awards** tab
    (`/app/awards`, icon `static/awards.png`) hosts the current user's badge
-   wall. (Viewing a *friend's* badges — e.g. from the friends list — is still
+   wall. (Viewing a _friend's_ badges — e.g. from the friends list — is still
    open; can be added later.)
 
 ---
@@ -370,10 +376,10 @@ BADGES registry (code)               static definitions, thresholds, icons
 
 - **Real push notifications (mobile/desktop) — TODO.** Today badge alerts are
   in-app only: the notification bell, the `badge_earned` feed item, and the
-  "wow" sound *while the tab is open*. Add Web Push (service worker + VAPID) so
+  "wow" sound _while the tab is open_. Add Web Push (service worker + VAPID) so
   awards (and other notifications) reach users when the app isn't focused;
   native wrappers later. Tracked separately — see `docs/push-notifications.md`.
-- **Award sound (done).** `wow.mp3` plays once when *you* earn an award —
+- **Award sound (done).** `wow.mp3` plays once when _you_ earn an award —
   driven by a `lastBadgeAt` signal in the layout poll (mirrors the
   cash/slide/yes/no cues), with a synth fanfare fallback if the file is missing.
 - **Polish (open).** Award toast / header flourish; viewing a friend's badge

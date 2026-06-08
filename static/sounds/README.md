@@ -7,12 +7,12 @@ good source.
 
 Expected filenames (MP3):
 
-| File                  | Plays when…                              |
-| --------------------- | ---------------------------------------- |
-| `cash-register.mp3`   | you gain CB (won a bet, got paid)        |
-| `slide-whistle.mp3`   | you lose CB (lost a bet, paid someone)   |
-| `hello-there.mp3`     | you receive a friend request             |
-| `yes.mp3`             | a bet you're in goes live                |
-| `no.mp3`              | a bet you're in is called off            |
+| File                | Plays when…                            |
+| ------------------- | -------------------------------------- |
+| `cash-register.mp3` | you gain CB (won a bet, got paid)      |
+| `slide-whistle.mp3` | you lose CB (lost a bet, paid someone) |
+| `hello-there.mp3`   | you receive a friend request           |
+| `yes.mp3`           | a bet you're in goes live              |
+| `no.mp3`            | a bet you're in is called off          |
 
 Keep them short (< ~1s) and reasonably quiet. They're played at 50% volume.
