@@ -18,6 +18,7 @@ import { securityEvents } from '../db/schema';
  *   'password_reset_completed'          /reset-password redeemed
  *   'admin_role_change'                 admin promoted / demoted a user
  *   'admin_suspend' / 'admin_unsuspend' admin toggled isActive
+ *   'admin_name_change'                 admin renamed a user's display name
  *   'maintenance_mode_change'           admin toggled maintenance mode
  *   'registration_lock_change'          admin toggled registration lock
  *   'registration_daily_limit_change'   admin set/cleared the per-day signup cap
@@ -36,6 +37,7 @@ export type SecurityEventType =
 	| 'admin_role_change'
 	| 'admin_suspend'
 	| 'admin_unsuspend'
+	| 'admin_name_change'
 	| 'admin_balance_set'
 	| 'maintenance_mode_change'
 	| 'registration_lock_change'

@@ -736,8 +736,9 @@
 				<Dialog.Title>Settle a tie</Dialog.Title>
 				<Dialog.Description>
 					Enter each player's net result — the winnings (+) must total the {fmt(pool)} ₡ pot and the losses
-					(−) must cover it (net zero). A note is required, and this settles the bet immediately. Tap the +/- button beside a player to mark them as a loss. If everyone
-					tied and no one pays, cancel the bet instead.
+					(−) must cover it (net zero). A note is required, and this settles the bet immediately. Tap
+					the +/- button beside a player to mark them as a loss. If everyone tied and no one pays, cancel
+					the bet instead.
 				</Dialog.Description>
 				<form method="POST" action="?/resolve" use:enhance class="space-y-3">
 					<div class="space-y-1">
