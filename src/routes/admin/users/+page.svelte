@@ -27,6 +27,13 @@
 			: undefined
 	);
 
+	// Likewise for the Rename input.
+	const nameErrUserId = $derived(
+		form && 'field' in form && form.field === 'displayName' && 'userId' in form
+			? (form.userId as string)
+			: undefined
+	);
+
 	function fmt(d: Date | string | null): string {
 		if (!d) return '—';
 		const date = typeof d === 'string' ? new Date(d) : d;
@@ -110,7 +117,7 @@
 		</div>
 	</header>
 
-	{#if form && 'error' in form && form.error && !balanceErrUserId}
+	{#if form && 'error' in form && form.error && !balanceErrUserId && !nameErrUserId}
 		<Alert variant="destructive"><AlertDescription>{form.error}</AlertDescription></Alert>
 	{/if}
 
@@ -132,8 +139,22 @@
 					{#each data.users as u (u.id)}
 						<TableRow>
 							<TableCell>
-								<div class="font-medium">{u.displayName}</div>
-								<div class="text-xs text-muted-foreground">{u.email}</div>
+								<form method="POST" action="?/rename" use:enhance class="flex items-center gap-1">
+									<input type="hidden" name="userId" value={u.id} />
+									<Input
+										name="displayName"
+										value={u.displayName}
+										maxlength={40}
+										aria-label={`Display name for ${u.displayName}`}
+										class="h-8 w-44"
+										aria-invalid={nameErrUserId === u.id}
+									/>
+									<Button type="submit" size="sm" variant="outline">Rename</Button>
+								</form>
+								<div class="mt-1 text-xs text-muted-foreground">{u.email}</div>
+								{#if nameErrUserId === u.id && form && 'error' in form}
+									<p class="mt-1 text-xs text-destructive">{form.error}</p>
+								{/if}
 							</TableCell>
 							<TableCell>
 								<Badge variant={u.role === 'admin' ? 'default' : 'secondary'}>

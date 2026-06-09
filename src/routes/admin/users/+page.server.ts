@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
 import { invalidateAllSessionsForUser } from '$lib/server/auth/session';
 import { logSecurityEvent } from '$lib/server/auth/audit';
+import { validateDisplayName } from '$lib/server/display-name';
 import { adminSetBalance, userBalancesFor, LedgerError } from '$lib/server/ledger';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -74,7 +75,13 @@ export const load: PageServerLoad = async ({ url }) => {
 
 async function loadUser(id: string) {
 	const [row] = await db
-		.select({ id: users.id, email: users.email, role: users.role, isActive: users.isActive })
+		.select({
+			id: users.id,
+			email: users.email,
+			displayName: users.displayName,
+			role: users.role,
+			isActive: users.isActive
+		})
 		.from(users)
 		.where(eq(users.id, id));
 	return row ?? null;
@@ -96,6 +103,34 @@ export const actions: Actions = {
 			eventType: 'admin_suspend',
 			event,
 			metadata: { actorUserId: event.locals.user?.id, targetEmail: target.email }
+		});
+		return { ok: true as const };
+	},
+
+	rename: async (event) => {
+		const form = await event.request.formData();
+		const id = String(form.get('userId') ?? '');
+		const target = await loadUser(id);
+		if (!target) throw error(404, 'User not found');
+
+		// Same validation users get on their own name (length, sanitize, profanity).
+		const result = validateDisplayName(String(form.get('displayName') ?? ''));
+		if (!result.ok) {
+			return fail(400, { error: result.message, field: 'displayName', userId: id });
+		}
+		if (result.value === target.displayName) return { ok: true as const };
+
+		await db.update(users).set({ displayName: result.value }).where(eq(users.id, id));
+		await logSecurityEvent({
+			userId: id,
+			eventType: 'admin_name_change',
+			event,
+			metadata: {
+				actorUserId: event.locals.user?.id,
+				targetEmail: target.email,
+				previousName: target.displayName,
+				newName: result.value
+			}
 		});
 		return { ok: true as const };
 	},
