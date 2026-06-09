@@ -155,14 +155,20 @@
 	// to zero AND the winnings must total the pot exactly (a tie can't invent or
 	// shrink the stakes). An all-tie wash where nobody pays is a Cancel, not this.
 	let manualOpen = $state(false);
-	let manualValues = $state<Record<string, number>>({});
+	// Each participant's net result is split into a positive magnitude plus a
+	// win(+)/lose(−) sign. Keeping them separate means the amount can be typed on
+	// a plain numeric keypad — Android's has no minus key — while the sign is set
+	// with a +/− toggle button. The hidden field per row posts the signed value.
+	let manualMag = $state<Record<string, number>>({});
+	let manualSign = $state<Record<string, 1 | -1>>({});
 	let tieNote = $state('');
-	const manualSum = $derived(
-		data.participants.reduce((s, p) => s + (Number(manualValues[p.userId]) || 0), 0)
-	);
+	function manualSigned(userId: string): number {
+		return (manualSign[userId] ?? 1) * (Number(manualMag[userId]) || 0);
+	}
+	const manualSum = $derived(data.participants.reduce((s, p) => s + manualSigned(p.userId), 0));
 	const manualWon = $derived(
 		data.participants.reduce((s, p) => {
-			const v = Number(manualValues[p.userId]) || 0;
+			const v = manualSigned(p.userId);
 			return s + (v > 0 ? v : 0);
 		}, 0)
 	);
@@ -730,26 +736,51 @@
 				<Dialog.Title>Settle a tie</Dialog.Title>
 				<Dialog.Description>
 					Enter each player's net result — the winnings (+) must total the {fmt(pool)} ₡ pot and the losses
-					(−) must cover it (net zero). A note is required, and this settles the bet immediately. If everyone
+					(−) must cover it (net zero). A note is required, and this settles the bet immediately. Tap the +/- button beside a player to mark them as a loss. If everyone
 					tied and no one pays, cancel the bet instead.
 				</Dialog.Description>
 				<form method="POST" action="?/resolve" use:enhance class="space-y-3">
 					<div class="space-y-1">
 						{#each data.participants as p (p.userId)}
+							{@const sign = manualSign[p.userId] ?? 1}
 							<div class="flex items-center justify-between gap-2">
 								<span class="min-w-0 flex-1 truncate text-sm">
 									{p.displayName}{#if p.userId === data.myUserId}<span
 											class="ml-1 text-xs text-muted-foreground">(you)</span
 										>{/if}
 								</span>
-								<Input
-									type="number"
-									step="1"
-									name={`manual[${p.userId}]`}
-									bind:value={manualValues[p.userId]}
-									placeholder="0"
-									class="w-28 text-right tabular-nums"
-								/>
+								<div class="flex items-center gap-1">
+									<!-- Win(+)/lose(−) toggle, so a loss can be entered without a
+									     minus key (Android's numeric keypad has none). -->
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										class={`w-9 px-0 text-base font-semibold tabular-nums ${
+											sign === -1 ? 'text-destructive' : 'text-success'
+										}`}
+										aria-label={`${p.displayName}: marked as a ${
+											sign === 1 ? 'win — tap to make it a loss' : 'loss — tap to make it a win'
+										}`}
+										onclick={() => (manualSign[p.userId] = sign === 1 ? -1 : 1)}
+									>
+										{sign === 1 ? '+' : '−'}
+									</Button>
+									<Input
+										type="number"
+										inputmode="numeric"
+										step="1"
+										min="0"
+										bind:value={manualMag[p.userId]}
+										placeholder="0"
+										class="w-24 text-right tabular-nums"
+									/>
+									<input
+										type="hidden"
+										name={`manual[${p.userId}]`}
+										value={sign * (Number(manualMag[p.userId]) || 0)}
+									/>
+								</div>
 							</div>
 						{/each}
 					</div>
