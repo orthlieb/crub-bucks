@@ -714,7 +714,7 @@
 
 					<div class="flex flex-wrap gap-2">
 						<Button type="submit" disabled={!canSettle}>Settle</Button>
-						{#if mode !== 'pot' && mode !== 'odds'}
+						{#if mode !== 'pot' && mode !== 'odds' && data.participants.length > 2}
 							<Button type="button" variant="outline" onclick={() => (manualOpen = true)}
 								>Tied?</Button
 							>
