@@ -310,8 +310,7 @@
 				<CardHeader>
 					<CardTitle level={2}>Add a friend</CardTitle>
 					<CardDescription
-						>Invite by email, or get a link to text them. Either way they approve once they're
-						in.</CardDescription
+						>Invite by email, or get a link to text them. Either way they approve once they're in.</CardDescription
 					>
 				</CardHeader>
 				<CardContent>
@@ -344,20 +343,25 @@
 						</div>
 						<div class="flex gap-2">
 							<Button type="submit">Email invite</Button>
-							<Button type="submit" variant="outline" formaction="?/requestLink">Text a link</Button>
+							<Button type="submit" variant="outline" formaction="?/requestLink">Text a link</Button
+							>
 						</div>
 					</form>
 
 					{#if textInvite}
 						<div class="mt-4 space-y-3 rounded-md border bg-muted/30 p-3">
 							<p class="text-sm">
-								Invite ready for <strong>{textInvite.email}</strong>. Send it however you like — they're
-								connected to you when they sign up with it.
+								Invite ready for <strong>{textInvite.email}</strong>. Send it however you like —
+								they're connected to you when they sign up with it.
 							</p>
 							<p class="rounded bg-background p-2 text-sm break-words">{textInvite.text}</p>
 							<div class="flex flex-wrap gap-2">
 								<Button href={`sms:?&body=${encodeURIComponent(textInvite.text)}`}>Text it</Button>
-								<Button type="button" variant="outline" onclick={() => copyText('link', textInvite.url)}>
+								<Button
+									type="button"
+									variant="outline"
+									onclick={() => copyText('link', textInvite.url)}
+								>
 									Copy link
 								</Button>
 								<Button
