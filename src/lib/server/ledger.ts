@@ -610,10 +610,13 @@ export async function countIncomingRequests(userId: string): Promise<number> {
  */
 export async function sendFriendRequest(
 	requesterId: string,
-	email: string
+	email: string,
+	options: { deliver?: 'email' | 'link' } = {}
 ): Promise<{
 	result: 'sent' | 'accepted' | 'already' | 'already_sent' | 'invited' | 'already_invited';
 	otherId?: string;
+	/** Present for invite results — lets the caller build a shareable link. */
+	inviteId?: string;
 }> {
 	const normalized = email.trim().toLowerCase();
 	if (!normalized) throw new LedgerError('Enter an email address.');
@@ -639,7 +642,7 @@ export async function sendFriendRequest(
 			.where(and(eq(friendInvites.inviterId, requesterId), eq(friendInvites.email, normalized)))
 			.limit(1);
 		if (existingInvite && !existingInvite.claimedAt) {
-			return { result: 'already_invited' };
+			return { result: 'already_invited', inviteId: existingInvite.id };
 		}
 
 		if ((await countAcceptedFriends(requesterId)) >= MAX_FRIENDS) {
@@ -654,16 +657,20 @@ export async function sendFriendRequest(
 				.returning({ id: friendInvites.id });
 			inviteId = created.id;
 		}
-		try {
-			await sendFriendInviteEmail({
-				to: normalized,
-				inviterName: me?.displayName ?? 'A friend',
-				inviteId
-			});
-		} catch (err) {
-			console.warn('[friend-invite] failed to send invite email:', err);
+		// When the caller will deliver the link themselves (e.g. via text), skip
+		// the automatic email — the invite row still ties signup back to them.
+		if (options.deliver !== 'link') {
+			try {
+				await sendFriendInviteEmail({
+					to: normalized,
+					inviterName: me?.displayName ?? 'A friend',
+					inviteId
+				});
+			} catch (err) {
+				console.warn('[friend-invite] failed to send invite email:', err);
+			}
 		}
-		return { result: 'invited' };
+		return { result: 'invited', inviteId };
 	}
 
 	if (other.id === requesterId) throw new LedgerError("You can't add yourself.");
