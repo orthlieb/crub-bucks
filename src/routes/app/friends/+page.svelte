@@ -23,6 +23,31 @@
 	// Which pay-form field the server flagged (amount | memo), to highlight in red.
 	const payField = $derived(form && 'payField' in form ? form.payField : undefined);
 
+	// A ready-to-share invite (link + suggested message) from the "Text a link"
+	// action — the user sends it themselves.
+	const textInvite = $derived(form && 'textInvite' in form ? form.textInvite : null);
+	let copied = $state('');
+	async function copyText(label: string, text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			copied = label;
+			setTimeout(() => (copied = ''), 1500);
+		} catch {
+			/* clipboard unavailable — the text is visible to copy by hand */
+		}
+	}
+	async function shareInvite(text: string, url: string) {
+		if (navigator.share) {
+			try {
+				await navigator.share({ text, url });
+				return;
+			} catch {
+				return; // user cancelled the share sheet
+			}
+		}
+		await copyText('message', text);
+	}
+
 	// Client-side filter over the already-loaded friends list. Case-insensitive
 	// substring match on display name OR email. Friends are capped at 99 so
 	// filtering in JS is trivial — no server round-trip.
@@ -285,7 +310,8 @@
 				<CardHeader>
 					<CardTitle level={2}>Add a friend</CardTitle>
 					<CardDescription
-						>They need a Crub Bucks account, and must approve your request.</CardDescription
+						>Invite by email, or get a link to text them. Either way they approve once they're
+						in.</CardDescription
 					>
 				</CardHeader>
 				<CardContent>
@@ -316,8 +342,35 @@
 								aria-invalid={!!form?.requestError}
 							/>
 						</div>
-						<Button type="submit">Send request</Button>
+						<div class="flex gap-2">
+							<Button type="submit">Email invite</Button>
+							<Button type="submit" variant="outline" formaction="?/requestLink">Text a link</Button>
+						</div>
 					</form>
+
+					{#if textInvite}
+						<div class="mt-4 space-y-3 rounded-md border bg-muted/30 p-3">
+							<p class="text-sm">
+								Invite ready for <strong>{textInvite.email}</strong>. Send it however you like — they're
+								connected to you when they sign up with it.
+							</p>
+							<p class="rounded bg-background p-2 text-sm break-words">{textInvite.text}</p>
+							<div class="flex flex-wrap gap-2">
+								<Button href={`sms:?&body=${encodeURIComponent(textInvite.text)}`}>Text it</Button>
+								<Button type="button" variant="outline" onclick={() => copyText('link', textInvite.url)}>
+									Copy link
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									onclick={() => shareInvite(textInvite.text, textInvite.url)}
+								>
+									Share…
+								</Button>
+							</div>
+							{#if copied}<p class="text-xs text-success">Copied {copied}!</p>{/if}
+						</div>
+					{/if}
 				</CardContent>
 			</div>
 		</div>

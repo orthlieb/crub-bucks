@@ -601,6 +601,21 @@ suite('ledger workflows (DB)', () => {
 			expect(claimed.claimedAt).not.toBeNull();
 		});
 
+		it('deliver:link returns an invite id (for a shareable text link) and still records the invite', async () => {
+			const a = await createUser();
+			const res = await sendFriendRequest(a.id, 'texted@test.local', { deliver: 'link' });
+			expect(res.result).toBe('invited');
+			expect(res.inviteId).toBeTruthy();
+
+			const [invite] = await db
+				.select()
+				.from(friendInvites)
+				.where(eq(friendInvites.email, 'texted@test.local'));
+			expect(invite).toBeTruthy();
+			expect(invite.id).toBe(res.inviteId);
+			expect(invite.claimedAt).toBeNull();
+		});
+
 		it('claims by invite id when the signup email differs from the invited one', async () => {
 			const a = await createUser();
 			await sendFriendRequest(a.id, 'work@test.local');

@@ -16,6 +16,7 @@ import {
 	LedgerError
 } from '$lib/server/ledger';
 import { checkClean } from '$lib/server/moderation';
+import { getAppUrl } from '$lib/server/email';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -45,6 +46,37 @@ export const actions: Actions = {
 				already_invited: `You've already invited ${email}. We'll connect you when they join.`
 			};
 			return { requestMessage: messages[result] };
+		} catch (e) {
+			if (e instanceof LedgerError) return fail(400, { requestError: e.message, email });
+			throw e;
+		}
+	},
+
+	// Like `request`, but the user delivers the invite themselves (e.g. by text).
+	// We still create the invite from their email so signup ties back to them;
+	// we just hand back a link + suggested message instead of emailing it.
+	requestLink: async ({ request, locals }) => {
+		const userId = locals.user!.id;
+		const form = await request.formData();
+		const email = String(form.get('email') ?? '').trim();
+		try {
+			const { result, inviteId } = await sendFriendRequest(userId, email, { deliver: 'link' });
+			if ((result === 'invited' || result === 'already_invited') && inviteId) {
+				const url = `${getAppUrl()}/register?invite=${inviteId}&email=${encodeURIComponent(
+					email.toLowerCase()
+				)}`;
+				const text = `Join me on Crub Bucks — friendly play-money betting with friends. Sign up here: ${url}`;
+				return { textInvite: { email, url, text } };
+			}
+			// Email already belongs to a Crub Bucks user → a normal in-app request
+			// was created; there's nothing to text.
+			const messages: Record<string, string> = {
+				sent: "They're already on Crub Bucks — friend request sent.",
+				accepted: "They'd already requested you — you're now friends!",
+				already: "You're already friends.",
+				already_sent: 'Request already pending.'
+			};
+			return { requestMessage: messages[result] ?? 'Request sent.' };
 		} catch (e) {
 			if (e instanceof LedgerError) return fail(400, { requestError: e.message, email });
 			throw e;
