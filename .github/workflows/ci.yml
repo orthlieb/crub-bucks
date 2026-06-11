@@ -1,0 +1,73 @@
+name: CI
+
+# Pull-request gate: runs the same fast verification the deploy workflow does
+# (lint → typecheck → db-backed tests → coverage floor → production build), so
+# a PR that breaks any of them shows red *before* merge. The deploy workflow
+# (push to main) re-runs these as the final gate before SSHing to the VPS, so
+# we only trigger here on pull_request to avoid duplicate runs on main.
+on:
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same PR cancels the in-flight run — no point finishing
+# checks against stale commits.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Sidecar Postgres so the DB-backed tests (src/lib/server/*.db.test.ts) run
+    # rather than silently skip (src/test/db.ts only activates when
+    # DATABASE_URL ends in `_test`). Mirrors deploy.yml.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: crub
+          POSTGRES_PASSWORD: crub
+          POSTGRES_DB: crubbucks_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # The DB-test guard checks the path of DATABASE_URL — must end in `_test`.
+      DATABASE_URL: postgres://crub:crub@localhost:5432/crubbucks_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Single source of truth for the Node version (.nvmrc → Node 24 / npm 11).
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint (prettier + eslint)
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run check
+
+      - name: Migrate test database
+        run: npm run db:migrate
+
+      - name: Run tests
+        run: npm test
+
+      - name: Coverage thresholds
+        run: npm run test:coverage
+
+      - name: Production build (smoke)
+        run: npm run build
