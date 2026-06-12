@@ -54,6 +54,28 @@
 			</figcaption>
 		</figure>
 
+		<Card class="mt-10 overflow-hidden border-primary/30 bg-primary/5">
+			<CardContent class="flex flex-col gap-5 py-6 sm:flex-row sm:items-center">
+				<img
+					src="/cala-avatar.png"
+					alt="Cala the dog, a.k.a. Crub."
+					width="96"
+					height="96"
+					class="h-24 w-24 shrink-0 select-none rounded-full bg-background object-cover shadow-md ring-2 ring-primary/20"
+				/>
+				<div class="space-y-3 text-muted-foreground">
+					<h2 class="text-xl font-semibold tracking-tight text-foreground">Where it came from</h2>
+					<p>
+						“Crub” was the nickname for our dog, Cala. Crub Bucks started as a way for our kids to
+						trade chores — washing the dishes was never worth the same as picking up Cala's doody —
+						and over time it grew into fun bets and favours between them. In a funny way, it taught
+						them the value of money and some rudimentary math.
+					</p>
+					<p>You're welcome to enjoy it, and to share it with your family.</p>
+				</div>
+			</CardContent>
+		</Card>
+
 		<Separator class="my-10" />
 
 		<section class="space-y-8">
