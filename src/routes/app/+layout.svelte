@@ -114,6 +114,7 @@
 	const navlinks = [
 		{ href: '/app', label: 'Bets', exact: true },
 		{ href: '/app/feed', label: 'Feed' },
+		{ href: '/app/account', label: 'Account' },
 		{ href: '/app/friends', label: 'Friends' },
 		{ href: '/app/awards', label: 'Awards' }
 	];
