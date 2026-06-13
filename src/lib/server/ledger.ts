@@ -357,6 +357,8 @@ export interface AccountEntry {
 	icon: string | null;
 	betId: string | null;
 	betTitle: string | null;
+	/** The bet's own chosen icon (emoji), so the statement matches the feed. */
+	betIcon: string | null;
 	/** The other side of the transfer: a friend's name or "The Bank". */
 	counterparty: string;
 	createdAt: Date;
@@ -413,15 +415,15 @@ export async function getAccountStatement(userId: string, limit = 200): Promise<
 		}
 	}
 
-	// Bet titles for context links.
+	// Bet title + icon for context (matches what the feed shows for the bet).
 	const betIds = [...new Set(mine.map((m) => m.betId).filter((b): b is string => !!b))];
-	const betTitleById = new Map<string, string>();
+	const betById = new Map<string, { title: string; icon: string | null }>();
 	if (betIds.length) {
-		const titles = await db
-			.select({ id: bets.id, title: bets.title })
+		const found = await db
+			.select({ id: bets.id, title: bets.title, icon: bets.icon })
 			.from(bets)
 			.where(inArray(bets.id, betIds));
-		for (const b of titles) betTitleById.set(b.id, b.title);
+		for (const b of found) betById.set(b.id, { title: b.title, icon: b.icon });
 	}
 
 	let running = 0;
@@ -433,7 +435,8 @@ export async function getAccountStatement(userId: string, limit = 200): Promise<
 			memo: m.memo,
 			icon: m.icon,
 			betId: m.betId,
-			betTitle: m.betId ? (betTitleById.get(m.betId) ?? null) : null,
+			betTitle: m.betId ? (betById.get(m.betId)?.title ?? null) : null,
+			betIcon: m.betId ? (betById.get(m.betId)?.icon ?? null) : null,
 			counterparty: counterpartyByTransfer.get(m.transferId) ?? 'Someone',
 			createdAt: m.createdAt,
 			balanceAfter: running
