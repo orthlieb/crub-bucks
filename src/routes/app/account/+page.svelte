@@ -40,6 +40,11 @@
 		if (e.counterparty === 'The Bank') return 'grant';
 		return 'payment';
 	}
+	// Row icon, matching the feed: the payer's emoji on payments, the bet's own
+	// icon on bet settlements, and a bank glyph for grants/adjustments.
+	function rowIcon(e: Entry): string {
+		return e.icon ?? e.betIcon ?? (e.counterparty === 'The Bank' ? '🏦' : '💸');
+	}
 
 	const balanceClass = $derived(
 		data.balance > 0 ? 'text-success' : data.balance < 0 ? 'text-destructive' : 'text-foreground'
@@ -218,7 +223,7 @@
 								<div
 									class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted/50 text-lg leading-none"
 								>
-									{e.icon ?? (e.betId ? '🎲' : e.delta > 0 ? '⬇️' : '⬆️')}
+									{rowIcon(e)}
 								</div>
 								<div class="min-w-0 flex-1">
 									<div class="truncate font-medium">
