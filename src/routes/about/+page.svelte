@@ -66,12 +66,12 @@
 				<div class="space-y-3 text-muted-foreground">
 					<h2 class="text-xl font-semibold tracking-tight text-foreground">Where it came from</h2>
 					<p>
-						“Crub” was the nickname for our dog, Cala. Crub Bucks started as a way for our kids to
-						trade chores — washing the dishes was never worth the same as picking up Cala's doody —
+						“Crub” was the nickname for our dog, Cala Lily. She was a delightful Aussiedoodle that was always a source of amusement for the kids. The term “Crub Bucks" started as a way for our kids to
+						trade unequal chores — picking up Cala's doody was seen as more onerous than washing the dishes —
 						and over time it grew into fun bets and favours between them. In a funny way, it taught
 						them the value of money and some rudimentary math.
 					</p>
-					<p>You're welcome to enjoy it, and to share it with your family.</p>
+					<p>You're welcome to enjoy it and to share it with your family.</p>
 				</div>
 			</CardContent>
 		</Card>
