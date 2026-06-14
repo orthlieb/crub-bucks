@@ -22,6 +22,15 @@
 	let { data }: { data: PageData } = $props();
 	const fmt = (n: number) => formatAmount(n, data.locale);
 
+	// Accounting notation: negatives in parentheses, e.g. -50 → (50).
+	function acct(n: number): string {
+		return n < 0 ? `(${fmt(Math.abs(n))})` : fmt(n);
+	}
+	// Hard cap a description at 20 chars (… when longer).
+	function short(s: string): string {
+		return s.length > 20 ? `${s.slice(0, 20)}…` : s;
+	}
+
 	function fmtDate(d: Date | string): string {
 		const date = typeof d === 'string' ? new Date(d) : d;
 		return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -120,7 +129,7 @@
 	<Card>
 		<CardContent class="flex items-baseline justify-between py-5">
 			<span class="text-sm font-medium text-muted-foreground">Current balance</span>
-			<span class="text-3xl font-bold tabular-nums {balanceClass}">{fmt(data.balance)} ₡</span>
+			<span class="text-3xl font-bold tabular-nums {balanceClass}">{acct(data.balance)} ₡</span>
 		</CardContent>
 	</Card>
 
@@ -238,12 +247,13 @@
 												{rowIcon(e)}
 											</div>
 											<div class="min-w-0">
-												<div class="truncate font-medium">
+												<div class="truncate font-medium" title={describe(e)}>
 													{#if e.betId}
-														<a href={`/app/bet/${e.betId}`} class="hover:underline">{describe(e)}</a
+														<a href={`/app/bet/${e.betId}`} class="hover:underline"
+															>{short(describe(e))}</a
 														>
 													{:else}
-														{describe(e)}
+														{short(describe(e))}
 													{/if}
 												</div>
 												<div class="truncate text-xs text-muted-foreground">{meta(e)}</div>
@@ -254,10 +264,14 @@
 										{e.delta > 0 ? fmt(e.delta) : ''}
 									</TableCell>
 									<TableCell class="text-right tabular-nums text-destructive">
-										{e.delta < 0 ? fmt(-e.delta) : ''}
+										{e.delta < 0 ? acct(e.delta) : ''}
 									</TableCell>
-									<TableCell class="text-right font-medium tabular-nums">
-										{fmt(e.balanceAfter)}
+									<TableCell
+										class="text-right font-medium tabular-nums {e.balanceAfter < 0
+											? 'text-destructive'
+											: ''}"
+									>
+										{acct(e.balanceAfter)}
 									</TableCell>
 								</TableRow>
 							{/each}
