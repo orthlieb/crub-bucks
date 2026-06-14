@@ -2,6 +2,14 @@
 	import type { PageData } from './$types';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
+	import {
+		Table,
+		TableHeader,
+		TableBody,
+		TableRow,
+		TableHead,
+		TableCell
+	} from '$lib/components/ui/table';
 	import { formatAmount } from '$lib/format';
 	import { cn } from '$lib/utils';
 	import Wallet from '@lucide/svelte/icons/wallet';
@@ -14,12 +22,6 @@
 	let { data }: { data: PageData } = $props();
 	const fmt = (n: number) => formatAmount(n, data.locale);
 
-	function signed(n: number): string {
-		return n > 0 ? `+${fmt(n)}` : n < 0 ? `−${fmt(Math.abs(n))}` : fmt(0);
-	}
-	function deltaClass(n: number): string {
-		return n > 0 ? 'text-success' : n < 0 ? 'text-destructive' : 'text-muted-foreground';
-	}
 	function fmtDate(d: Date | string): string {
 		const date = typeof d === 'string' ? new Date(d) : d;
 		return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -31,9 +33,8 @@
 		if (e.memo) return e.memo;
 		return e.delta > 0 ? `Received from ${e.counterparty}` : `Paid to ${e.counterparty}`;
 	}
-	function subtitle(e: Entry): string {
-		const dir = e.delta > 0 ? `from ${e.counterparty}` : `to ${e.counterparty}`;
-		return `${dir} · ${fmtDate(e.createdAt)}`;
+	function meta(e: Entry): string {
+		return `${e.counterparty} · ${fmtDate(e.createdAt)}`;
 	}
 	function entryType(e: Entry): 'bet' | 'grant' | 'payment' {
 		if (e.betId) return 'bet';
@@ -214,38 +215,54 @@
 				</CardContent>
 			</Card>
 		{:else}
+			<!-- Traditional ledger: Transaction · Credit · Debit · Balance -->
 			<Card>
 				<CardContent class="p-0">
-					<ul class="divide-y">
-						{#each filtered as e (e.id)}
-							{@const row = describe(e)}
-							<li class="flex items-center gap-3 px-4 py-3">
-								<div
-									class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted/50 text-lg leading-none"
-								>
-									{rowIcon(e)}
-								</div>
-								<div class="min-w-0 flex-1">
-									<div class="truncate font-medium">
-										{#if e.betId}
-											<a href={`/app/bet/${e.betId}`} class="hover:underline">{row}</a>
-										{:else}
-											{row}
-										{/if}
-									</div>
-									<div class="truncate text-xs text-muted-foreground">{subtitle(e)}</div>
-								</div>
-								<div class="shrink-0 text-right">
-									<div class="font-medium tabular-nums {deltaClass(e.delta)}">
-										{signed(e.delta)} ₡
-									</div>
-									<div class="text-xs tabular-nums text-muted-foreground">
-										{fmt(e.balanceAfter)} ₡
-									</div>
-								</div>
-							</li>
-						{/each}
-					</ul>
+					<Table>
+						<TableHeader>
+							<TableRow>
+								<TableHead>Transaction</TableHead>
+								<TableHead class="text-right">Credit&nbsp;₡</TableHead>
+								<TableHead class="text-right">Debit&nbsp;₡</TableHead>
+								<TableHead class="text-right">Balance&nbsp;₡</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{#each filtered as e (e.id)}
+								<TableRow>
+									<TableCell>
+										<div class="flex items-center gap-3">
+											<div
+												class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted/50 text-base leading-none"
+											>
+												{rowIcon(e)}
+											</div>
+											<div class="min-w-0">
+												<div class="truncate font-medium">
+													{#if e.betId}
+														<a href={`/app/bet/${e.betId}`} class="hover:underline">{describe(e)}</a
+														>
+													{:else}
+														{describe(e)}
+													{/if}
+												</div>
+												<div class="truncate text-xs text-muted-foreground">{meta(e)}</div>
+											</div>
+										</div>
+									</TableCell>
+									<TableCell class="text-right tabular-nums text-success">
+										{e.delta > 0 ? fmt(e.delta) : ''}
+									</TableCell>
+									<TableCell class="text-right tabular-nums text-destructive">
+										{e.delta < 0 ? fmt(-e.delta) : ''}
+									</TableCell>
+									<TableCell class="text-right font-medium tabular-nums">
+										{fmt(e.balanceAfter)}
+									</TableCell>
+								</TableRow>
+							{/each}
+						</TableBody>
+					</Table>
 				</CardContent>
 			</Card>
 		{/if}
