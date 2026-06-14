@@ -1,4 +1,4 @@
-import { eq, and, sql, desc, inArray, or, isNull } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, ne, inArray, or, isNull } from 'drizzle-orm';
 import { db } from './db';
 import {
 	wallets,
@@ -348,6 +348,102 @@ export async function userBalance(userId: string): Promise<number> {
 		.innerJoin(wallets, eq(wallets.id, ledgerEntries.walletId))
 		.where(and(eq(wallets.userId, userId), eq(wallets.kind, 'user')));
 	return Number(row?.balance ?? 0);
+}
+
+export interface AccountEntry {
+	id: string;
+	delta: number;
+	memo: string | null;
+	icon: string | null;
+	betId: string | null;
+	betTitle: string | null;
+	/** The bet's own chosen icon (emoji), so the statement matches the feed. */
+	betIcon: string | null;
+	/** The other side of the transfer: a friend's name or "The Bank". */
+	counterparty: string;
+	createdAt: Date;
+	/** This wallet's running balance immediately after this entry. */
+	balanceAfter: number;
+}
+
+/**
+ * A user's personal account statement — every ledger entry against their
+ * wallet (newest first), each annotated with the counterparty, any bet
+ * context, and the running balance at that point. Like a bank statement.
+ *
+ * The running balance is computed over the full history (ascending) so it's
+ * accurate even when we only return the most recent `limit` rows.
+ */
+export async function getAccountStatement(userId: string, limit = 200): Promise<AccountEntry[]> {
+	const walletId = await getOrCreateUserWallet(userId);
+
+	const mine = await db
+		.select({
+			id: ledgerEntries.id,
+			transferId: ledgerEntries.transferId,
+			delta: ledgerEntries.delta,
+			memo: ledgerEntries.memo,
+			icon: ledgerEntries.icon,
+			betId: ledgerEntries.betId,
+			createdAt: ledgerEntries.createdAt
+		})
+		.from(ledgerEntries)
+		.where(eq(ledgerEntries.walletId, walletId))
+		.orderBy(asc(ledgerEntries.createdAt), asc(ledgerEntries.id));
+
+	// Counterparty = the other leg of each transfer (every transfer has exactly two).
+	const transferIds = mine.map((m) => m.transferId);
+	const counterpartyByTransfer = new Map<string, string>();
+	if (transferIds.length) {
+		const others = await db
+			.select({
+				transferId: ledgerEntries.transferId,
+				kind: wallets.kind,
+				displayName: users.displayName
+			})
+			.from(ledgerEntries)
+			.innerJoin(wallets, eq(wallets.id, ledgerEntries.walletId))
+			.leftJoin(users, eq(users.id, wallets.userId))
+			.where(
+				and(inArray(ledgerEntries.transferId, transferIds), ne(ledgerEntries.walletId, walletId))
+			);
+		for (const o of others) {
+			counterpartyByTransfer.set(
+				o.transferId,
+				o.kind === 'bank' ? 'The Bank' : (o.displayName ?? 'Someone')
+			);
+		}
+	}
+
+	// Bet title + icon for context (matches what the feed shows for the bet).
+	const betIds = [...new Set(mine.map((m) => m.betId).filter((b): b is string => !!b))];
+	const betById = new Map<string, { title: string; icon: string | null }>();
+	if (betIds.length) {
+		const found = await db
+			.select({ id: bets.id, title: bets.title, icon: bets.icon })
+			.from(bets)
+			.where(inArray(bets.id, betIds));
+		for (const b of found) betById.set(b.id, { title: b.title, icon: b.icon });
+	}
+
+	let running = 0;
+	const rows = mine.map((m) => {
+		running += Number(m.delta);
+		return {
+			id: m.id,
+			delta: Number(m.delta),
+			memo: m.memo,
+			icon: m.icon,
+			betId: m.betId,
+			betTitle: m.betId ? (betById.get(m.betId)?.title ?? null) : null,
+			betIcon: m.betId ? (betById.get(m.betId)?.icon ?? null) : null,
+			counterparty: counterpartyByTransfer.get(m.transferId) ?? 'Someone',
+			createdAt: m.createdAt,
+			balanceAfter: running
+		};
+	});
+	rows.reverse(); // newest first for display
+	return rows.slice(0, limit);
 }
 
 export async function bankBalance(): Promise<number> {
