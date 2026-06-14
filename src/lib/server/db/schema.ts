@@ -264,6 +264,9 @@ export const ledgerEntries = pgTable(
 	},
 	(t) => ({
 		walletIdx: index('ledger_wallet_idx').on(t.walletId),
+		// Serves the account statement's "most recent N for this wallet" query
+		// (filter by wallet, order by created_at desc, limit) without a full sort.
+		walletCreatedIdx: index('ledger_wallet_created_idx').on(t.walletId, t.createdAt),
 		transferIdx: index('ledger_transfer_idx').on(t.transferId),
 		betIdx: index('ledger_bet_idx').on(t.betId)
 	})

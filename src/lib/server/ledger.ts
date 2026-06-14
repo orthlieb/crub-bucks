@@ -1,4 +1,4 @@
-import { eq, and, sql, desc, asc, ne, inArray, or, isNull } from 'drizzle-orm';
+import { eq, and, sql, desc, ne, inArray, or, isNull } from 'drizzle-orm';
 import { db } from './db';
 import {
 	wallets,
@@ -373,11 +373,23 @@ export interface AccountEntry {
  *
  * The running balance is computed over the full history (ascending) so it's
  * accurate even when we only return the most recent `limit` rows.
+ *
+ * Scales with history: we read one balance aggregate plus only the most recent
+ * `limit` rows (DB-side LIMIT) — not the whole ledger — and derive each row's
+ * running balance by walking down from the current total.
  */
 export async function getAccountStatement(userId: string, limit = 200): Promise<AccountEntry[]> {
 	const walletId = await getOrCreateUserWallet(userId);
 
-	const mine = await db
+	// Current total balance = the newest row's running balance. One cheap aggregate.
+	const [tot] = await db
+		.select({ balance: sql<number>`coalesce(sum(${ledgerEntries.delta}), 0)` })
+		.from(ledgerEntries)
+		.where(eq(ledgerEntries.walletId, walletId));
+	let running = Number(tot?.balance ?? 0);
+
+	// Most recent `limit` entries, newest first (bounded by the DB, not JS).
+	const recent = await db
 		.select({
 			id: ledgerEntries.id,
 			transferId: ledgerEntries.transferId,
@@ -389,10 +401,11 @@ export async function getAccountStatement(userId: string, limit = 200): Promise<
 		})
 		.from(ledgerEntries)
 		.where(eq(ledgerEntries.walletId, walletId))
-		.orderBy(asc(ledgerEntries.createdAt), asc(ledgerEntries.id));
+		.orderBy(desc(ledgerEntries.createdAt), desc(ledgerEntries.id))
+		.limit(limit);
 
 	// Counterparty = the other leg of each transfer (every transfer has exactly two).
-	const transferIds = mine.map((m) => m.transferId);
+	const transferIds = recent.map((m) => m.transferId);
 	const counterpartyByTransfer = new Map<string, string>();
 	if (transferIds.length) {
 		const others = await db
@@ -416,7 +429,7 @@ export async function getAccountStatement(userId: string, limit = 200): Promise<
 	}
 
 	// Bet title + icon for context (matches what the feed shows for the bet).
-	const betIds = [...new Set(mine.map((m) => m.betId).filter((b): b is string => !!b))];
+	const betIds = [...new Set(recent.map((m) => m.betId).filter((b): b is string => !!b))];
 	const betById = new Map<string, { title: string; icon: string | null }>();
 	if (betIds.length) {
 		const found = await db
@@ -426,9 +439,11 @@ export async function getAccountStatement(userId: string, limit = 200): Promise<
 		for (const b of found) betById.set(b.id, { title: b.title, icon: b.icon });
 	}
 
-	let running = 0;
-	const rows = mine.map((m) => {
-		running += Number(m.delta);
+	// Walk newest → oldest: the first row's balance is the current total; each
+	// older row's balance is the previous one minus that row's delta.
+	return recent.map((m) => {
+		const balanceAfter = running;
+		running -= Number(m.delta);
 		return {
 			id: m.id,
 			delta: Number(m.delta),
@@ -439,11 +454,9 @@ export async function getAccountStatement(userId: string, limit = 200): Promise<
 			betIcon: m.betId ? (betById.get(m.betId)?.icon ?? null) : null,
 			counterparty: counterpartyByTransfer.get(m.transferId) ?? 'Someone',
 			createdAt: m.createdAt,
-			balanceAfter: running
+			balanceAfter
 		};
 	});
-	rows.reverse(); // newest first for display
-	return rows.slice(0, limit);
 }
 
 export async function bankBalance(): Promise<number> {
