@@ -56,10 +56,6 @@
 		return e.icon ?? e.betIcon ?? (e.counterparty === 'The Bank' ? '🏦' : '💸');
 	}
 
-	const balanceClass = $derived(
-		data.balance > 0 ? 'text-success' : data.balance < 0 ? 'text-destructive' : 'text-foreground'
-	);
-
 	// --- filters (all client-side over the loaded statement → instant) --------
 	// Design mirrors Iron Ledger: a search box, a collapsible "Filters" panel
 	// with rounded TYPE/FLOW pill chips, and a clear-filters control.
@@ -124,14 +120,6 @@
 			<p class="mt-1 text-muted-foreground">Your Crub Bucks statement — every debit and credit.</p>
 		</div>
 	</header>
-
-	<!-- Current balance -->
-	<Card>
-		<CardContent class="flex items-baseline justify-between py-5">
-			<span class="text-sm font-medium text-muted-foreground">Current balance</span>
-			<span class="text-3xl font-bold tabular-nums {balanceClass}">{acct(data.balance)} ₡</span>
-		</CardContent>
-	</Card>
 
 	{#if data.statement.length === 0}
 		<Card>
@@ -224,59 +212,102 @@
 				</CardContent>
 			</Card>
 		{:else}
-			<!-- Traditional ledger: Transaction · Credit · Debit · Balance -->
 			<Card>
 				<CardContent class="p-0">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Transaction</TableHead>
-								<TableHead class="text-right">Credit&nbsp;₡</TableHead>
-								<TableHead class="text-right">Debit&nbsp;₡</TableHead>
-								<TableHead class="text-right">Balance&nbsp;₡</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{#each filtered as e (e.id)}
+					<!-- Desktop: traditional Transaction · Credit · Debit · Balance table. -->
+					<div class="hidden sm:block">
+						<Table>
+							<TableHeader>
 								<TableRow>
-									<TableCell>
-										<div class="flex items-center gap-3">
-											<div
-												class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted/50 text-base leading-none"
-											>
-												{rowIcon(e)}
-											</div>
-											<div class="min-w-0">
-												<div class="truncate font-medium" title={describe(e)}>
-													{#if e.betId}
-														<a href={`/app/bet/${e.betId}`} class="hover:underline"
-															>{short(describe(e))}</a
-														>
-													{:else}
-														{short(describe(e))}
-													{/if}
-												</div>
-												<div class="truncate text-xs text-muted-foreground">{meta(e)}</div>
-											</div>
-										</div>
-									</TableCell>
-									<TableCell class="text-right tabular-nums text-success">
-										{e.delta > 0 ? fmt(e.delta) : ''}
-									</TableCell>
-									<TableCell class="text-right tabular-nums text-destructive">
-										{e.delta < 0 ? acct(e.delta) : ''}
-									</TableCell>
-									<TableCell
-										class="text-right font-medium tabular-nums {e.balanceAfter < 0
-											? 'text-destructive'
-											: ''}"
-									>
-										{acct(e.balanceAfter)}
-									</TableCell>
+									<TableHead>Transaction</TableHead>
+									<TableHead class="text-right">Credit&nbsp;₡</TableHead>
+									<TableHead class="text-right">Debit&nbsp;₡</TableHead>
+									<TableHead class="text-right">Balance&nbsp;₡</TableHead>
 								</TableRow>
-							{/each}
-						</TableBody>
-					</Table>
+							</TableHeader>
+							<TableBody>
+								{#each filtered as e (e.id)}
+									<TableRow>
+										<TableCell>
+											<div class="flex items-center gap-3">
+												<div
+													class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted/50 text-base leading-none"
+												>
+													{rowIcon(e)}
+												</div>
+												<div class="min-w-0">
+													<div class="truncate font-medium" title={describe(e)}>
+														{#if e.betId}
+															<a href={`/app/bet/${e.betId}`} class="hover:underline"
+																>{short(describe(e))}</a
+															>
+														{:else}
+															{short(describe(e))}
+														{/if}
+													</div>
+													<div class="truncate text-xs text-muted-foreground">{meta(e)}</div>
+												</div>
+											</div>
+										</TableCell>
+										<TableCell class="text-right tabular-nums text-success">
+											{e.delta > 0 ? fmt(e.delta) : ''}
+										</TableCell>
+										<TableCell class="text-right tabular-nums text-destructive">
+											{e.delta < 0 ? acct(e.delta) : ''}
+										</TableCell>
+										<TableCell
+											class="text-right font-medium tabular-nums {e.balanceAfter < 0
+												? 'text-destructive'
+												: ''}"
+										>
+											{acct(e.balanceAfter)}
+										</TableCell>
+									</TableRow>
+								{/each}
+							</TableBody>
+						</Table>
+					</div>
+
+					<!-- Mobile: stack each row so the amounts wrap under the description
+					     instead of forcing a horizontal scroll (which fights the swipe
+					     between tabs). -->
+					<ul class="divide-y sm:hidden">
+						{#each filtered as e (e.id)}
+							<li class="space-y-1.5 px-4 py-3">
+								<div class="flex items-center gap-2">
+									<span
+										class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted/50 text-sm leading-none"
+									>
+										{rowIcon(e)}
+									</span>
+									<span class="min-w-0 flex-1 truncate font-medium" title={describe(e)}>
+										{#if e.betId}
+											<a href={`/app/bet/${e.betId}`} class="hover:underline"
+												>{short(describe(e))}</a
+											>
+										{:else}
+											{short(describe(e))}
+										{/if}
+									</span>
+								</div>
+								<div class="flex items-center justify-between gap-3 pl-9 text-sm">
+									<span class="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+										>{meta(e)}</span
+									>
+									<span class="flex shrink-0 items-center gap-3 tabular-nums">
+										{#if e.delta > 0}
+											<span class="text-success">+{fmt(e.delta)}</span>
+										{:else if e.delta < 0}
+											<span class="text-destructive">{acct(e.delta)}</span>
+										{/if}
+										<span class="font-medium {e.balanceAfter < 0 ? 'text-destructive' : ''}">
+											{acct(e.balanceAfter)}&nbsp;₡
+										</span>
+									</span>
+								</div>
+							</li>
+						{/each}
+					</ul>
 				</CardContent>
 			</Card>
 		{/if}
