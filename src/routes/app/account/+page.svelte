@@ -12,7 +12,6 @@
 	} from '$lib/components/ui/table';
 	import { formatAmount } from '$lib/format';
 	import { cn } from '$lib/utils';
-	import Wallet from '@lucide/svelte/icons/wallet';
 	import Search from '@lucide/svelte/icons/search';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import FilterX from '@lucide/svelte/icons/filter-x';
@@ -110,11 +109,7 @@
 
 <div class="space-y-6">
 	<header class="flex items-center gap-3">
-		<div
-			class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"
-		>
-			<Wallet class="h-8 w-8" />
-		</div>
+		<img src="/account.png" alt="" class="h-16 w-16 shrink-0 object-contain" />
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Account</h1>
 			<p class="mt-1 text-muted-foreground">Your Crub Bucks statement — every debit and credit.</p>
