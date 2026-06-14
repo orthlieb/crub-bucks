@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "ledger_wallet_created_idx" ON "ledger_entries" USING btree ("wallet_id","created_at");

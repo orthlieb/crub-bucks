@@ -169,6 +169,13 @@
       "when": 1780891298985,
       "tag": "0023_previous_the_santerians",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1781451250701,
+      "tag": "0024_ledger_wallet_created_idx",
+      "breakpoints": true
     }
   ]
 }

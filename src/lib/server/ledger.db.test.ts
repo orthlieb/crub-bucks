@@ -19,6 +19,7 @@ import {
 	rebuy,
 	acceptBet,
 	declineBet,
+	getAccountStatement,
 	materializeInvitesForUser,
 	materializeInviteById,
 	LedgerError
@@ -39,6 +40,74 @@ async function goLive(betId: string, participantIds: string[], creatorId: string
 suite('ledger workflows (DB)', () => {
 	beforeEach(async () => {
 		await resetDb();
+	});
+
+	describe('account statement', () => {
+		it('annotates entries with counterparty, bet context, and running balance', async () => {
+			const a = await createUser();
+			const b = await createUser();
+			await db.insert(friendships).values({
+				requesterId: a.id,
+				addresseeId: b.id,
+				status: 'accepted',
+				respondedAt: new Date()
+			});
+
+			await grantWelcomeIfNeeded(a.id); // +100 from the Bank → 100
+			await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 30, memo: 'lunch' }); // -30 → 70
+			const betId = await createBet({
+				mode: 'winner_loser',
+				title: 'Ping pong',
+				icon: '🏓',
+				createdBy: a.id,
+				pool: 20,
+				participantIds: [a.id, b.id]
+			});
+			await goLive(betId, [a.id, b.id], a.id);
+			await resolveBet({ betId, winnerId: a.id, loserId: b.id, resolvedBy: a.id }); // +20 → 90
+
+			const stmt = await getAccountStatement(a.id);
+			expect(stmt).toHaveLength(3);
+
+			// Newest first: bet win (+20), payment (−30), welcome grant (+100).
+			expect(stmt[0].delta).toBe(20);
+			expect(stmt[0].betId).toBe(betId);
+			expect(stmt[0].betTitle).toBe('Ping pong');
+			expect(stmt[0].betIcon).toBe('🏓');
+			expect(stmt[0].counterparty).toBe(b.displayName);
+			expect(stmt[0].balanceAfter).toBe(90);
+
+			expect(stmt[1].delta).toBe(-30);
+			expect(stmt[1].betId).toBeNull();
+			expect(stmt[1].memo).toBe('lunch');
+			expect(stmt[1].counterparty).toBe(b.displayName);
+			expect(stmt[1].balanceAfter).toBe(70);
+
+			expect(stmt[2].delta).toBe(100);
+			expect(stmt[2].counterparty).toBe('The Bank');
+			expect(stmt[2].balanceAfter).toBe(100);
+
+			// The newest row's running balance equals the current wallet balance.
+			expect(stmt[0].balanceAfter).toBe(await userBalance(a.id));
+		});
+
+		it('caps at `limit` but keeps running balances accurate over full history', async () => {
+			const a = await createUser();
+			const b = await createUser();
+			await grantWelcomeIfNeeded(a.id); // +100 → 100
+			for (let i = 0; i < 6; i++) {
+				await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 1 }); // six −1s
+			}
+			// a now has 7 ledger entries; balance = 100 − 6 = 94.
+			expect(await userBalance(a.id)).toBe(94);
+
+			const stmt = await getAccountStatement(a.id, 5);
+			expect(stmt).toHaveLength(5); // capped, even though 7 entries exist
+			expect(stmt.every((s) => s.delta === -1)).toBe(true); // the welcome grant is off-window
+			// Running balance is correct for the window despite older rows being excluded.
+			expect(stmt.map((s) => s.balanceAfter)).toEqual([94, 95, 96, 97, 98]);
+			expect(stmt[0].balanceAfter).toBe(await userBalance(a.id));
+		});
 	});
 
 	describe('welcome grant', () => {
