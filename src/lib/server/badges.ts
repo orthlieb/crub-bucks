@@ -30,42 +30,46 @@ import {
  */
 
 export async function computeMetrics(userId: string): Promise<Record<MetricKey, number>> {
-	const rows = await db
+	// Participation aggregates over the user's resolved bets — computed in the
+	// DB (one row back) so we never load the whole history into memory.
+	const [agg] = await db
 		.select({
-			outcome: betParticipants.outcome,
-			settledDelta: betParticipants.settledDelta,
-			pool: bets.pool,
-			resolvedAt: bets.resolvedAt
+			betsJoined: count(),
+			betsWon: sql<number>`coalesce(sum(case when ${betParticipants.outcome} = 'won' then 1 else 0 end), 0)`,
+			cbWagered: sql<number>`coalesce(sum(abs(${betParticipants.settledDelta})), 0)`,
+			maxPot: sql<number>`coalesce(max(${bets.pool}), 0)`
 		})
 		.from(betParticipants)
 		.innerJoin(bets, eq(bets.id, betParticipants.betId))
 		.where(and(eq(betParticipants.userId, userId), eq(bets.status, 'resolved')));
 
-	let betsJoined = 0;
-	let betsWon = 0;
-	let cbWagered = 0;
-	let maxPot = 0;
-	for (const r of rows) {
-		betsJoined += 1;
-		if (r.outcome === 'won') betsWon += 1;
-		cbWagered += Math.abs(Number(r.settledDelta ?? 0));
-		maxPot = Math.max(maxPot, Number(r.pool ?? 0));
-	}
+	const betsJoined = Number(agg?.betsJoined ?? 0);
+	const betsWon = Number(agg?.betsWon ?? 0);
+	const cbWagered = Number(agg?.cbWagered ?? 0);
+	const maxPot = Number(agg?.maxPot ?? 0);
 
-	// Longest win streak: walk resolved bets in resolution order; a non-win
-	// (lost / none) breaks the run. All-time best, so it never decreases.
-	let cur = 0;
-	let winStreak = 0;
-	for (const r of [...rows].sort(
-		(a, b) => (a.resolvedAt?.getTime() ?? 0) - (b.resolvedAt?.getTime() ?? 0)
-	)) {
-		if (r.outcome === 'won') {
-			cur += 1;
-			if (cur > winStreak) winStreak = cur;
-		} else {
-			cur = 0;
-		}
-	}
+	// Longest all-time win streak: consecutive 'won' bets in resolution order.
+	// Done as a gaps-and-islands window query so it stays bounded (one row out)
+	// instead of pulling every resolved bet into JS. The difference of two
+	// row_numbers (global vs within-wins) is constant across a run of wins, so
+	// grouping by it and taking the largest group size gives the longest streak.
+	const streakRes = (await db.execute(sql`
+		with ordered as (
+			select
+				(${betParticipants.outcome} = 'won') as is_win,
+				row_number() over (order by ${bets.resolvedAt}, ${bets.id})
+					- row_number() over (
+						partition by (${betParticipants.outcome} = 'won')
+						order by ${bets.resolvedAt}, ${bets.id}
+					) as grp
+			from ${betParticipants}
+			inner join ${bets} on ${bets.id} = ${betParticipants.betId}
+			where ${betParticipants.userId} = ${userId} and ${bets.status} = 'resolved'
+		)
+		select coalesce(max(cnt), 0) as streak
+		from (select count(*) as cnt from ordered where is_win group by grp) g
+	`)) as unknown as Array<{ streak: number | string }>;
+	const winStreak = Number(streakRes[0]?.streak ?? 0);
 
 	// The Dog House: bets this user settled (the resolver), which is independent
 	// of participation — counted with its own query.
