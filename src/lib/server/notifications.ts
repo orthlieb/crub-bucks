@@ -177,6 +177,20 @@ export async function dismissForUser(notificationId: string, userId: string): Pr
 }
 
 /**
+ * Dismiss every notification currently visible to the user ("Clear all").
+ * Reuses dismissForUser per row so GC behaves identically — targeted rows are
+ * deleted, broadcasts are hidden for this user and GC'd once everyone has
+ * cleared them. Returns how many were dismissed.
+ */
+export async function dismissAllForUser(userId: string): Promise<number> {
+	const active = await listActiveForUser(userId);
+	for (const n of active) {
+		await dismissForUser(n.id, userId);
+	}
+	return active.length;
+}
+
+/**
  * Admin retracts a notification entirely. Deleting cascades any dismissals.
  */
 export async function deleteNotification(notificationId: string): Promise<void> {

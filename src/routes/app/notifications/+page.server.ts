@@ -1,5 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { dismissForUser } from '$lib/server/notifications';
+import { dismissForUser, dismissAllForUser } from '$lib/server/notifications';
 import type { Actions, PageServerLoad } from './$types';
 
 // The page itself isn't navigable — it only exists as a target for the
@@ -21,6 +21,18 @@ export const actions: Actions = {
 		// Send the user back to the page they were on. The form sets a
 		// `from` field so we don't rely on Referer (which JS-disabled fetches
 		// may strip).
+		const from = String(form.get('from') ?? '/app').trim() || '/app';
+		throw redirect(303, from);
+	},
+
+	// "Clear all" — dismiss every notification currently visible to the user.
+	dismissAll: async ({ request, locals }) => {
+		const userId = locals.user?.id;
+		if (!userId) throw error(401, 'Not signed in');
+		const form = await request.formData();
+
+		await dismissAllForUser(userId);
+
 		const from = String(form.get('from') ?? '/app').trim() || '/app';
 		throw redirect(303, from);
 	}
