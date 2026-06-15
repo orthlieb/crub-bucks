@@ -391,10 +391,13 @@ suite('ledger workflows (DB)', () => {
 			const { reminded } = await remindPendingBet({ betId, byUserId: a.id });
 			expect(reminded).toBe(1);
 
-			// The holdout (b) is nudged with a link back to the bet.
+			// The holdout (b) is nudged with a reminder linking back to the bet.
+			// (b also has the original "invited you to a bet" notification, so we
+			// match the reminder by its title rather than asserting a total count.)
 			const bNotifs = await db.select().from(notifications).where(eq(notifications.userId, b.id));
-			expect(bNotifs).toHaveLength(1);
-			expect(bNotifs[0].link).toBe(`/app/bet/${betId}`);
+			const nudge = bNotifs.find((n) => /waiting on you/i.test(n.title));
+			expect(nudge).toBeDefined();
+			expect(nudge!.link).toBe(`/app/bet/${betId}`);
 
 			// The reminder stamp is recorded for the cooldown.
 			const [row] = await db.select().from(bets).where(eq(bets.id, betId));
