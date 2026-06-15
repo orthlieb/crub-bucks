@@ -52,6 +52,8 @@
 	const settled = $derived(data.bet.status === 'resolved' || data.bet.status === 'cancelled');
 	const myPart = $derived(data.participants.find((p) => p.userId === data.myUserId));
 	const iAccepted = $derived(!!myPart?.acceptedAt);
+	// Pending participants still owing an accept — the people a reminder nudges.
+	const awaitingCount = $derived(data.participants.filter((p) => !p.acceptedAt).length);
 
 	function fmtDate(d: Date | string | null): string {
 		if (!d) return '—';
@@ -322,6 +324,8 @@
 			<CardContent class="space-y-4">
 				{#if form?.error}
 					<Alert variant="destructive"><AlertDescription>{form.error}</AlertDescription></Alert>
+				{:else if form?.message}
+					<Alert><AlertDescription>{form.message}</AlertDescription></Alert>
 				{/if}
 				<ul class="space-y-1">
 					{#each data.participants as p (p.userId)}
@@ -389,16 +393,25 @@
 				{:else}
 					<div class="flex flex-wrap items-center justify-between gap-2">
 						<p class="text-sm text-muted-foreground">You've accepted — waiting on the others.</p>
-						<form
-							method="POST"
-							action="?/cancel"
-							use:enhance
-							onsubmit={(e) => {
-								if (!confirm('Call off this bet?')) e.preventDefault();
-							}}
-						>
-							<Button type="submit" variant="outline">Cancel bet</Button>
-						</form>
+						<div class="flex gap-2">
+							{#if awaitingCount > 0}
+								<form method="POST" action="?/remind" use:enhance>
+									<Button type="submit" variant="secondary">
+										Remind {awaitingCount === 1 ? 'the holdout' : `the ${awaitingCount} holdouts`}
+									</Button>
+								</form>
+							{/if}
+							<form
+								method="POST"
+								action="?/cancel"
+								use:enhance
+								onsubmit={(e) => {
+									if (!confirm('Call off this bet?')) e.preventDefault();
+								}}
+							>
+								<Button type="submit" variant="outline">Cancel bet</Button>
+							</form>
+						</div>
 					</div>
 				{/if}
 			</CardContent>

@@ -7,6 +7,7 @@ import {
 	cancelBet,
 	acceptBet,
 	declineBet,
+	remindPendingBet,
 	isBetParticipant,
 	rebuy,
 	LedgerError
@@ -185,5 +186,22 @@ export const actions: Actions = {
 			throw e;
 		}
 		throw redirect(303, `/app/bet/${betId}`);
+	},
+
+	remind: async ({ params, locals }) => {
+		const userId = locals.user!.id;
+		const betId = params.bid;
+		if (!(await isBetParticipant(betId, userId))) throw error(403, 'Not a participant');
+
+		try {
+			const { reminded } = await remindPendingBet({ betId, byUserId: userId });
+			return {
+				reminded,
+				message: `Reminded ${reminded} ${reminded === 1 ? 'person' : 'people'} to accept.`
+			};
+		} catch (e) {
+			if (e instanceof LedgerError) return fail(400, { error: e.message });
+			throw e;
+		}
 	}
 };

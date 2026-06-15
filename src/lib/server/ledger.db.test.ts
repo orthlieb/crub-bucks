@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { users, friendships, friendInvites, bets, betParticipants } from '$lib/server/db/schema';
+import {
+	users,
+	friendships,
+	friendInvites,
+	bets,
+	betParticipants,
+	notifications
+} from '$lib/server/db/schema';
 import { hashPassword } from '$lib/server/auth/password';
 import {
 	grantWelcomeIfNeeded,
@@ -19,6 +26,7 @@ import {
 	rebuy,
 	acceptBet,
 	declineBet,
+	remindPendingBet,
 	getAccountStatement,
 	materializeInvitesForUser,
 	materializeInviteById,
@@ -374,6 +382,45 @@ suite('ledger workflows (DB)', () => {
 			await acceptBet({ betId, userId: b.id }); // goes live
 			await expect(acceptBet({ betId, userId: b.id })).rejects.toThrow(/already/i);
 			await expect(declineBet({ betId, userId: b.id })).rejects.toThrow(/already/i);
+		});
+
+		it('an accepted participant can remind the holdouts, who get notified', async () => {
+			const { a, b } = await friends();
+			const betId = await customBet(a, b, 'Nudge me'); // a auto-accepted, b awaiting
+
+			const { reminded } = await remindPendingBet({ betId, byUserId: a.id });
+			expect(reminded).toBe(1);
+
+			// The holdout (b) is nudged with a reminder linking back to the bet.
+			// (b also has the original "invited you to a bet" notification, so we
+			// match the reminder by its title rather than asserting a total count.)
+			const bNotifs = await db.select().from(notifications).where(eq(notifications.userId, b.id));
+			const nudge = bNotifs.find((n) => /waiting on you/i.test(n.title));
+			expect(nudge).toBeDefined();
+			expect(nudge!.link).toBe(`/app/bet/${betId}`);
+
+			// The reminder stamp is recorded for the cooldown.
+			const [row] = await db.select().from(bets).where(eq(bets.id, betId));
+			expect(row.lastRemindedAt).not.toBeNull();
+		});
+
+		it('a holdout cannot remind, and reminders are rate-limited', async () => {
+			const { a, b } = await friends();
+			const betId = await customBet(a, b, 'Cooldown'); // b is the holdout
+
+			// b hasn't accepted, so they can't nudge anyone.
+			await expect(remindPendingBet({ betId, byUserId: b.id })).rejects.toThrow(/accept/i);
+
+			// a reminds once; a second immediate reminder is blocked by the cooldown.
+			await remindPendingBet({ betId, byUserId: a.id });
+			await expect(remindPendingBet({ betId, byUserId: a.id })).rejects.toThrow(/recently/i);
+		});
+
+		it('cannot remind once the bet is no longer pending', async () => {
+			const { a, b } = await friends();
+			const betId = await customBet(a, b, 'Live already');
+			await acceptBet({ betId, userId: b.id }); // goes live
+			await expect(remindPendingBet({ betId, byUserId: a.id })).rejects.toThrow(/already/i);
 		});
 	});
 
