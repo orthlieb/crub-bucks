@@ -1346,6 +1346,97 @@ export async function declineBet(opts: {
 	return result;
 }
 
+/** How long (ms) before a pending bet can be nudged again. */
+const REMIND_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+/**
+ * Nudge the still-awaiting participants of a pending bet to accept. Callable by
+ * anyone who's already accepted (the people waiting on the others). Sends each
+ * holdout an in-app + push notification linking back to the bet. Rate-limited
+ * to one reminder per bet every {@link REMIND_COOLDOWN_MS} so it can't be
+ * spammed. Returns how many people were reminded.
+ */
+export async function remindPendingBet(opts: {
+	betId: string;
+	byUserId: string;
+}): Promise<{ reminded: number }> {
+	const { betId, byUserId } = opts;
+
+	const { title, waiting, who } = await db.transaction(async (tx) => {
+		// Lock the bet row so the cooldown check + stamp is atomic against a
+		// concurrent reminder.
+		const [bet] = await tx
+			.select({
+				status: bets.status,
+				title: bets.title,
+				lastRemindedAt: bets.lastRemindedAt
+			})
+			.from(bets)
+			.where(eq(bets.id, betId))
+			.limit(1)
+			.for('update');
+		if (!bet) throw new LedgerError('Bet not found');
+		if (bet.status !== 'pending') {
+			throw new LedgerError(`Bet is already ${bet.status} — there's no one left to remind.`);
+		}
+
+		// The nudger must be a participant who has already accepted; you can't
+		// remind others while you're a holdout yourself.
+		const [me] = await tx
+			.select({ acceptedAt: betParticipants.acceptedAt })
+			.from(betParticipants)
+			.where(and(eq(betParticipants.betId, betId), eq(betParticipants.userId, byUserId)))
+			.limit(1);
+		if (!me) throw new LedgerError("You're not a participant in this bet");
+		if (!me.acceptedAt) throw new LedgerError('Accept the bet yourself before nudging others.');
+
+		// Cooldown: don't let reminders stack up.
+		if (bet.lastRemindedAt) {
+			const elapsed = Date.now() - new Date(bet.lastRemindedAt).getTime();
+			if (elapsed < REMIND_COOLDOWN_MS) {
+				const hours = Math.ceil((REMIND_COOLDOWN_MS - elapsed) / (60 * 60 * 1000));
+				throw new LedgerError(
+					`This bet was already reminded recently. Try again in about ${hours} hour${hours === 1 ? '' : 's'}.`
+				);
+			}
+		}
+
+		const waiting = await tx
+			.select({ userId: betParticipants.userId })
+			.from(betParticipants)
+			.where(and(eq(betParticipants.betId, betId), isNull(betParticipants.acceptedAt)));
+		if (waiting.length === 0) {
+			throw new LedgerError('Everyone has already accepted.');
+		}
+
+		const [me2] = await tx
+			.select({ displayName: users.displayName })
+			.from(users)
+			.where(eq(users.id, byUserId))
+			.limit(1);
+
+		await tx.update(bets).set({ lastRemindedAt: new Date() }).where(eq(bets.id, betId));
+
+		return {
+			title: bet.title,
+			waiting: waiting.map((w) => w.userId),
+			who: me2?.displayName ?? 'A friend'
+		};
+	});
+
+	for (const uid of waiting) {
+		await createNotification({
+			level: 'info',
+			title: `${who} is waiting on you`,
+			body: `Open "${title.trim()}" to accept or decline — the bet can't start until you do.`,
+			link: `/app/bet/${betId}`,
+			userId: uid
+		}).catch(() => {});
+	}
+
+	return { reminded: waiting.length };
+}
+
 /**
  * Re-buy: a participant adds more to a 'pot' bet's pool. Self-only — the
  * `requestedBy` user must equal the participant userId. Bumps that participant's

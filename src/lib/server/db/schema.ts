@@ -305,7 +305,10 @@ export const bets = pgTable(
 		// optional note the resolver leaves when settling the bet
 		resolutionNote: text('resolution_note'),
 		cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
-		cancelledBy: uuid('cancelled_by').references(() => users.id)
+		cancelledBy: uuid('cancelled_by').references(() => users.id),
+		// last time an accepted participant nudged the still-awaiting ones to
+		// accept; gates a cooldown so reminders can't be spammed.
+		lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true })
 	},
 	(t) => ({
 		createdByIdx: index('bets_created_by_idx').on(t.createdBy),
