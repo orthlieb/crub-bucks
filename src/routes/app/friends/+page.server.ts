@@ -10,6 +10,7 @@ import {
 	cancelFriendRequest,
 	remindFriendRequest,
 	cancelInvite,
+	resendInvite,
 	unfriend,
 	transferBetweenUsers,
 	areFriends,
@@ -90,6 +91,19 @@ export const actions: Actions = {
 		const inviteId = String(form.get('inviteId') ?? '');
 		await cancelInvite(userId, inviteId);
 		return { inviteCancelled: true };
+	},
+
+	resendInvite: async ({ request, locals }) => {
+		const userId = locals.user!.id;
+		const form = await request.formData();
+		const inviteId = String(form.get('inviteId') ?? '');
+		try {
+			await resendInvite(userId, inviteId);
+		} catch (e) {
+			if (e instanceof LedgerError) return fail(400, { requestError: e.message });
+			throw e;
+		}
+		return { requestMessage: 'Invite re-sent.' };
 	},
 
 	accept: async ({ request, locals }) => {

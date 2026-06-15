@@ -19,7 +19,9 @@ import {
 	sendFriendRequest,
 	acceptFriendRequest,
 	remindFriendRequest,
+	resendInvite,
 	getOutgoingRequests,
+	getPendingInvites,
 	areFriends,
 	countAcceptedFriends,
 	getIncomingRequests,
@@ -34,6 +36,7 @@ import {
 	materializeInviteById,
 	LedgerError
 } from '$lib/server/ledger';
+import { setEmailTransport } from '$lib/server/email/transport';
 import { hasTestDb, resetDb, createUser } from '../../test/db';
 
 // Only run when a test database is configured (TEST_DATABASE_URL).
@@ -227,6 +230,36 @@ suite('ledger workflows (DB)', () => {
 			const [out] = await getOutgoingRequests(a.id);
 			await acceptFriendRequest(b.id, out.requestId); // now accepted
 			await expect(remindFriendRequest(a.id, out.requestId)).rejects.toThrow(/not found/i);
+		});
+
+		it('the inviter can re-send an unclaimed invite email, rate-limited', async () => {
+			const sent: string[] = [];
+			setEmailTransport({
+				name: 'fake',
+				async send(m) {
+					sent.push(m.to);
+				}
+			});
+
+			const a = await createUser({ displayName: 'Aaron' });
+			// Email isn't a user yet → records an invite + sends the first email.
+			const res = await sendFriendRequest(a.id, 'newbie@test.local');
+			expect(res.result).toBe('invited');
+			const [inv] = await getPendingInvites(a.id);
+			sent.length = 0; // ignore the initial invite email
+
+			await resendInvite(a.id, inv.id);
+			expect(sent).toEqual(['newbie@test.local']);
+
+			const [after] = await getPendingInvites(a.id);
+			expect(after.lastRemindedAt).not.toBeNull();
+
+			// An immediate second send is blocked by the 24h cooldown.
+			await expect(resendInvite(a.id, inv.id)).rejects.toThrow(/recently/i);
+
+			// Someone else can't re-send my invite.
+			const b = await createUser();
+			await expect(resendInvite(b.id, inv.id)).rejects.toThrow(/not found/i);
 		});
 
 		it('enforces the 99-friend cap', async () => {

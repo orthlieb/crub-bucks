@@ -1013,12 +1013,79 @@ export async function unfriend(userId: string, otherId: string): Promise<void> {
 /** Outstanding (unclaimed) invites this user has sent to non-users. */
 export async function getPendingInvites(
 	inviterId: string
-): Promise<Array<{ id: string; email: string; sentAt: Date }>> {
+): Promise<Array<{ id: string; email: string; sentAt: Date; lastRemindedAt: Date | null }>> {
 	return db
-		.select({ id: friendInvites.id, email: friendInvites.email, sentAt: friendInvites.createdAt })
+		.select({
+			id: friendInvites.id,
+			email: friendInvites.email,
+			sentAt: friendInvites.createdAt,
+			lastRemindedAt: friendInvites.lastRemindedAt
+		})
 		.from(friendInvites)
 		.where(and(eq(friendInvites.inviterId, inviterId), isNull(friendInvites.claimedAt)))
 		.orderBy(desc(friendInvites.createdAt));
+}
+
+/** How long before an unclaimed invite's email can be re-sent. Longer than the
+ * in-app reminder cooldown — an inbox is less forgiving than a notification list. */
+const INVITE_RESEND_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Re-send the invite email for an outstanding (unclaimed) invite. Only the
+ * inviter may resend, and at most once every {@link INVITE_RESEND_COOLDOWN_MS}.
+ * Stamps `last_reminded_at`. Unlike in-app reminders the payload here is an
+ * email, so a transport failure is swallowed (the row is still stamped, mirroring
+ * the original invite send) rather than surfaced as an error.
+ */
+export async function resendInvite(inviterId: string, inviteId: string): Promise<void> {
+	const { email } = await db.transaction(async (tx) => {
+		// Lock the row so the cooldown check + stamp is atomic.
+		const [inv] = await tx
+			.select({ email: friendInvites.email, lastRemindedAt: friendInvites.lastRemindedAt })
+			.from(friendInvites)
+			.where(
+				and(
+					eq(friendInvites.id, inviteId),
+					eq(friendInvites.inviterId, inviterId),
+					isNull(friendInvites.claimedAt)
+				)
+			)
+			.limit(1)
+			.for('update');
+		if (!inv) throw new LedgerError('Invite not found.');
+
+		if (inv.lastRemindedAt) {
+			const elapsed = Date.now() - new Date(inv.lastRemindedAt).getTime();
+			if (elapsed < INVITE_RESEND_COOLDOWN_MS) {
+				const hours = Math.ceil((INVITE_RESEND_COOLDOWN_MS - elapsed) / (60 * 60 * 1000));
+				throw new LedgerError(
+					`You re-sent this invite recently. Try again in about ${hours} hour${hours === 1 ? '' : 's'}.`
+				);
+			}
+		}
+
+		await tx
+			.update(friendInvites)
+			.set({ lastRemindedAt: new Date() })
+			.where(eq(friendInvites.id, inviteId));
+
+		return { email: inv.email };
+	});
+
+	const [me] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, inviterId))
+		.limit(1);
+	try {
+		await sendFriendInviteEmail({
+			to: email,
+			inviterName: me?.displayName ?? 'A friend',
+			inviteId
+		});
+	} catch (err) {
+		console.warn('[friend-invite] failed to re-send invite email:', err);
+	}
 }
 
 /** Cancel an outstanding invite. Only the inviter may cancel, only if unclaimed. */
