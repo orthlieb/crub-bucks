@@ -251,6 +251,19 @@
 	<main class="mx-auto max-w-5xl px-6 py-8" ontouchstart={onTouchStart} ontouchend={onTouchEnd}>
 		{#if data.notifications.length > 0}
 			<div class="mb-6 space-y-2">
+				{#if data.notifications.length > 1}
+					<div class="flex justify-end">
+						<form method="POST" action="/app/notifications?/dismissAll" use:enhance>
+							<input type="hidden" name="from" value={page.url.pathname + page.url.search} />
+							<button
+								type="submit"
+								class="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+							>
+								Clear all
+							</button>
+						</form>
+					</div>
+				{/if}
 				{#each data.notifications as n (n.id)}
 					<Alert variant={alertVariantFor(n.level)} class="relative pr-12">
 						<div class="flex items-center gap-3">

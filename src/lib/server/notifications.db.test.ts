@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { notifications, users, friendships } from '$lib/server/db/schema';
-import { createNotification, dismissForUser } from '$lib/server/notifications';
+import {
+	createNotification,
+	dismissForUser,
+	dismissAllForUser,
+	listActiveForUser
+} from '$lib/server/notifications';
 import {
 	sendFriendRequest,
 	transferBetweenUsers,
@@ -34,6 +39,33 @@ suite('notification GC on dismissal', () => {
 		expect(await notifExists(id)).toBe(true);
 		await dismissForUser(id, a.id);
 		expect(await notifExists(id)).toBe(false);
+	});
+
+	it('clear-all dismisses everything for the user; broadcasts survive for others', async () => {
+		const a = await createUser();
+		const b = await createUser();
+		const t1 = await createNotification({ title: 'For A #1', userId: a.id }); // targeted
+		const bc = await createNotification({ title: 'Everyone' }); // broadcast
+		const t2 = await createNotification({ title: 'For A #2', userId: a.id }); // targeted
+
+		expect(await listActiveForUser(a.id)).toHaveLength(3); // 2 targeted + broadcast
+		expect(await listActiveForUser(b.id)).toHaveLength(1); // just the broadcast
+
+		const cleared = await dismissAllForUser(a.id);
+		expect(cleared).toBe(3);
+
+		// A now sees nothing; their targeted notifications are GC'd outright.
+		expect(await listActiveForUser(a.id)).toHaveLength(0);
+		expect(await notifExists(t1)).toBe(false);
+		expect(await notifExists(t2)).toBe(false);
+
+		// The broadcast persists because B hasn't cleared it yet.
+		expect(await notifExists(bc)).toBe(true);
+		expect(await listActiveForUser(b.id)).toHaveLength(1);
+
+		// Once B clears it too, it's garbage-collected.
+		await dismissForUser(bc, b.id);
+		expect(await notifExists(bc)).toBe(false);
 	});
 
 	it('keeps a broadcast until every active user has dismissed it', async () => {
