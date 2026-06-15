@@ -151,7 +151,10 @@ export const friendships = pgTable(
 			.references(() => users.id, { onDelete: 'cascade' }),
 		status: friendshipStatusEnum('status').notNull().default('pending'),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-		respondedAt: timestamp('responded_at', { withTimezone: true })
+		respondedAt: timestamp('responded_at', { withTimezone: true }),
+		// last time the requester nudged the addressee to respond to a still-pending
+		// request; gates a cooldown so reminders can't be spammed.
+		lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true })
 	},
 	(t) => ({
 		pairIdx: uniqueIndex('friendships_pair_idx').on(t.requesterId, t.addresseeId),

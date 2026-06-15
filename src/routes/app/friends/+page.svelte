@@ -23,6 +23,15 @@
 	// Which pay-form field the server flagged (amount | memo), to highlight in red.
 	const payField = $derived(form && 'payField' in form ? form.payField : undefined);
 
+	// A pending request can be nudged once every 6 hours; mirror that cooldown
+	// client-side so we can disable the button instead of letting the server
+	// reject it. (The server still enforces it authoritatively.)
+	const REMIND_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+	function canRemind(lastRemindedAt: Date | string | null): boolean {
+		if (!lastRemindedAt) return true;
+		return Date.now() - new Date(lastRemindedAt).getTime() >= REMIND_COOLDOWN_MS;
+	}
+
 	// A ready-to-share invite (link + suggested message) from the "Text a link"
 	// action — the user sends it themselves.
 	const textInvite = $derived(form && 'textInvite' in form ? form.textInvite : null);
@@ -411,10 +420,20 @@
 								<div class="font-medium">{r.displayName}</div>
 								<div class="text-xs text-muted-foreground">{r.email} · awaiting their approval</div>
 							</div>
-							<form method="POST" action="?/cancel" use:enhance>
-								<input type="hidden" name="requestId" value={r.requestId} />
-								<Button type="submit" variant="ghost">Cancel</Button>
-							</form>
+							<div class="flex items-center gap-1">
+								{#if canRemind(r.lastRemindedAt)}
+									<form method="POST" action="?/remind" use:enhance>
+										<input type="hidden" name="requestId" value={r.requestId} />
+										<Button type="submit" variant="secondary">Remind</Button>
+									</form>
+								{:else}
+									<Button variant="secondary" disabled>Reminded</Button>
+								{/if}
+								<form method="POST" action="?/cancel" use:enhance>
+									<input type="hidden" name="requestId" value={r.requestId} />
+									<Button type="submit" variant="ghost">Cancel</Button>
+								</form>
+							</div>
 						</CardContent>
 					</Card>
 				{/each}

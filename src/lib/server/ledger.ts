@@ -679,10 +679,15 @@ export async function getIncomingRequests(
 }
 
 /** Pending requests this user has sent (awaiting the other's approval). */
-export async function getOutgoingRequests(
-	userId: string
-): Promise<
-	Array<{ requestId: string; toId: string; displayName: string; email: string; sentAt: Date }>
+export async function getOutgoingRequests(userId: string): Promise<
+	Array<{
+		requestId: string;
+		toId: string;
+		displayName: string;
+		email: string;
+		sentAt: Date;
+		lastRemindedAt: Date | null;
+	}>
 > {
 	const rows = await db
 		.select({
@@ -690,7 +695,8 @@ export async function getOutgoingRequests(
 			toId: friendships.addresseeId,
 			displayName: users.displayName,
 			email: users.email,
-			sentAt: friendships.createdAt
+			sentAt: friendships.createdAt,
+			lastRemindedAt: friendships.lastRemindedAt
 		})
 		.from(friendships)
 		.innerJoin(users, eq(users.id, friendships.addresseeId))
@@ -922,6 +928,67 @@ export async function cancelFriendRequest(userId: string, requestId: string): Pr
 				eq(friendships.status, 'pending')
 			)
 		);
+}
+
+/**
+ * Nudge the addressee of a still-pending friend request to respond. Only the
+ * requester may remind, and only while the request is pending. Sends the
+ * addressee an in-app + push notification linking to Friends, stamps
+ * `last_reminded_at`, and is rate-limited to one reminder per request every
+ * {@link REMIND_COOLDOWN_MS} so it can't be spammed.
+ */
+export async function remindFriendRequest(userId: string, requestId: string): Promise<void> {
+	const addresseeId = await db.transaction(async (tx) => {
+		// Lock the row so the cooldown check + stamp is atomic.
+		const [req] = await tx
+			.select({
+				addresseeId: friendships.addresseeId,
+				lastRemindedAt: friendships.lastRemindedAt
+			})
+			.from(friendships)
+			.where(
+				and(
+					eq(friendships.id, requestId),
+					eq(friendships.requesterId, userId),
+					eq(friendships.status, 'pending')
+				)
+			)
+			.limit(1)
+			.for('update');
+		if (!req) throw new LedgerError('Request not found.');
+
+		if (req.lastRemindedAt) {
+			const elapsed = Date.now() - new Date(req.lastRemindedAt).getTime();
+			if (elapsed < REMIND_COOLDOWN_MS) {
+				const hours = Math.ceil((REMIND_COOLDOWN_MS - elapsed) / (60 * 60 * 1000));
+				throw new LedgerError(
+					`You reminded them recently. Try again in about ${hours} hour${hours === 1 ? '' : 's'}.`
+				);
+			}
+		}
+
+		await tx
+			.update(friendships)
+			.set({ lastRemindedAt: new Date() })
+			.where(eq(friendships.id, requestId));
+
+		return req.addresseeId;
+	});
+
+	const [requester] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, userId))
+		.limit(1);
+	const requesterName = requester?.displayName ?? 'Someone';
+
+	await createNotification({
+		userId: addresseeId,
+		level: 'info',
+		title: `${requesterName} is still waiting to be your friend`,
+		body: 'Open Friends to accept or deny their request.',
+		link: '/app/friends'
+	}).catch(() => {});
 }
 
 /** Remove an accepted friendship (either direction). */
