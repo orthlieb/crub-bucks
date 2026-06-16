@@ -1,13 +1,18 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import BadgeTile from '$lib/components/BadgeTile.svelte';
+	import { assetUrl } from '$lib/assets';
 
 	let { data }: { data: PageData } = $props();
 </script>
 
 <div class="space-y-8">
 	<header class="flex items-center gap-3">
-		<img src="/awards.png" alt="" class="h-16 w-16 shrink-0 object-contain" />
+		<img
+			src={assetUrl('/awards.png', data.assetVersion)}
+			alt=""
+			class="h-16 w-16 shrink-0 object-contain"
+		/>
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Awards</h1>
 			<p class="mt-1 text-muted-foreground">

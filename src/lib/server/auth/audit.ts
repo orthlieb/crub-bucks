@@ -44,7 +44,8 @@ export type SecurityEventType =
 	| 'registration_daily_limit_change'
 	| 'notification_sent'
 	| 'notification_deleted'
-	| 'content_reported';
+	| 'content_reported'
+	| 'asset_cache_bust';
 
 /** Extract requester IP / UA from a SvelteKit RequestEvent for audit rows. */
 export function requestContext(event: RequestEvent): {

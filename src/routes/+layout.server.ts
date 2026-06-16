@@ -1,3 +1,4 @@
+import { getSystemConfig } from '$lib/server/auth/system-config';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -25,8 +26,14 @@ function parseLocale(header: string | null): string {
  * handled by the /app layout via the notifications system.
  */
 export const load: LayoutServerLoad = async ({ locals, request }) => {
+	// Asset-cache version (cheap singleton read) — appended to static image URLs
+	// so an admin can force every client to refetch updated icons.
+	const assetVersion = await getSystemConfig()
+		.then((c) => c.assetVersion)
+		.catch(() => 1);
 	return {
 		user: locals.user,
-		locale: parseLocale(request.headers.get('accept-language'))
+		locale: parseLocale(request.headers.get('accept-language')),
+		assetVersion
 	};
 };
