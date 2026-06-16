@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { systemConfig } from '../db/schema';
 
@@ -23,6 +23,8 @@ export interface SystemConfig {
 	 */
 	registrationDailyLimit: number | null;
 	registrationDailyLimitMessage: string | null;
+	/** Cache-busting version appended to static asset URLs. Bumped by an admin. */
+	assetVersion: number;
 	updatedAt: Date;
 	updatedBy: string | null;
 }
@@ -41,6 +43,7 @@ export async function getSystemConfig(): Promise<SystemConfig> {
 			registrationLockMessage: row.registrationLockMessage,
 			registrationDailyLimit: row.registrationDailyLimit,
 			registrationDailyLimitMessage: row.registrationDailyLimitMessage,
+			assetVersion: row.assetVersion,
 			updatedAt: row.updatedAt,
 			updatedBy: row.updatedBy
 		};
@@ -68,6 +71,7 @@ export async function getSystemConfig(): Promise<SystemConfig> {
 		registrationLockMessage: null,
 		registrationDailyLimit: null,
 		registrationDailyLimitMessage: null,
+		assetVersion: 1,
 		updatedAt: now,
 		updatedBy: null
 	};
@@ -92,4 +96,22 @@ export async function updateSystemConfig(
 		.update(systemConfig)
 		.set({ ...patch, updatedAt: new Date(), updatedBy })
 		.where(eq(systemConfig.id, SYSTEM_KEY));
+}
+
+/**
+ * Bump the asset-cache version, forcing every client to refetch static images
+ * (their `?v=N` query string changes). Returns the new version.
+ */
+export async function bumpAssetVersion(updatedBy: string | null): Promise<number> {
+	await getSystemConfig(); // ensure the row exists
+	const [row] = await db
+		.update(systemConfig)
+		.set({
+			assetVersion: sql`${systemConfig.assetVersion} + 1`,
+			updatedAt: new Date(),
+			updatedBy
+		})
+		.where(eq(systemConfig.id, SYSTEM_KEY))
+		.returning({ assetVersion: systemConfig.assetVersion });
+	return row?.assetVersion ?? 1;
 }

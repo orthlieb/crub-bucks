@@ -17,6 +17,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FriendCombobox from '$lib/components/FriendCombobox.svelte';
 	import ReportDialog from '$lib/components/ReportDialog.svelte';
+	import { assetUrl } from '$lib/assets';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -154,7 +155,11 @@
 
 <div class="space-y-8">
 	<header class="flex items-center gap-3">
-		<img src="/friends.png" alt="" class="h-16 w-16 shrink-0 object-contain" />
+		<img
+			src={assetUrl('/friends.png', data.assetVersion)}
+			alt=""
+			class="h-16 w-16 shrink-0 object-contain"
+		/>
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Friends</h1>
 			<p class="mt-1 text-muted-foreground">Add them. Give them bones. Bark at them.</p>

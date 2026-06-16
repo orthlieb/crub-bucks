@@ -185,6 +185,33 @@
 		</CardContent>
 	</Card>
 
+	<!-- Asset cache -->
+	<Card>
+		<CardHeader>
+			<div class="flex items-center justify-between gap-3">
+				<div>
+					<CardTitle level={2}>Asset cache</CardTitle>
+					<CardDescription>
+						Static images (tab icons, award badges, illustrations) are cached aggressively by
+						browsers. After you replace one, bump the version to force every client to refetch — the
+						image URLs gain a new <code>?v=</code> query string.
+					</CardDescription>
+				</div>
+				<Badge variant="secondary">v{cfg.assetVersion}</Badge>
+			</div>
+		</CardHeader>
+		<CardContent>
+			<form method="POST" action="?/bustAssetCache" use:enhance class="flex items-center gap-3">
+				<Button type="submit" variant="outline">Refresh asset cache</Button>
+				{#if form?.ok === 'bustAssetCache'}
+					<span class="text-sm text-muted-foreground">
+						Bumped to v{form.assetVersion}. Clients will refetch images.
+					</span>
+				{/if}
+			</form>
+		</CardContent>
+	</Card>
+
 	<p class="text-sm text-muted-foreground">
 		Looking for the broadcast banner? It moved to
 		<a href="/admin/notifications" class="text-primary hover:underline">Notifications</a> — now dismissible

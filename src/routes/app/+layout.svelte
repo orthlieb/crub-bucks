@@ -6,6 +6,7 @@
 	import type { LayoutData } from './$types';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
+	import Shield from '@lucide/svelte/icons/shield';
 	import { isSoundEnabled, play, warmUpSound, type SoundName } from '$lib/sound';
 	import { formatAmount } from '$lib/format';
 
@@ -215,6 +216,15 @@
 			</div>
 			<div class="flex items-center gap-2">
 				<span class="hidden text-sm text-muted-foreground sm:inline">{data.user.displayName}</span>
+				{#if data.user.role === 'admin'}
+					<a
+						href="/admin"
+						class="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+					>
+						<Shield class="size-4" />
+						<span class="hidden sm:inline">Admin</span>
+					</a>
+				{/if}
 				<SettingsDialog user={data.user} />
 			</div>
 		</div>

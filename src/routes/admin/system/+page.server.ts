@@ -1,5 +1,9 @@
 import { fail } from '@sveltejs/kit';
-import { getSystemConfig, updateSystemConfig } from '$lib/server/auth/system-config';
+import {
+	getSystemConfig,
+	updateSystemConfig,
+	bumpAssetVersion
+} from '$lib/server/auth/system-config';
 import { countRegistrationsToday, logSecurityEvent } from '$lib/server/auth/audit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -79,5 +83,17 @@ export const actions: Actions = {
 			metadata: { limit, message }
 		});
 		return { ok: 'registrationDailyLimit' as const };
+	},
+
+	bustAssetCache: async (event) => {
+		const actor = event.locals.user?.id ?? null;
+		const version = await bumpAssetVersion(actor);
+		await logSecurityEvent({
+			userId: actor,
+			eventType: 'asset_cache_bust',
+			event,
+			metadata: { version }
+		});
+		return { ok: 'bustAssetCache' as const, assetVersion: version };
 	}
 };

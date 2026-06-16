@@ -4,6 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import FeedItemRow, { feedHaystack } from '$lib/components/FeedItemRow.svelte';
 	import { formatAmount } from '$lib/format';
+	import { assetUrl } from '$lib/assets';
 
 	let { data }: { data: PageData } = $props();
 	const fmt = (n: number) => formatAmount(n, data.locale);
@@ -20,7 +21,11 @@
 
 <div class="space-y-6">
 	<header class="flex items-center gap-3">
-		<img src="/feed.png" alt="" class="h-16 w-16 shrink-0 object-contain" />
+		<img
+			src={assetUrl('/feed.png', data.assetVersion)}
+			alt=""
+			class="h-16 w-16 shrink-0 object-contain"
+		/>
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Feed</h1>
 			<p class="mt-1 text-muted-foreground">

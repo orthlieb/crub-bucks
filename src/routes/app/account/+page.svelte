@@ -11,6 +11,7 @@
 		TableCell
 	} from '$lib/components/ui/table';
 	import { formatAmount } from '$lib/format';
+	import { assetUrl } from '$lib/assets';
 	import { cn } from '$lib/utils';
 	import Search from '@lucide/svelte/icons/search';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
@@ -109,7 +110,11 @@
 
 <div class="space-y-6">
 	<header class="flex items-center gap-3">
-		<img src="/account.png" alt="" class="h-16 w-16 shrink-0 object-contain" />
+		<img
+			src={assetUrl('/account.png', data.assetVersion)}
+			alt=""
+			class="h-16 w-16 shrink-0 object-contain"
+		/>
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Account</h1>
 			<p class="mt-1 text-muted-foreground">Your Crub Bucks statement — every debit and credit.</p>

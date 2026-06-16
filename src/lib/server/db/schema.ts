@@ -420,6 +420,10 @@ export const systemConfig = pgTable('system_config', {
 	// below (or a default) until tomorrow.
 	registrationDailyLimit: integer('registration_daily_limit'),
 	registrationDailyLimitMessage: text('registration_daily_limit_message'),
+	// Cache-busting version appended to static asset URLs (e.g. /account.png?v=N).
+	// An admin bumps it from /admin/system to force every client to refetch
+	// updated images. Starts at 1.
+	assetVersion: integer('asset_version').notNull().default(1),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 	updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' })
 });

@@ -1,0 +1,1 @@
+ALTER TABLE "system_config" ADD COLUMN "asset_version" integer DEFAULT 1 NOT NULL;
