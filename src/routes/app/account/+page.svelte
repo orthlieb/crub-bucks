@@ -61,7 +61,7 @@
 	let query = $state('');
 	let typeFilter = $state<'all' | 'bet' | 'payment' | 'grant'>('all');
 	let dir = $state<'all' | 'in' | 'out'>('all');
-	let filtersOpen = $state(true);
+	let filtersOpen = $state(false);
 
 	const typeChips = [
 		{ value: 'all', label: 'All' },
