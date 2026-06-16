@@ -679,10 +679,15 @@ export async function getIncomingRequests(
 }
 
 /** Pending requests this user has sent (awaiting the other's approval). */
-export async function getOutgoingRequests(
-	userId: string
-): Promise<
-	Array<{ requestId: string; toId: string; displayName: string; email: string; sentAt: Date }>
+export async function getOutgoingRequests(userId: string): Promise<
+	Array<{
+		requestId: string;
+		toId: string;
+		displayName: string;
+		email: string;
+		sentAt: Date;
+		lastRemindedAt: Date | null;
+	}>
 > {
 	const rows = await db
 		.select({
@@ -690,7 +695,8 @@ export async function getOutgoingRequests(
 			toId: friendships.addresseeId,
 			displayName: users.displayName,
 			email: users.email,
-			sentAt: friendships.createdAt
+			sentAt: friendships.createdAt,
+			lastRemindedAt: friendships.lastRemindedAt
 		})
 		.from(friendships)
 		.innerJoin(users, eq(users.id, friendships.addresseeId))
@@ -924,6 +930,67 @@ export async function cancelFriendRequest(userId: string, requestId: string): Pr
 		);
 }
 
+/**
+ * Nudge the addressee of a still-pending friend request to respond. Only the
+ * requester may remind, and only while the request is pending. Sends the
+ * addressee an in-app + push notification linking to Friends, stamps
+ * `last_reminded_at`, and is rate-limited to one reminder per request every
+ * {@link REMIND_COOLDOWN_MS} so it can't be spammed.
+ */
+export async function remindFriendRequest(userId: string, requestId: string): Promise<void> {
+	const addresseeId = await db.transaction(async (tx) => {
+		// Lock the row so the cooldown check + stamp is atomic.
+		const [req] = await tx
+			.select({
+				addresseeId: friendships.addresseeId,
+				lastRemindedAt: friendships.lastRemindedAt
+			})
+			.from(friendships)
+			.where(
+				and(
+					eq(friendships.id, requestId),
+					eq(friendships.requesterId, userId),
+					eq(friendships.status, 'pending')
+				)
+			)
+			.limit(1)
+			.for('update');
+		if (!req) throw new LedgerError('Request not found.');
+
+		if (req.lastRemindedAt) {
+			const elapsed = Date.now() - new Date(req.lastRemindedAt).getTime();
+			if (elapsed < REMIND_COOLDOWN_MS) {
+				const hours = Math.ceil((REMIND_COOLDOWN_MS - elapsed) / (60 * 60 * 1000));
+				throw new LedgerError(
+					`You reminded them recently. Try again in about ${hours} hour${hours === 1 ? '' : 's'}.`
+				);
+			}
+		}
+
+		await tx
+			.update(friendships)
+			.set({ lastRemindedAt: new Date() })
+			.where(eq(friendships.id, requestId));
+
+		return req.addresseeId;
+	});
+
+	const [requester] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, userId))
+		.limit(1);
+	const requesterName = requester?.displayName ?? 'Someone';
+
+	await createNotification({
+		userId: addresseeId,
+		level: 'info',
+		title: `${requesterName} is still waiting to be your friend`,
+		body: 'Open Friends to accept or deny their request.',
+		link: '/app/friends'
+	}).catch(() => {});
+}
+
 /** Remove an accepted friendship (either direction). */
 export async function unfriend(userId: string, otherId: string): Promise<void> {
 	await db
@@ -946,12 +1013,79 @@ export async function unfriend(userId: string, otherId: string): Promise<void> {
 /** Outstanding (unclaimed) invites this user has sent to non-users. */
 export async function getPendingInvites(
 	inviterId: string
-): Promise<Array<{ id: string; email: string; sentAt: Date }>> {
+): Promise<Array<{ id: string; email: string; sentAt: Date; lastRemindedAt: Date | null }>> {
 	return db
-		.select({ id: friendInvites.id, email: friendInvites.email, sentAt: friendInvites.createdAt })
+		.select({
+			id: friendInvites.id,
+			email: friendInvites.email,
+			sentAt: friendInvites.createdAt,
+			lastRemindedAt: friendInvites.lastRemindedAt
+		})
 		.from(friendInvites)
 		.where(and(eq(friendInvites.inviterId, inviterId), isNull(friendInvites.claimedAt)))
 		.orderBy(desc(friendInvites.createdAt));
+}
+
+/** How long before an unclaimed invite's email can be re-sent. Longer than the
+ * in-app reminder cooldown — an inbox is less forgiving than a notification list. */
+const INVITE_RESEND_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Re-send the invite email for an outstanding (unclaimed) invite. Only the
+ * inviter may resend, and at most once every {@link INVITE_RESEND_COOLDOWN_MS}.
+ * Stamps `last_reminded_at`. Unlike in-app reminders the payload here is an
+ * email, so a transport failure is swallowed (the row is still stamped, mirroring
+ * the original invite send) rather than surfaced as an error.
+ */
+export async function resendInvite(inviterId: string, inviteId: string): Promise<void> {
+	const { email } = await db.transaction(async (tx) => {
+		// Lock the row so the cooldown check + stamp is atomic.
+		const [inv] = await tx
+			.select({ email: friendInvites.email, lastRemindedAt: friendInvites.lastRemindedAt })
+			.from(friendInvites)
+			.where(
+				and(
+					eq(friendInvites.id, inviteId),
+					eq(friendInvites.inviterId, inviterId),
+					isNull(friendInvites.claimedAt)
+				)
+			)
+			.limit(1)
+			.for('update');
+		if (!inv) throw new LedgerError('Invite not found.');
+
+		if (inv.lastRemindedAt) {
+			const elapsed = Date.now() - new Date(inv.lastRemindedAt).getTime();
+			if (elapsed < INVITE_RESEND_COOLDOWN_MS) {
+				const hours = Math.ceil((INVITE_RESEND_COOLDOWN_MS - elapsed) / (60 * 60 * 1000));
+				throw new LedgerError(
+					`You re-sent this invite recently. Try again in about ${hours} hour${hours === 1 ? '' : 's'}.`
+				);
+			}
+		}
+
+		await tx
+			.update(friendInvites)
+			.set({ lastRemindedAt: new Date() })
+			.where(eq(friendInvites.id, inviteId));
+
+		return { email: inv.email };
+	});
+
+	const [me] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, inviterId))
+		.limit(1);
+	try {
+		await sendFriendInviteEmail({
+			to: email,
+			inviterName: me?.displayName ?? 'A friend',
+			inviteId
+		});
+	} catch (err) {
+		console.warn('[friend-invite] failed to re-send invite email:', err);
+	}
 }
 
 /** Cancel an outstanding invite. Only the inviter may cancel, only if unclaimed. */

@@ -18,6 +18,10 @@ import {
 	transferBetweenUsers,
 	sendFriendRequest,
 	acceptFriendRequest,
+	remindFriendRequest,
+	resendInvite,
+	getOutgoingRequests,
+	getPendingInvites,
 	areFriends,
 	countAcceptedFriends,
 	getIncomingRequests,
@@ -32,6 +36,7 @@ import {
 	materializeInviteById,
 	LedgerError
 } from '$lib/server/ledger';
+import { setEmailTransport } from '$lib/server/email/transport';
 import { hasTestDb, resetDb, createUser } from '../../test/db';
 
 // Only run when a test database is configured (TEST_DATABASE_URL).
@@ -182,6 +187,79 @@ suite('ledger workflows (DB)', () => {
 			const res = await sendFriendRequest(a.id, c.email); // a → c meets pending
 			expect(res.result).toBe('accepted');
 			expect(await areFriends(a.id, c.id)).toBe(true);
+		});
+
+		it('the requester can remind the addressee, who gets notified', async () => {
+			const a = await createUser({ displayName: 'Aaron' });
+			const b = await createUser();
+			await sendFriendRequest(a.id, b.email); // a → b pending
+			const [out] = await getOutgoingRequests(a.id);
+
+			await remindFriendRequest(a.id, out.requestId);
+
+			// b gets a reminder (the request notification + the nudge) linking to Friends.
+			const bNotifs = await db.select().from(notifications).where(eq(notifications.userId, b.id));
+			const nudge = bNotifs.find((n) => /still waiting/i.test(n.title));
+			expect(nudge).toBeDefined();
+			expect(nudge!.link).toBe('/app/friends');
+			expect(nudge!.title).toMatch(/Aaron/);
+
+			// The stamp is recorded so the outgoing row reflects the cooldown.
+			const [after] = await getOutgoingRequests(a.id);
+			expect(after.lastRemindedAt).not.toBeNull();
+		});
+
+		it('only the requester may remind, and reminders are rate-limited', async () => {
+			const a = await createUser();
+			const b = await createUser();
+			await sendFriendRequest(a.id, b.email); // a → b pending
+			const [out] = await getOutgoingRequests(a.id);
+
+			// The addressee (b) can't remind — only the sender can nudge.
+			await expect(remindFriendRequest(b.id, out.requestId)).rejects.toThrow(/not found/i);
+
+			// a reminds once; an immediate second reminder is blocked by the cooldown.
+			await remindFriendRequest(a.id, out.requestId);
+			await expect(remindFriendRequest(a.id, out.requestId)).rejects.toThrow(/recently/i);
+		});
+
+		it('cannot remind once the request is no longer pending', async () => {
+			const a = await createUser();
+			const b = await createUser();
+			await sendFriendRequest(a.id, b.email);
+			const [out] = await getOutgoingRequests(a.id);
+			await acceptFriendRequest(b.id, out.requestId); // now accepted
+			await expect(remindFriendRequest(a.id, out.requestId)).rejects.toThrow(/not found/i);
+		});
+
+		it('the inviter can re-send an unclaimed invite email, rate-limited', async () => {
+			const sent: string[] = [];
+			setEmailTransport({
+				name: 'fake',
+				async send(m) {
+					sent.push(m.to);
+				}
+			});
+
+			const a = await createUser({ displayName: 'Aaron' });
+			// Email isn't a user yet → records an invite + sends the first email.
+			const res = await sendFriendRequest(a.id, 'newbie@test.local');
+			expect(res.result).toBe('invited');
+			const [inv] = await getPendingInvites(a.id);
+			sent.length = 0; // ignore the initial invite email
+
+			await resendInvite(a.id, inv.id);
+			expect(sent).toEqual(['newbie@test.local']);
+
+			const [after] = await getPendingInvites(a.id);
+			expect(after.lastRemindedAt).not.toBeNull();
+
+			// An immediate second send is blocked by the 24h cooldown.
+			await expect(resendInvite(a.id, inv.id)).rejects.toThrow(/recently/i);
+
+			// Someone else can't re-send my invite.
+			const b = await createUser();
+			await expect(resendInvite(b.id, inv.id)).rejects.toThrow(/not found/i);
 		});
 
 		it('enforces the 99-friend cap', async () => {

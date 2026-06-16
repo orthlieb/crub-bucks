@@ -183,6 +183,20 @@
       "when": 1781564108064,
       "tag": "0025_bet_last_reminded_at",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1781565680023,
+      "tag": "0026_friendship_last_reminded_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1781565912579,
+      "tag": "0027_invite_last_reminded_at",
+      "breakpoints": true
     }
   ]
 }

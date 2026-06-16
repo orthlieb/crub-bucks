@@ -151,7 +151,10 @@ export const friendships = pgTable(
 			.references(() => users.id, { onDelete: 'cascade' }),
 		status: friendshipStatusEnum('status').notNull().default('pending'),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-		respondedAt: timestamp('responded_at', { withTimezone: true })
+		respondedAt: timestamp('responded_at', { withTimezone: true }),
+		// last time the requester nudged the addressee to respond to a still-pending
+		// request; gates a cooldown so reminders can't be spammed.
+		lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true })
 	},
 	(t) => ({
 		pairIdx: uniqueIndex('friendships_pair_idx').on(t.requesterId, t.addresseeId),
@@ -198,6 +201,9 @@ export const friendInvites = pgTable(
 		// lowercased invited email
 		email: text('email').notNull(),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		// last time the inviter re-sent the invite email; gates a cooldown so the
+		// invitee's inbox can't be spammed.
+		lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true }),
 		claimedAt: timestamp('claimed_at', { withTimezone: true }),
 		claimedUserId: uuid('claimed_user_id').references(() => users.id, { onDelete: 'set null' })
 	},
