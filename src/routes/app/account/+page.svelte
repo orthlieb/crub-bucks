@@ -11,6 +11,7 @@
 		TableCell
 	} from '$lib/components/ui/table';
 	import { formatAmount } from '$lib/format';
+	import { assetUrl } from '$lib/assets';
 	import { cn } from '$lib/utils';
 	import Search from '@lucide/svelte/icons/search';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
@@ -61,7 +62,7 @@
 	let query = $state('');
 	let typeFilter = $state<'all' | 'bet' | 'payment' | 'grant'>('all');
 	let dir = $state<'all' | 'in' | 'out'>('all');
-	let filtersOpen = $state(true);
+	let filtersOpen = $state(false);
 
 	const typeChips = [
 		{ value: 'all', label: 'All' },
@@ -109,7 +110,11 @@
 
 <div class="space-y-6">
 	<header class="flex items-center gap-3">
-		<img src="/account.png" alt="" class="h-16 w-16 shrink-0 object-contain" />
+		<img
+			src={assetUrl('/account.png', data.assetVersion)}
+			alt=""
+			class="h-16 w-16 shrink-0 object-contain"
+		/>
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Account</h1>
 			<p class="mt-1 text-muted-foreground">Your Crub Bucks statement — every debit and credit.</p>
@@ -135,25 +140,24 @@
 	{:else}
 		<!-- Filters (Iron Ledger style: search + collapsible TYPE/FLOW pills) -->
 		<div class="space-y-3">
-			<div class="relative">
-				<Search
-					class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-				/>
-				<Input
-					type="search"
-					bind:value={query}
-					placeholder="Search transactions, people, notes…"
-					aria-label="Search your statement"
-					class="pl-9"
-				/>
-			</div>
-
 			<div class="flex items-center gap-2">
+				<div class="relative flex-1">
+					<Search
+						class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+					/>
+					<Input
+						type="search"
+						bind:value={query}
+						placeholder="Search transactions, people, notes…"
+						aria-label="Search your statement"
+						class="pl-9"
+					/>
+				</div>
 				<button
 					type="button"
 					onclick={() => (filtersOpen = !filtersOpen)}
 					aria-expanded={filtersOpen}
-					class="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
+					class="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
 				>
 					Filters
 					<ChevronDown class={cn('size-4 transition-transform', filtersOpen && 'rotate-180')} />
@@ -162,7 +166,7 @@
 					<button
 						type="button"
 						onclick={clearFilters}
-						class="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent"
+						class="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent"
 					>
 						<FilterX class="size-4" />
 						Clear

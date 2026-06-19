@@ -8,7 +8,9 @@ import {
 	acceptFriendRequest,
 	denyFriendRequest,
 	cancelFriendRequest,
+	remindFriendRequest,
 	cancelInvite,
+	resendInvite,
 	unfriend,
 	transferBetweenUsers,
 	areFriends,
@@ -91,6 +93,19 @@ export const actions: Actions = {
 		return { inviteCancelled: true };
 	},
 
+	resendInvite: async ({ request, locals }) => {
+		const userId = locals.user!.id;
+		const form = await request.formData();
+		const inviteId = String(form.get('inviteId') ?? '');
+		try {
+			await resendInvite(userId, inviteId);
+		} catch (e) {
+			if (e instanceof LedgerError) return fail(400, { requestError: e.message });
+			throw e;
+		}
+		return { requestMessage: 'Invite re-sent.' };
+	},
+
 	accept: async ({ request, locals }) => {
 		const userId = locals.user!.id;
 		const form = await request.formData();
@@ -118,6 +133,19 @@ export const actions: Actions = {
 		const requestId = String(form.get('requestId') ?? '');
 		await cancelFriendRequest(userId, requestId);
 		return { cancelled: true };
+	},
+
+	remind: async ({ request, locals }) => {
+		const userId = locals.user!.id;
+		const form = await request.formData();
+		const requestId = String(form.get('requestId') ?? '');
+		try {
+			await remindFriendRequest(userId, requestId);
+		} catch (e) {
+			if (e instanceof LedgerError) return fail(400, { requestError: e.message });
+			throw e;
+		}
+		return { requestMessage: 'Reminder sent.' };
 	},
 
 	unfriend: async ({ request, locals }) => {

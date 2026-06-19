@@ -151,7 +151,10 @@ export const friendships = pgTable(
 			.references(() => users.id, { onDelete: 'cascade' }),
 		status: friendshipStatusEnum('status').notNull().default('pending'),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-		respondedAt: timestamp('responded_at', { withTimezone: true })
+		respondedAt: timestamp('responded_at', { withTimezone: true }),
+		// last time the requester nudged the addressee to respond to a still-pending
+		// request; gates a cooldown so reminders can't be spammed.
+		lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true })
 	},
 	(t) => ({
 		pairIdx: uniqueIndex('friendships_pair_idx').on(t.requesterId, t.addresseeId),
@@ -198,6 +201,9 @@ export const friendInvites = pgTable(
 		// lowercased invited email
 		email: text('email').notNull(),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		// last time the inviter re-sent the invite email; gates a cooldown so the
+		// invitee's inbox can't be spammed.
+		lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true }),
 		claimedAt: timestamp('claimed_at', { withTimezone: true }),
 		claimedUserId: uuid('claimed_user_id').references(() => users.id, { onDelete: 'set null' })
 	},
@@ -305,7 +311,10 @@ export const bets = pgTable(
 		// optional note the resolver leaves when settling the bet
 		resolutionNote: text('resolution_note'),
 		cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
-		cancelledBy: uuid('cancelled_by').references(() => users.id)
+		cancelledBy: uuid('cancelled_by').references(() => users.id),
+		// last time an accepted participant nudged the still-awaiting ones to
+		// accept; gates a cooldown so reminders can't be spammed.
+		lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true })
 	},
 	(t) => ({
 		createdByIdx: index('bets_created_by_idx').on(t.createdBy),
@@ -411,6 +420,10 @@ export const systemConfig = pgTable('system_config', {
 	// below (or a default) until tomorrow.
 	registrationDailyLimit: integer('registration_daily_limit'),
 	registrationDailyLimitMessage: text('registration_daily_limit_message'),
+	// Cache-busting version appended to static asset URLs (e.g. /account.png?v=N).
+	// An admin bumps it from /admin/system to force every client to refetch
+	// updated images. Starts at 1.
+	assetVersion: integer('asset_version').notNull().default(1),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 	updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' })
 });
