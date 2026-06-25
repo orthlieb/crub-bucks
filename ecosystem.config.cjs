@@ -56,7 +56,13 @@ module.exports = {
 				// Nginx proxies 443 → 3000. Override here if you change the
 				// upstream port in /etc/nginx/sites-available/crubbucks.
 				PORT: '3000',
-				HOST: '127.0.0.1'
+				HOST: '127.0.0.1',
+				// Sports feed provider. 'espn' pulls live (keyless) World Cup data
+				// from site.api.espn.com; the app already makes outbound HTTPS
+				// (HIBP/hCaptcha/Resend), so no extra egress config is needed. The
+				// adapter fails safe to an empty list if ESPN is ever unreachable.
+				// Falls back to synthetic 'mock' fixtures if unset.
+				SPORTS_FEED: 'espn'
 			}
 		}
 	]
