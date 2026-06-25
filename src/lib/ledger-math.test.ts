@@ -7,6 +7,7 @@ import {
 	tieredDeltas,
 	potSplitDeltas,
 	oddsDeltas,
+	parimutuelDeltas,
 	BetMathError,
 	type ParticipantDelta,
 	type SettlementTransfer
@@ -299,6 +300,120 @@ describe('oddsDeltas', () => {
 					{ userId: 'b', stake: 5 }
 				],
 				'z'
+			)
+		).toThrow(BetMathError);
+	});
+});
+
+describe('parimutuelDeltas', () => {
+	it('splits the losing pool across winners proportional to stake', () => {
+		const d = parimutuelDeltas(
+			[
+				{ userId: 'a', side: 'home', stake: 100 },
+				{ userId: 'b', side: 'home', stake: 50 },
+				{ userId: 'c', side: 'away', stake: 30 },
+				{ userId: 'd', side: 'away', stake: 20 }
+			],
+			'home'
+		);
+		// losers' pool = 50, split 100:50 → 33 / 17 after largest-remainder
+		expect(find(d, 'a')).toBe(33);
+		expect(find(d, 'b')).toBe(17);
+		expect(find(d, 'c')).toBe(-30);
+		expect(find(d, 'd')).toBe(-20);
+		expect(sum(d)).toBe(0);
+		// winners' profits exactly equal the losers' pool
+		expect(find(d, 'a') + find(d, 'b')).toBe(30 + 20);
+	});
+
+	it('reduces to odds mode when there is a single winner', () => {
+		const wagers = [
+			{ userId: 'a', side: 'home', stake: 50 },
+			{ userId: 'b', side: 'away', stake: 20 },
+			{ userId: 'c', side: 'draw', stake: 10 }
+		];
+		const pari = parimutuelDeltas(wagers, 'home');
+		const odds = oddsDeltas(
+			wagers.map((w) => ({ userId: w.userId, stake: w.stake })),
+			'a'
+		);
+		// same money outcome: lone winner takes the whole losing pool
+		expect(find(pari, 'a')).toBe(find(odds, 'a'));
+		expect(find(pari, 'b')).toBe(find(odds, 'b'));
+		expect(find(pari, 'c')).toBe(find(odds, 'c'));
+		expect(find(pari, 'a')).toBe(30);
+		expect(sum(pari)).toBe(0);
+	});
+
+	it('refunds (all zero) when nobody backed the winning side', () => {
+		const d = parimutuelDeltas(
+			[
+				{ userId: 'a', side: 'home', stake: 40 },
+				{ userId: 'b', side: 'away', stake: 60 }
+			],
+			'draw'
+		);
+		expect(d.every((x) => x.delta === 0)).toBe(true);
+		expect(sum(d)).toBe(0);
+	});
+
+	it('nets zero when everyone backed the winning side (nothing to win)', () => {
+		const d = parimutuelDeltas(
+			[
+				{ userId: 'a', side: 'home', stake: 40 },
+				{ userId: 'b', side: 'home', stake: 60 }
+			],
+			'home'
+		);
+		expect(d.every((x) => x.delta === 0)).toBe(true);
+		expect(sum(d)).toBe(0);
+	});
+
+	it('is whole-CB and zero-sum across many indivisible pools and splits', () => {
+		const stakeSets = [
+			[7, 5, 3],
+			[100, 1, 1],
+			[13, 11, 7, 5],
+			[1, 1, 1, 1, 1],
+			[999, 333, 17]
+		];
+		for (const stakes of stakeSets) {
+			// first two back 'home', the rest back 'away'
+			const wagers = stakes.map((s, i) => ({
+				userId: `u${i}`,
+				side: i < 2 ? 'home' : 'away',
+				stake: s
+			}));
+			const d = parimutuelDeltas(wagers, 'home');
+			expect(d.every((x) => Number.isInteger(x.delta))).toBe(true);
+			expect(sum(d)).toBe(0);
+			// winners' total profit equals the losers' total stake
+			const losersPool = stakes.slice(2).reduce((a, b) => a + b, 0);
+			const winnersProfit = ['u0', 'u1'].reduce((a, id) => a + find(d, id), 0);
+			expect(winnersProfit).toBe(losersPool);
+			// no winner ever nets negative; no loser ever nets positive
+			expect(find(d, 'u0')).toBeGreaterThanOrEqual(0);
+			expect(find(d, 'u1')).toBeGreaterThanOrEqual(0);
+		}
+	});
+
+	it('rejects a non-positive or fractional wager', () => {
+		expect(() =>
+			parimutuelDeltas(
+				[
+					{ userId: 'a', side: 'home', stake: 0 },
+					{ userId: 'b', side: 'away', stake: 5 }
+				],
+				'home'
+			)
+		).toThrow(BetMathError);
+		expect(() =>
+			parimutuelDeltas(
+				[
+					{ userId: 'a', side: 'home', stake: 5.5 },
+					{ userId: 'b', side: 'away', stake: 5 }
+				],
+				'home'
 			)
 		).toThrow(BetMathError);
 	});

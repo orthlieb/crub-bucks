@@ -184,3 +184,71 @@ export function tieredDeltas(
 		...orderedLoserIds.map((id, i) => ({ userId: id, delta: -losses[i] }))
 	];
 }
+
+/**
+ * Parimutuel (pool) settlement — for feed-resolved bets where many people back
+ * an OUTCOME rather than each other. Everyone who staked on `winningSide` shares
+ * the losers' money in proportion to their own stake; everyone else loses their
+ * stake. No house, no rake: it stays a closed, zero-sum transfer, so the deltas
+ * always sum to exactly 0.
+ *
+ * This generalizes {@link oddsDeltas}: that is the special case of exactly one
+ * winner taking the entire losing pool.
+ *
+ * Net semantics match the rest of the ledger (no escrow — money only moves at
+ * resolution): a winner's delta is their PROFIT (share of the losers' pool, not
+ * counting their own returned stake); a loser's delta is −(their stake).
+ *
+ * Worked example — winners split losers proportionally:
+ *   A:100 home, B:50 home, C:30 away, D:20 away; winningSide = home
+ *   losers' pool = 30+20 = 50, split over winning stakes 100:50 →
+ *   A +33, B +17, C −30, D −20  (sums to 0)
+ *
+ * Void/push cases both yield all-zero deltas (no money moves), which is the
+ * correct ledger outcome for each — the resolution layer decides how to LABEL
+ * them:
+ *   - nobody backed the actual result (no winners) → refund/push
+ *   - everybody backed the winning side (no losers) → nothing to win
+ */
+export interface ParimutuelWager {
+	userId: string;
+	/** The outcome this participant backed, e.g. 'home' | 'away' | 'draw'. */
+	side: string;
+	/** Whole CB staked on that outcome. */
+	stake: number;
+}
+
+export function parimutuelDeltas(
+	wagers: ParimutuelWager[],
+	winningSide: string
+): ParticipantDelta[] {
+	const winners: ParimutuelWager[] = [];
+	let losersPool = 0;
+	for (const w of wagers) {
+		if (!Number.isInteger(w.stake) || w.stake < 1) {
+			throw new BetMathError('Each wager must be a positive whole CB');
+		}
+		if (w.side === winningSide) winners.push(w);
+		else losersPool += w.stake;
+	}
+
+	// No winners (nobody picked the result) or no losers (everyone did) → nobody
+	// owes anybody. Every participant nets zero; the caller treats it as a
+	// void/refund. allocate() with a zero total already yields all-zero shares,
+	// so this falls out naturally, but we short-circuit for clarity.
+	if (winners.length === 0 || losersPool === 0) {
+		return wagers.map((w) => ({ userId: w.userId, delta: 0 }));
+	}
+
+	const winnings = allocate(
+		losersPool,
+		winners.map((w) => w.stake)
+	);
+	const gainByUser = new Map<string, number>();
+	winners.forEach((w, i) => gainByUser.set(w.userId, winnings[i]));
+
+	return wagers.map((w) => ({
+		userId: w.userId,
+		delta: w.side === winningSide ? (gainByUser.get(w.userId) ?? 0) : -w.stake
+	}));
+}
