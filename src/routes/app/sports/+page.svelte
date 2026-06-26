@@ -199,33 +199,47 @@
 								</p>
 							</div>
 
-							<!-- Teams + score -->
-							<div class="flex items-center justify-between gap-4">
-								<div class="flex items-center gap-2 text-lg font-semibold">
+							<!-- Teams + score. The team block can shrink (min-w-0) and wrap
+							     (flex-wrap) so long names never push the score off the card;
+							     the score keeps its own non-shrinking, no-wrap column. -->
+							<div class="flex items-start justify-between gap-3">
+								<div
+									class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-lg font-semibold"
+								>
 									<span
-										class="inline-flex items-center gap-1.5"
+										class="inline-flex min-w-0 items-center gap-1.5"
 										class:opacity-50={c.winner === 'away'}
 									>
 										{#if c.home.logo}
-											<img src={c.home.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
+											<img
+												src={c.home.logo}
+												alt=""
+												class="h-5 w-5 shrink-0 object-contain"
+												loading="lazy"
+											/>
 										{/if}
-										{c.home.name}
+										<span class="min-w-0 break-words">{c.home.name}</span>
 										<span class="text-sm font-normal text-muted-foreground">({c.home.abbr})</span>
 									</span>
 									<span class="text-sm text-muted-foreground">vs</span>
 									<span
-										class="inline-flex items-center gap-1.5"
+										class="inline-flex min-w-0 items-center gap-1.5"
 										class:opacity-50={c.winner === 'home'}
 									>
 										{#if c.away.logo}
-											<img src={c.away.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
+											<img
+												src={c.away.logo}
+												alt=""
+												class="h-5 w-5 shrink-0 object-contain"
+												loading="lazy"
+											/>
 										{/if}
-										{c.away.name}
+										<span class="min-w-0 break-words">{c.away.name}</span>
 										<span class="text-sm font-normal text-muted-foreground">({c.away.abbr})</span>
 									</span>
 								</div>
 								{#if c.homeScore !== null && c.awayScore !== null}
-									<div class="shrink-0 text-xl font-bold tabular-nums">
+									<div class="shrink-0 whitespace-nowrap text-xl font-bold tabular-nums">
 										{c.homeScore} – {c.awayScore}
 									</div>
 								{/if}
