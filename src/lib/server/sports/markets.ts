@@ -54,6 +54,9 @@ export async function openMarketFromEvent(event: FeedEvent, createdBy: string): 
 			homeAbbr: event.home.abbr,
 			awayName: event.away.name,
 			awayAbbr: event.away.abbr,
+			homeLogo: event.home.logo,
+			awayLogo: event.away.logo,
+			leagueLogo: event.leagueLogo,
 			startTime: new Date(event.startTime),
 			status: 'open',
 			createdBy
@@ -169,7 +172,8 @@ export async function resolveMarket(opts: {
 				toWalletId: walletByUser.get(t.toUserId)!,
 				amount: t.amount,
 				memo,
-				createdBy: opts.resolvedBy
+				createdBy: opts.resolvedBy,
+				sportMarketId: opts.marketId
 			});
 		}
 

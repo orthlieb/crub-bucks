@@ -1,6 +1,15 @@
-import { desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from './db';
-import { bets, betParticipants, ledgerEntries, wallets, users, userBadges } from './db/schema';
+import {
+	bets,
+	betParticipants,
+	ledgerEntries,
+	wallets,
+	users,
+	userBadges,
+	sportMarkets,
+	sportWagers
+} from './db/schema';
 import type { BadgeTier } from '$lib/badges';
 
 /**
@@ -93,6 +102,26 @@ export type FeedItem =
 			badgeKey: string;
 			tier: BadgeTier;
 			earner: FeedUser;
+			people: FeedUser[];
+	  }
+	| {
+			id: string;
+			type: 'sports_settled';
+			at: Date;
+			marketId: string;
+			league: string;
+			leagueLogo: string | null;
+			homeName: string;
+			homeAbbr: string;
+			homeLogo: string | null;
+			awayName: string;
+			awayAbbr: string;
+			awayLogo: string | null;
+			/** Final result; 'draw' (or a void) is a push — no winners/losers. */
+			winningSide: 'home' | 'away' | 'draw' | null;
+			push: boolean;
+			winners: FeedPerson[];
+			losers: FeedPerson[];
 			people: FeedUser[];
 	  };
 
@@ -292,7 +321,9 @@ export async function getFeed(opts: {
 		.from(ledgerEntries)
 		.innerJoin(wallets, eq(wallets.id, ledgerEntries.walletId))
 		.leftJoin(users, eq(users.id, wallets.userId))
-		.where(isNull(ledgerEntries.betId))
+		// Real friend-to-friend payments only: exclude both bet settlements and
+		// sports-market payouts (those get their own feed items).
+		.where(and(isNull(ledgerEntries.betId), isNull(ledgerEntries.sportMarketId)))
 		.orderBy(desc(ledgerEntries.createdAt))
 		.limit(400);
 
@@ -399,6 +430,89 @@ export async function getFeed(opts: {
 			earner,
 			people: [earner]
 		});
+	}
+
+	// --- Sports market settlements ----------------------------------------
+	const marketRows = await db
+		.select()
+		.from(sportMarkets)
+		.where(inArray(sportMarkets.status, ['resolved', 'void']))
+		.orderBy(desc(sportMarkets.resolvedAt))
+		.limit(100);
+	if (marketRows.length > 0) {
+		const marketIds = marketRows.map((m) => m.id);
+		const wagerRows = await db
+			.select({
+				marketId: sportWagers.marketId,
+				userId: sportWagers.userId,
+				settledDelta: sportWagers.settledDelta,
+				name: users.displayName,
+				avatarUpdatedAt: users.avatarUpdatedAt,
+				avatarIcon: users.avatarIcon
+			})
+			.from(sportWagers)
+			.innerJoin(users, eq(users.id, sportWagers.userId))
+			.where(inArray(sportWagers.marketId, marketIds));
+
+		const wagersByMarket = new Map<string, typeof wagerRows>();
+		for (const w of wagerRows) {
+			const arr = wagersByMarket.get(w.marketId) ?? [];
+			arr.push(w);
+			wagersByMarket.set(w.marketId, arr);
+		}
+
+		for (const m of marketRows) {
+			const ws = wagersByMarket.get(m.id) ?? [];
+			if (ws.length === 0) continue; // nobody wagered — nothing to show
+			// Audience filter: only if someone in the audience took part.
+			if (!all && !ws.some((w) => audience!.has(w.userId))) continue;
+
+			const push = m.status === 'void' || ws.every((w) => (w.settledDelta ?? 0) === 0);
+			const person = (w: (typeof ws)[number], amount: number): FeedPerson => ({
+				id: w.userId,
+				name: w.name,
+				avatarUpdatedAt: w.avatarUpdatedAt,
+				avatarIcon: w.avatarIcon,
+				amount
+			});
+			const winners = ws
+				.filter((w) => (w.settledDelta ?? 0) > 0)
+				.map((w) => person(w, Number(w.settledDelta)));
+			const losers = ws
+				.filter((w) => (w.settledDelta ?? 0) < 0)
+				.map((w) => person(w, Math.abs(Number(w.settledDelta))));
+			const people: FeedUser[] = push
+				? ws.map((w) => ({
+						id: w.userId,
+						name: w.name,
+						avatarUpdatedAt: w.avatarUpdatedAt,
+						avatarIcon: w.avatarIcon
+					}))
+				: [
+						...winners.map((p) => ({ ...p, ring: 'green' as const })),
+						...losers.map((p) => ({ ...p, ring: 'red' as const }))
+					];
+
+			items.push({
+				id: `sports_settled:${m.id}`,
+				type: 'sports_settled',
+				at: m.resolvedAt ?? m.createdAt,
+				marketId: m.id,
+				league: m.league,
+				leagueLogo: m.leagueLogo,
+				homeName: m.homeName,
+				homeAbbr: m.homeAbbr,
+				homeLogo: m.homeLogo,
+				awayName: m.awayName,
+				awayAbbr: m.awayAbbr,
+				awayLogo: m.awayLogo,
+				winningSide: m.winningSide as 'home' | 'away' | 'draw' | null,
+				push,
+				winners,
+				losers,
+				people
+			});
+		}
 	}
 
 	// --- Merge, newest first, cap ----------------------------------------

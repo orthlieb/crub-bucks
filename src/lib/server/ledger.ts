@@ -117,6 +117,8 @@ export interface TransferOpts {
 	createdBy?: string | null;
 	/** Optional context — the bet whose resolution produced this transfer. */
 	betId?: string | null;
+	/** Optional context — the sports market whose settlement produced this. */
+	sportMarketId?: string | null;
 }
 
 export async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<string> {
@@ -127,7 +129,8 @@ export async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<stri
 		memo = null,
 		icon = null,
 		createdBy = null,
-		betId = null
+		betId = null,
+		sportMarketId = null
 	} = opts;
 
 	if (!Number.isInteger(amount) || amount <= 0) {
@@ -147,8 +150,17 @@ export async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<stri
 
 	const transferId = crypto.randomUUID();
 	await tx.insert(ledgerEntries).values([
-		{ transferId, walletId: fromWalletId, delta: -amount, memo, icon, createdBy, betId },
-		{ transferId, walletId: toWalletId, delta: amount, memo, icon, createdBy, betId }
+		{
+			transferId,
+			walletId: fromWalletId,
+			delta: -amount,
+			memo,
+			icon,
+			createdBy,
+			betId,
+			sportMarketId
+		},
+		{ transferId, walletId: toWalletId, delta: amount, memo, icon, createdBy, betId, sportMarketId }
 	]);
 
 	// Keep the Bank-total stat current: this transfer's net effect on the Bank

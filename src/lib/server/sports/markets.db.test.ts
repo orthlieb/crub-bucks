@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db';
-import { sportMarkets, sportWagers, notifications } from '../db/schema';
+import { sportMarkets, sportWagers, notifications, ledgerEntries } from '../db/schema';
 import { resetDb, createUser } from '../../../test/db';
 import { issueFromBank, userBalance } from '../ledger';
+import { getFeed } from '../feed';
 import {
 	openMarketFromEvent,
 	placeWager,
@@ -327,5 +328,64 @@ describe('settleDueMarkets', () => {
 			feed: stubFeed([{ ...ev, status: 'final', winner: 'home', homeScore: 1, awayScore: 0 }])
 		});
 		expect(summary).toMatchObject({ resolved: 0, skipped: 0 });
+	});
+});
+
+describe('sports settlement & the activity feed', () => {
+	it('tags settlement ledger entries with the market id', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(1000);
+		const b = await fundedUser(1000);
+		const marketId = await openMarketFromEvent(makeEvent(), admin.id);
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 100 });
+		await placeWager({ marketId, userId: b.id, side: 'away', stake: 100 });
+		await resolveMarket({ marketId, winningSide: 'home', resolvedBy: admin.id });
+
+		const tagged = await db
+			.select()
+			.from(ledgerEntries)
+			.where(eq(ledgerEntries.sportMarketId, marketId));
+		expect(tagged.length).toBe(2); // both legs of the one payout transfer
+	});
+
+	it('surfaces a sports_settled feed item — not a fake payment', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(1000);
+		const b = await fundedUser(1000);
+		const marketId = await openMarketFromEvent(makeEvent(), admin.id);
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 100 });
+		await placeWager({ marketId, userId: b.id, side: 'away', stake: 100 });
+		await resolveMarket({ marketId, winningSide: 'home', resolvedBy: admin.id });
+
+		const items = await getFeed({ audience: 'all' });
+		// the payout must NOT show up as a friend-to-friend payment
+		expect(items.some((i) => i.type === 'payment')).toBe(false);
+		const s = items.find((i) => i.type === 'sports_settled');
+		expect(s).toBeTruthy();
+		if (s && s.type === 'sports_settled') {
+			expect(s.winningSide).toBe('home');
+			expect(s.push).toBe(false);
+			expect(s.winners.map((w) => w.id)).toContain(a.id);
+			expect(s.losers.map((l) => l.id)).toContain(b.id);
+		}
+	});
+
+	it('marks a drawn game as a push in the feed', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(100);
+		const b = await fundedUser(100);
+		const marketId = await openMarketFromEvent(makeEvent({ sport: 'soccer' }), admin.id);
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 40 });
+		await placeWager({ marketId, userId: b.id, side: 'away', stake: 60 });
+		await resolveMarket({ marketId, winningSide: 'draw', resolvedBy: admin.id });
+
+		const items = await getFeed({ audience: 'all' });
+		const s = items.find((i) => i.type === 'sports_settled');
+		expect(s).toBeTruthy();
+		if (s && s.type === 'sports_settled') {
+			expect(s.push).toBe(true);
+			expect(s.winners).toHaveLength(0);
+			expect(s.losers).toHaveLength(0);
+		}
 	});
 });

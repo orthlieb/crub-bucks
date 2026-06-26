@@ -275,6 +275,11 @@ export const ledgerEntries = pgTable(
 		icon: text('icon'),
 		// optional context — which bet resolution produced this entry (if any)
 		betId: uuid('bet_id').references(() => bets.id, { onDelete: 'set null' }),
+		// optional context — which sports market settlement produced this entry.
+		// Lets the activity feed tell sports payouts apart from friend payments.
+		sportMarketId: uuid('sport_market_id').references(() => sportMarkets.id, {
+			onDelete: 'set null'
+		}),
 		// the user who initiated the transfer; null for system seeds / grants
 		createdBy: uuid('created_by').references(() => users.id),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
@@ -285,7 +290,8 @@ export const ledgerEntries = pgTable(
 		// (filter by wallet, order by created_at desc, limit) without a full sort.
 		walletCreatedIdx: index('ledger_wallet_created_idx').on(t.walletId, t.createdAt),
 		transferIdx: index('ledger_transfer_idx').on(t.transferId),
-		betIdx: index('ledger_bet_idx').on(t.betId)
+		betIdx: index('ledger_bet_idx').on(t.betId),
+		sportMarketIdx: index('ledger_sport_market_idx').on(t.sportMarketId)
 	})
 );
 
@@ -394,6 +400,11 @@ export const sportMarkets = pgTable(
 		homeAbbr: text('home_abbr').notNull(),
 		awayName: text('away_name').notNull(),
 		awayAbbr: text('away_abbr').notNull(),
+		// Hot-linked logo URLs snapshotted at creation, so the activity feed can
+		// show team crests + the league mark even after the game leaves the feed.
+		homeLogo: text('home_logo'),
+		awayLogo: text('away_logo'),
+		leagueLogo: text('league_logo'),
 		// Kickoff — the natural "enrollment closes" deadline.
 		startTime: timestamp('start_time', { withTimezone: true }).notNull(),
 		status: sportMarketStatusEnum('status').notNull().default('open'),

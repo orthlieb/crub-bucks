@@ -26,6 +26,17 @@
 			case 'badge_earned':
 				parts = [item.earner.name, BADGES_BY_KEY.get(item.badgeKey)?.title];
 				break;
+			case 'sports_settled':
+				parts = [
+					item.homeName,
+					item.awayName,
+					item.homeAbbr,
+					item.awayAbbr,
+					item.league,
+					...item.winners.map((w) => w.name),
+					...item.losers.map((l) => l.name)
+				];
+				break;
 		}
 		return parts.filter(Boolean).join(' ').toLowerCase();
 	}
@@ -47,7 +58,8 @@
 		bet_created: { label: 'Bet', tone: 'amber' },
 		bet_resolved: { label: 'Resolved', tone: 'blue' },
 		bet_cancelled: { label: 'Cancelled', tone: 'red' },
-		payment: { label: 'Payment', tone: 'green' }
+		payment: { label: 'Payment', tone: 'green' },
+		sports_settled: { label: 'Sports', tone: 'blue' }
 	} as const satisfies Record<string, { label: string; tone: BetTone }>;
 
 	const badgeDef = $derived(
@@ -58,11 +70,21 @@
 		item.type === 'badge_earned' ? TIER_LABEL[item.tier] : STATE[item.type].label
 	);
 	const tone: BetTone = $derived(item.type === 'badge_earned' ? 'violet' : STATE[item.type].tone);
-	const icon = $derived(item.type === 'badge_earned' ? (badgeDef?.emoji ?? '🏅') : item.icon);
-	// Badge feed items prefer the tier art PNG over the emoji (which doesn't
-	// theme well); BetCard falls back to `icon` if the image fails to load.
+	const icon = $derived(
+		item.type === 'badge_earned'
+			? (badgeDef?.emoji ?? '🏅')
+			: item.type === 'sports_settled'
+				? '🏆'
+				: item.icon
+	);
+	// Badge items prefer the tier art PNG; sports items use the league/franchise
+	// logo. BetCard falls back to `icon` (emoji) if the image fails to load.
 	const iconImg = $derived(
-		item.type === 'badge_earned' ? badgeIcon(item.badgeKey, item.tier) : null
+		item.type === 'badge_earned'
+			? badgeIcon(item.badgeKey, item.tier)
+			: item.type === 'sports_settled'
+				? item.leagueLogo
+				: null
 	);
 
 	// Standardised body shared with the dashboard: title, amount, comment, date.
@@ -70,6 +92,7 @@
 		if (item.type === 'payment') return `${item.from.name} paid ${item.to.name}`;
 		if (item.type === 'badge_earned')
 			return `${item.earner.name} earned ${badgeDef?.title ?? 'a badge'}`;
+		if (item.type === 'sports_settled') return `${item.homeName} vs ${item.awayName}`;
 		return item.title;
 	});
 	// Resolved/cancelled auto-generate a summary when there's no written note;
@@ -89,12 +112,17 @@
 				return null;
 		}
 	});
-	const href = $derived(
-		linkBets &&
-			(item.type === 'bet_created' || item.type === 'bet_resolved' || item.type === 'bet_cancelled')
-			? `/app/bet/${item.betId}`
-			: undefined
-	);
+	const href = $derived.by(() => {
+		if (!linkBets) return undefined;
+		if (
+			item.type === 'bet_created' ||
+			item.type === 'bet_resolved' ||
+			item.type === 'bet_cancelled'
+		)
+			return `/app/bet/${item.betId}`;
+		if (item.type === 'sports_settled') return '/app/sports';
+		return undefined;
+	});
 </script>
 
 {#snippet tierBugComment()}
@@ -106,13 +134,43 @@
 	{/if}
 {/snippet}
 
+{#snippet sportsComment()}
+	{#if item.type === 'sports_settled'}
+		<span class="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+			<span class="inline-flex items-center gap-1">
+				{#if item.homeLogo}
+					<img src={item.homeLogo} alt="" class="inline-block h-4 w-4 object-contain" />
+				{/if}
+				{item.homeAbbr}
+			</span>
+			<span class="text-muted-foreground">vs</span>
+			<span class="inline-flex items-center gap-1">
+				{#if item.awayLogo}
+					<img src={item.awayLogo} alt="" class="inline-block h-4 w-4 object-contain" />
+				{/if}
+				{item.awayAbbr}
+			</span>
+			<span class="text-muted-foreground">·</span>
+			{#if item.push}
+				<span>Push — refunded</span>
+			{:else}
+				<span>{item.winningSide === 'home' ? item.homeAbbr : item.awayAbbr} won</span>
+			{/if}
+		</span>
+	{/if}
+{/snippet}
+
 <BetCard
 	{icon}
 	{iconImg}
 	{label}
 	{tone}
 	{title}
-	comment={item.type === 'badge_earned' ? tierBugComment : comment}
+	comment={item.type === 'badge_earned'
+		? tierBugComment
+		: item.type === 'sports_settled'
+			? sportsComment
+			: comment}
 	date={item.at}
 	{locale}
 	{href}
