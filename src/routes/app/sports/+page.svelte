@@ -58,8 +58,10 @@
 		return `${e.homeScore} – ${e.awayScore}`;
 	}
 
+	// Nice display names for sport filter tags; falls back to capitalizing.
+	const SPORT_LABELS: Record<string, string> = { cfl: 'CFL' };
 	function sportLabel(s: string): string {
-		return s.charAt(0).toUpperCase() + s.slice(1);
+		return SPORT_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1);
 	}
 
 	// Client-side filters: sport (chips), status (chips), and a team-name search.

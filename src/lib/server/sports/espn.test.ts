@@ -122,9 +122,12 @@ function stubFetch(opts: { soccer?: unknown; baseball?: unknown; status?: number
 	vi.stubGlobal(
 		'fetch',
 		vi.fn(async (url: string | URL) => {
-			const body = String(url).includes('/baseball/mlb/')
-				? (opts.baseball ?? { events: [] })
-				: (opts.soccer ?? { events: [] });
+			const u = String(url);
+			const body = u.includes('/soccer/fifa.world/')
+				? (opts.soccer ?? { events: [] })
+				: u.includes('/baseball/mlb/')
+					? (opts.baseball ?? { events: [] })
+					: { events: [] }; // other competitions: empty, so tests are stable as the list grows
 			return new Response(JSON.stringify(body), { status });
 		})
 	);
@@ -208,8 +211,11 @@ describe('espnAdapter', () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async (url: string | URL) => {
-				if (String(url).includes('/baseball/mlb/')) throw new Error('mlb down');
-				return new Response(JSON.stringify(FIXTURE), { status: 200 });
+				const u = String(url);
+				if (u.includes('/baseball/mlb/')) throw new Error('mlb down');
+				if (u.includes('/soccer/fifa.world/'))
+					return new Response(JSON.stringify(FIXTURE), { status: 200 });
+				return new Response(JSON.stringify({ events: [] }), { status: 200 });
 			})
 		);
 		const events = await espnAdapter.listUpcoming();

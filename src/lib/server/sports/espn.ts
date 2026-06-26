@@ -29,7 +29,13 @@ const TIMEOUT_MS = 6000;
  */
 export const COMPETITIONS: { sport: string; path: string; league: string }[] = [
 	{ sport: 'soccer', path: 'soccer/fifa.world', league: 'FIFA World Cup' },
-	{ sport: 'baseball', path: 'baseball/mlb', league: 'MLB' }
+	{ sport: 'baseball', path: 'baseball/mlb', league: 'MLB' },
+	{ sport: 'football', path: 'football/nfl', league: 'NFL' },
+	// ESPN serves Canadian football under the same `football` sport path; we tag
+	// it 'cfl' so it filters separately from the NFL.
+	{ sport: 'cfl', path: 'football/cfl', league: 'CFL' },
+	{ sport: 'basketball', path: 'basketball/nba', league: 'NBA' },
+	{ sport: 'hockey', path: 'hockey/nhl', league: 'NHL' }
 ];
 
 /**
