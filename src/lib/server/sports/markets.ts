@@ -1,10 +1,13 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { sportMarkets, sportWagers } from '../db/schema';
 import { transferInTx, getOrCreateUserWallet, userBalance } from '../ledger';
 import { parimutuelDeltas, planSettlement } from '../../ledger-math';
+import { createNotification } from '../notifications';
 import { getFeed } from './index';
-import type { FeedEvent } from './types';
+import type { FeedAdapter, FeedEvent } from './types';
+
+type MarketRow = typeof sportMarkets.$inferSelect;
 
 /**
  * Sports betting engine — parimutuel markets bound to a feed event.
@@ -118,14 +121,18 @@ export async function placeWager(opts: {
 export async function resolveMarket(opts: {
 	marketId: string;
 	winningSide: WagerSide;
-	resolvedBy: string;
+	resolvedBy: string | null;
 	note?: string;
 }): Promise<{ userId: string; delta: number }[]> {
 	return db.transaction(async (tx) => {
+		// FOR UPDATE: lock the market row so two concurrent settlers (e.g. the
+		// cron and an admin click) can't both pay out — the second blocks, then
+		// sees status 'resolved' and bails.
 		const [market] = await tx
 			.select()
 			.from(sportMarkets)
 			.where(eq(sportMarkets.id, opts.marketId))
+			.for('update')
 			.limit(1);
 		if (!market) throw new MarketError('Market not found');
 		if (market.status === 'resolved' || market.status === 'void') {
@@ -191,19 +198,24 @@ export async function resolveMarket(opts: {
  */
 export async function voidMarket(opts: {
 	marketId: string;
-	resolvedBy: string;
+	resolvedBy: string | null;
 	note?: string;
-}): Promise<void> {
-	await db.transaction(async (tx) => {
+}): Promise<string[]> {
+	return db.transaction(async (tx) => {
 		const [market] = await tx
 			.select({ status: sportMarkets.status })
 			.from(sportMarkets)
 			.where(eq(sportMarkets.id, opts.marketId))
+			.for('update')
 			.limit(1);
 		if (!market) throw new MarketError('Market not found');
 		if (market.status === 'resolved' || market.status === 'void') {
 			throw new MarketError('Market is already settled');
 		}
+		const refunded = await tx
+			.select({ userId: sportWagers.userId })
+			.from(sportWagers)
+			.where(eq(sportWagers.marketId, opts.marketId));
 		await tx
 			.update(sportWagers)
 			.set({ settledDelta: 0 })
@@ -217,6 +229,7 @@ export async function voidMarket(opts: {
 				resolutionNote: opts.note ?? null
 			})
 			.where(eq(sportMarkets.id, opts.marketId));
+		return refunded.map((r) => r.userId);
 	});
 }
 
@@ -227,7 +240,7 @@ export async function voidMarket(opts: {
  */
 export async function resolveMarketFromFeed(opts: {
 	marketId: string;
-	resolvedBy: string;
+	resolvedBy: string | null;
 	note?: string;
 }): Promise<{ outcome: 'resolved' | 'void' }> {
 	const [market] = await db
@@ -359,4 +372,112 @@ export async function listMarketViews(userId: string): Promise<MarketView[]> {
 		})),
 		myWager: mineByMarket.get(m.id) ?? null
 	}));
+}
+
+// ---------------------------------------------------------------------------
+// Auto-resolution
+// ---------------------------------------------------------------------------
+
+export interface SettleSummary {
+	resolved: number;
+	voided: number;
+	skipped: number;
+	errors: number;
+}
+
+const matchupOf = (m: MarketRow) => `${m.homeAbbr} vs ${m.awayAbbr}`;
+
+/** Tell each backer how their bet settled. Best-effort — never blocks/throws. */
+async function notifyResolved(m: MarketRow, deltas: { userId: string; delta: number }[]) {
+	const matchup = matchupOf(m);
+	for (const d of deltas) {
+		if (d.delta === 0) continue; // no movement (push / break-even) — stay quiet
+		const won = d.delta > 0;
+		await createNotification({
+			userId: d.userId,
+			level: won ? 'success' : 'info',
+			title: won ? 'You won a sports bet' : 'Sports bet settled',
+			body: `${won ? '+' : '-'}${Math.abs(d.delta)} CB on ${matchup}`,
+			link: '/app/sports'
+		}).catch(() => {});
+	}
+}
+
+async function notifyVoided(m: MarketRow, userIds: string[]) {
+	const matchup = matchupOf(m);
+	for (const userId of userIds) {
+		await createNotification({
+			userId,
+			level: 'info',
+			title: 'Sports market voided',
+			body: `${matchup} was called off — your wager was refunded.`,
+			link: '/app/sports'
+		}).catch(() => {});
+	}
+}
+
+/**
+ * Settle every market whose game has started and now has a feed result:
+ * final → resolve on the derived winner, postponed/cancelled → void. Fetches
+ * the feed ONCE and matches by eventId. Each market settles in its own
+ * transaction, so one bad game can't abort the batch; backers are notified of
+ * their outcome. Games that have aged out of the feed window are skipped (the
+ * admin "Resolve from feed" button is the backstop). Idempotent: a settled
+ * market is no longer a candidate, and the row lock in resolveMarket guards
+ * against any concurrent settler. `feed`/`now` are injectable for testing.
+ */
+export async function settleDueMarkets(opts?: {
+	feed?: FeedAdapter;
+	now?: Date;
+}): Promise<SettleSummary> {
+	const feed = opts?.feed ?? getFeed();
+	const now = opts?.now ?? new Date();
+	const summary: SettleSummary = { resolved: 0, voided: 0, skipped: 0, errors: 0 };
+
+	const candidates = await db
+		.select()
+		.from(sportMarkets)
+		.where(and(inArray(sportMarkets.status, ['open', 'closed']), lte(sportMarkets.startTime, now)));
+	if (candidates.length === 0) return summary;
+
+	let events: FeedEvent[];
+	try {
+		events = await feed.listUpcoming();
+	} catch {
+		return summary; // feed unreachable — leave everything for the next tick
+	}
+	const byId = new Map(events.map((e) => [e.eventId, e]));
+
+	for (const m of candidates) {
+		try {
+			const ev = byId.get(m.eventId);
+			if (!ev) {
+				summary.skipped++; // game no longer in the feed window — admin backstop
+				continue;
+			}
+			if (ev.status === 'postponed' || ev.status === 'cancelled') {
+				const refunded = await voidMarket({
+					marketId: m.id,
+					resolvedBy: null,
+					note: `Auto-voided: game ${ev.status}`
+				});
+				await notifyVoided(m, refunded);
+				summary.voided++;
+			} else if (ev.status === 'final' && ev.winner !== null) {
+				const deltas = await resolveMarket({
+					marketId: m.id,
+					winningSide: ev.winner,
+					resolvedBy: null,
+					note: 'Auto-resolved from feed'
+				});
+				await notifyResolved(m, deltas);
+				summary.resolved++;
+			} else {
+				summary.skipped++; // still scheduled / in progress
+			}
+		} catch {
+			summary.errors++;
+		}
+	}
+	return summary;
 }

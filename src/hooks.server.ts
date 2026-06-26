@@ -6,6 +6,11 @@ import {
 	clearSessionCookie
 } from '$lib/server/auth/session';
 import { getSystemConfig } from '$lib/server/auth/system-config';
+import { startSettleCron } from '$lib/server/sports/cron';
+
+// Kick off the in-process sports auto-resolution loop once, at server start.
+// No-ops unless ENABLE_CRON=true (and never during build/prerender).
+startSettleCron();
 
 /**
  * Paths that should always remain reachable when maintenance mode is on:

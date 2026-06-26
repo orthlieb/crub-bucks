@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db';
-import { sportMarkets, sportWagers } from '../db/schema';
+import { sportMarkets, sportWagers, notifications } from '../db/schema';
 import { resetDb, createUser } from '../../../test/db';
 import { issueFromBank, userBalance } from '../ledger';
 import {
@@ -10,9 +10,20 @@ import {
 	resolveMarket,
 	voidMarket,
 	poolsBySide,
+	settleDueMarkets,
 	MarketError
 } from './markets';
-import type { FeedEvent } from './types';
+import type { FeedAdapter, FeedEvent } from './types';
+
+/** A fixed in-memory feed for the auto-resolution tests. */
+function stubFeed(events: FeedEvent[]): FeedAdapter {
+	return {
+		provider: 'stub',
+		listUpcoming: async () => events,
+		getEvent: async (id: string) => events.find((e) => e.eventId === id) ?? null
+	};
+}
+const FUTURE = () => new Date(Date.now() + 7 * 24 * 3600 * 1000); // past every market's kickoff
 
 beforeEach(resetDb);
 
@@ -219,5 +230,83 @@ describe('poolsBySide', () => {
 		const away = pools.find((p) => p.side === 'away');
 		expect(home).toEqual({ side: 'home', total: 150, count: 2 });
 		expect(away).toEqual({ side: 'away', total: 30, count: 1 });
+	});
+});
+
+describe('settleDueMarkets', () => {
+	it('resolves a finished game from the feed, notifies backers, and is idempotent', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(1000);
+		const b = await fundedUser(1000);
+		const ev = makeEvent();
+		const marketId = await openMarketFromEvent(ev, admin.id);
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 100 });
+		await placeWager({ marketId, userId: b.id, side: 'away', stake: 100 });
+
+		const final: FeedEvent = { ...ev, status: 'final', homeScore: 1, awayScore: 0, winner: 'home' };
+		const summary = await settleDueMarkets({ feed: stubFeed([final]), now: FUTURE() });
+
+		expect(summary).toMatchObject({ resolved: 1, voided: 0, errors: 0 });
+		expect(await userBalance(a.id)).toBe(1100); // sole winner takes the 100 pool
+		expect(await userBalance(b.id)).toBe(900);
+
+		const [m] = await db.select().from(sportMarkets).where(eq(sportMarkets.id, marketId));
+		expect(m).toMatchObject({ status: 'resolved', winningSide: 'home' });
+
+		// both backers got a settlement notification
+		const aNotes = await db.select().from(notifications).where(eq(notifications.userId, a.id));
+		expect(aNotes.length).toBeGreaterThanOrEqual(1);
+		expect(aNotes.some((n) => n.level === 'success')).toBe(true);
+
+		// running again settles nothing (already resolved → not a candidate)
+		const again = await settleDueMarkets({ feed: stubFeed([final]), now: FUTURE() });
+		expect(again.resolved).toBe(0);
+		expect(await userBalance(a.id)).toBe(1100);
+	});
+
+	it('voids a postponed game and refunds (no balance change)', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(100);
+		const b = await fundedUser(100);
+		const ev = makeEvent();
+		const marketId = await openMarketFromEvent(ev, admin.id);
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 40 });
+		await placeWager({ marketId, userId: b.id, side: 'away', stake: 60 });
+
+		const summary = await settleDueMarkets({
+			feed: stubFeed([{ ...ev, status: 'postponed' }]),
+			now: FUTURE()
+		});
+
+		expect(summary).toMatchObject({ voided: 1, resolved: 0 });
+		expect(await userBalance(a.id)).toBe(100);
+		expect(await userBalance(b.id)).toBe(100);
+		const [m] = await db.select().from(sportMarkets).where(eq(sportMarkets.id, marketId));
+		expect(m.status).toBe('void');
+	});
+
+	it('skips games that are not final and games missing from the feed', async () => {
+		const admin = await createUser();
+		const ev1 = makeEvent(); // will be reported still in progress
+		const ev2 = makeEvent(); // will be absent from the feed
+		await openMarketFromEvent(ev1, admin.id);
+		await openMarketFromEvent(ev2, admin.id);
+
+		const summary = await settleDueMarkets({
+			feed: stubFeed([{ ...ev1, status: 'in_progress' }]),
+			now: FUTURE()
+		});
+		expect(summary).toMatchObject({ resolved: 0, voided: 0, skipped: 2, errors: 0 });
+	});
+
+	it('does not settle markets whose game has not started yet', async () => {
+		const admin = await createUser();
+		const ev = makeEvent(); // startTime tomorrow
+		await openMarketFromEvent(ev, admin.id);
+		// "now" is the real present, before kickoff → not a candidate
+		const summary = await settleDueMarkets({
+			feed: stubFeed([{ ...ev, status: 'final', winner: 'home', homeScore: 1, awayScore: 0 }])
+		});
+		expect(summary).toMatchObject({ resolved: 0, skipped: 0 });
 	});
 });

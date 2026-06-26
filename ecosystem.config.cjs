@@ -62,7 +62,10 @@ module.exports = {
 				// (HIBP/hCaptcha/Resend), so no extra egress config is needed. The
 				// adapter fails safe to an empty list if ESPN is ever unreachable.
 				// Falls back to synthetic 'mock' fixtures if unset.
-				SPORTS_FEED: 'espn'
+				SPORTS_FEED: 'espn',
+				// Turn on the in-process sports auto-resolution loop (settles markets
+				// from the feed when games finish). Off everywhere else.
+				ENABLE_CRON: 'true'
 			}
 		}
 	]
