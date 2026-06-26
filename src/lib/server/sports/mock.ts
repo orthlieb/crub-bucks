@@ -34,7 +34,19 @@ const TEAMS: Record<string, SeedTeam> = {
 	NYY: { id: 'nyy', name: 'New York Yankees', abbr: 'NYY' },
 	BOS: { id: 'bos', name: 'Boston Red Sox', abbr: 'BOS' },
 	LAD: { id: 'lad', name: 'Los Angeles Dodgers', abbr: 'LAD' },
-	CHC: { id: 'chc', name: 'Chicago Cubs', abbr: 'CHC' }
+	CHC: { id: 'chc', name: 'Chicago Cubs', abbr: 'CHC' },
+	// American football — NFL clubs
+	KC: { id: 'kc', name: 'Kansas City Chiefs', abbr: 'KC' },
+	BUF: { id: 'buf', name: 'Buffalo Bills', abbr: 'BUF' },
+	// Canadian football — CFL clubs
+	TOR_CFL: { id: 'tor-cfl', name: 'Toronto Argonauts', abbr: 'TOR' },
+	BC: { id: 'bc', name: 'BC Lions', abbr: 'BC' },
+	// Basketball — NBA clubs
+	LAL: { id: 'lal', name: 'Los Angeles Lakers', abbr: 'LAL' },
+	GSW: { id: 'gsw', name: 'Golden State Warriors', abbr: 'GSW' },
+	// Hockey — NHL clubs
+	COL: { id: 'col', name: 'Colorado Avalanche', abbr: 'COL' },
+	TBL: { id: 'tbl', name: 'Tampa Bay Lightning', abbr: 'TBL' }
 };
 
 type Seed = {
@@ -52,6 +64,10 @@ type Seed = {
 
 const WC = { sport: 'soccer', league: 'FIFA World Cup' };
 const MLB = { sport: 'baseball', league: 'MLB' };
+const NFL = { sport: 'football', league: 'NFL' };
+const CFL = { sport: 'cfl', league: 'CFL' };
+const NBA = { sport: 'basketball', league: 'NBA' };
+const NHL = { sport: 'hockey', league: 'NHL' };
 
 // Synthetic schedule centered on "now": finished games, one live, several
 // upcoming, plus a postponed one so the void/refund path is exercisable —
@@ -133,6 +149,86 @@ const SEEDS: Seed[] = [
 		home: TEAMS.CHC,
 		away: TEAMS.NYY,
 		offsetHours: 28,
+		status: 'scheduled',
+		homeScore: null,
+		awayScore: null
+	},
+	{
+		...NFL,
+		eventId: 'nfl-001',
+		home: TEAMS.KC,
+		away: TEAMS.BUF,
+		offsetHours: -20,
+		status: 'final',
+		homeScore: 27,
+		awayScore: 24
+	},
+	{
+		...NFL,
+		eventId: 'nfl-002',
+		home: TEAMS.BUF,
+		away: TEAMS.KC,
+		offsetHours: 30,
+		status: 'scheduled',
+		homeScore: null,
+		awayScore: null
+	},
+	{
+		...CFL,
+		eventId: 'cfl-001',
+		home: TEAMS.BC,
+		away: TEAMS.TOR_CFL,
+		offsetHours: -5,
+		status: 'final',
+		homeScore: 21,
+		awayScore: 17
+	},
+	{
+		...CFL,
+		eventId: 'cfl-002',
+		home: TEAMS.TOR_CFL,
+		away: TEAMS.BC,
+		offsetHours: 6,
+		status: 'scheduled',
+		homeScore: null,
+		awayScore: null
+	},
+	{
+		...NBA,
+		eventId: 'nba-001',
+		home: TEAMS.LAL,
+		away: TEAMS.GSW,
+		offsetHours: 2,
+		status: 'in_progress',
+		homeScore: 58,
+		awayScore: 61
+	},
+	{
+		...NBA,
+		eventId: 'nba-002',
+		home: TEAMS.GSW,
+		away: TEAMS.LAL,
+		offsetHours: 28,
+		status: 'scheduled',
+		homeScore: null,
+		awayScore: null
+	},
+	{
+		...NHL,
+		eventId: 'nhl-001',
+		home: TEAMS.COL,
+		away: TEAMS.TBL,
+		offsetHours: -1,
+		status: 'final',
+		homeScore: 4,
+		awayScore: 2
+	},
+	{
+		...NHL,
+		eventId: 'nhl-002',
+		home: TEAMS.COL,
+		away: TEAMS.TBL,
+		offsetHours: 52,
 		status: 'scheduled',
 		homeScore: null,
 		awayScore: null
