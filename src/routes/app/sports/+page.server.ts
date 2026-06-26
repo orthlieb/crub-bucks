@@ -4,8 +4,6 @@ import type { FeedEvent, FeedEventStatus } from '$lib/server/sports';
 import {
 	openMarketFromEvent,
 	placeWager,
-	resolveMarketFromFeed,
-	voidMarket,
 	listMarketViews,
 	MarketError,
 	type MarketView,
@@ -15,7 +13,8 @@ import type { Actions, PageServerLoad } from './$types';
 
 /**
  * Sports page: the feed's games merged with our parimutuel markets.
- * - Admins curate markets (open / resolve-from-feed / void).
+ * - Admins open markets; settlement (and refunds on postponed/cancelled
+ *   games) is fully automatic via the feed cron (settleDueMarkets).
  * - Any signed-in user places a wager on an open market.
  * Settlement and the zero-sum invariant live entirely in the engine
  * (markets.ts → ledger.ts); this route is just wiring.
@@ -132,35 +131,6 @@ export const actions: Actions = {
 		try {
 			await placeWager({ marketId, userId: locals.user!.id, side, stake });
 			return { ok: 'placed' as const, marketId };
-		} catch (e) {
-			if (e instanceof MarketError) return fail(400, { message: e.message, marketId });
-			throw e;
-		}
-	},
-
-	// Admin: settle from the live feed result (final → pay out, postponed/cancelled → void).
-	resolveFromFeed: async ({ request, locals }) => {
-		requireAdmin(locals);
-		const form = await request.formData();
-		const marketId = String(form.get('marketId') ?? '');
-		try {
-			const { outcome } = await resolveMarketFromFeed({ marketId, resolvedBy: locals.user!.id });
-			return { ok: outcome, marketId };
-		} catch (e) {
-			if (e instanceof MarketError) return fail(400, { message: e.message, marketId });
-			throw e;
-		}
-	},
-
-	// Admin: void a market (refund everyone).
-	voidMarket: async ({ request, locals }) => {
-		requireAdmin(locals);
-		const form = await request.formData();
-		const marketId = String(form.get('marketId') ?? '');
-		const note = String(form.get('note') ?? '').trim() || undefined;
-		try {
-			await voidMarket({ marketId, resolvedBy: locals.user!.id, note });
-			return { ok: 'void' as const, marketId };
 		} catch (e) {
 			if (e instanceof MarketError) return fail(400, { message: e.message, marketId });
 			throw e;
