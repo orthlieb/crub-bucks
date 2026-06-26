@@ -112,10 +112,11 @@ describe('placeWager', () => {
 		).rejects.toBeInstanceOf(MarketError);
 	});
 
-	it('rejects a draw pick on a sport without draws', async () => {
+	it('rejects a draw pick — a drawn game is a push, not a side', async () => {
 		const admin = await createUser();
 		const u = await fundedUser(100);
-		const marketId = await openMarketFromEvent(makeEvent({ sport: 'baseball' }), admin.id);
+		// even for soccer (which can draw), 'draw' is not a backable side
+		const marketId = await openMarketFromEvent(makeEvent({ sport: 'soccer' }), admin.id);
 		await expect(
 			placeWager({ marketId, userId: u.id, side: 'draw', stake: 10 })
 		).rejects.toBeInstanceOf(MarketError);
@@ -176,6 +177,24 @@ describe('resolveMarket', () => {
 
 		expect(await userBalance(a.id)).toBe(100);
 		expect(await userBalance(b.id)).toBe(100);
+		const wagers = await db.select().from(sportWagers).where(eq(sportWagers.marketId, marketId));
+		expect(wagers.every((w) => w.settledDelta === 0)).toBe(true);
+	});
+
+	it('pushes a drawn game — home and away backers both refunded', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(100);
+		const b = await fundedUser(100);
+		const marketId = await openMarketFromEvent(makeEvent({ sport: 'soccer' }), admin.id);
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 40 });
+		await placeWager({ marketId, userId: b.id, side: 'away', stake: 60 });
+
+		await resolveMarket({ marketId, winningSide: 'draw', resolvedBy: admin.id });
+
+		expect(await userBalance(a.id)).toBe(100);
+		expect(await userBalance(b.id)).toBe(100);
+		const [m] = await db.select().from(sportMarkets).where(eq(sportMarkets.id, marketId));
+		expect(m).toMatchObject({ status: 'resolved', winningSide: 'draw' });
 		const wagers = await db.select().from(sportWagers).where(eq(sportWagers.marketId, marketId));
 		expect(wagers.every((w) => w.settledDelta === 0)).toBe(true);
 	});

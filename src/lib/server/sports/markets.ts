@@ -28,11 +28,14 @@ export class MarketError extends Error {
 	}
 }
 
+// 'draw' is a possible game RESULT (soccer), but never a wager side — a drawn
+// game simply pushes (no draw backers ⇒ all-zero deltas ⇒ refund). Keeping it
+// out of the betting options keeps the UX simple.
 export type WagerSide = 'home' | 'away' | 'draw';
 
-/** Which outcomes can be backed for a sport. Only soccer can end in a draw. */
-export function allowedSides(sport: string): WagerSide[] {
-	return sport === 'soccer' ? ['home', 'away', 'draw'] : ['home', 'away'];
+/** Outcomes a user can back: home or away only. A draw is a push. */
+export function allowedSides(): WagerSide[] {
+	return ['home', 'away'];
 }
 
 /**
@@ -94,7 +97,7 @@ export async function placeWager(opts: {
 	if (!market) throw new MarketError('Market not found');
 	if (market.status !== 'open') throw new MarketError('This market is closed to new wagers');
 	if (now >= market.startTime) throw new MarketError('Wagering has closed for this game');
-	if (!allowedSides(market.sport).includes(opts.side)) {
+	if (!allowedSides().includes(opts.side)) {
 		throw new MarketError(`"${opts.side}" is not a valid pick for this game`);
 	}
 

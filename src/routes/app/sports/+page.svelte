@@ -35,8 +35,9 @@
 	const SPORT_LABELS: Record<string, string> = { cfl: 'CFL' };
 	const sportLabel = (s: string) => SPORT_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1);
 
-	function allowedSides(sport: string): ('home' | 'away' | 'draw')[] {
-		return sport === 'soccer' ? ['home', 'away', 'draw'] : ['home', 'away'];
+	// Home/away only — a drawn game pushes (refund), so 'draw' isn't a pick.
+	function allowedSides(): ('home' | 'away')[] {
+		return ['home', 'away'];
 	}
 	function sideLabel(c: GameCard, side: string): string {
 		if (side === 'home') return c.home.abbr || c.home.name;
@@ -351,7 +352,7 @@
 								<div class="rounded-md border bg-muted/30 p-3">
 									<!-- Pools -->
 									<div class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-										{#each allowedSides(c.sport) as side (side)}
+										{#each allowedSides() as side (side)}
 											{@const p = poolFor(m, side)}
 											<span>
 												<span class="font-medium">{sideLabel(c, side)}</span>
@@ -399,7 +400,7 @@
 													name="side"
 													class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
 												>
-													{#each allowedSides(c.sport) as side (side)}
+													{#each allowedSides() as side (side)}
 														<option value={side}>{sideLabel(c, side)}</option>
 													{/each}
 												</select>
@@ -425,9 +426,15 @@
 											Wagering closed — awaiting the result.
 										</p>
 									{:else if m.status === 'resolved'}
-										<p class="mt-2 text-sm">
-											Result: <span class="font-medium">{sideLabel(c, m.winningSide ?? '')}</span> won.
-										</p>
+										{#if m.winningSide === 'draw'}
+											<p class="mt-2 text-sm text-muted-foreground">
+												Draw — all wagers pushed (refunded).
+											</p>
+										{:else}
+											<p class="mt-2 text-sm">
+												Result: <span class="font-medium">{sideLabel(c, m.winningSide ?? '')}</span> won.
+											</p>
+										{/if}
 									{:else if m.status === 'void'}
 										<p class="mt-2 text-sm text-muted-foreground">
 											Voided — all wagers refunded.{m.resolutionNote
