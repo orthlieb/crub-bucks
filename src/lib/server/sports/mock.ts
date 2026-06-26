@@ -145,10 +145,13 @@ function toEvent(seed: Seed, nowMs: number): FeedEvent {
 		eventId: seed.eventId,
 		sport: seed.sport,
 		league: seed.league,
+		// Synthetic fixtures have no real logo URLs; the UI falls back to the
+		// team abbreviation / league name text.
+		leagueLogo: null,
 		startTime: new Date(nowMs + seed.offsetHours * HOUR).toISOString(),
 		status: seed.status,
-		home: seed.home,
-		away: seed.away,
+		home: { ...seed.home, logo: null },
+		away: { ...seed.away, logo: null },
 		homeScore: seed.homeScore,
 		awayScore: seed.awayScore,
 		winner: deriveWinner(seed.status, seed.homeScore, seed.awayScore)

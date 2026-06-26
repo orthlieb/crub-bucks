@@ -63,6 +63,24 @@ function num(score: unknown): number | null {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/** First usable logo href from an ESPN `logos` array, preferring a non-dark
+ *  variant so it reads on a light background. Returns null if none. */
+function firstLogo(logos: any): string | null {
+	if (!Array.isArray(logos)) return null;
+	const light = logos.find((l: any) => !String(l?.rel ?? '').includes('dark'));
+	const href = (light ?? logos[0])?.href;
+	return typeof href === 'string' && href ? href : null;
+}
+
+/** A team's logo: ESPN gives a single `team.logo` on scoreboards, sometimes a
+ *  `team.logos[]` array instead. Try both. */
+function teamLogo(team: any): string | null {
+	if (typeof team?.logo === 'string' && team.logo) return team.logo;
+	return firstLogo(team?.logos);
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Parse one ESPN scoreboard payload into normalized events. Pure — no network —
  * so the messy shape-handling is fully unit-testable from a captured fixture.
@@ -71,6 +89,7 @@ function num(score: unknown): number | null {
 export function parseEspnScoreboard(json: any, sport: string, fallbackLeague = ''): FeedEvent[] {
 	const events = Array.isArray(json?.events) ? json.events : [];
 	const league: string = json?.leagues?.[0]?.name ?? fallbackLeague;
+	const leagueLogo = firstLogo(json?.leagues?.[0]?.logos);
 
 	const out: FeedEvent[] = [];
 	for (const ev of events) {
@@ -92,17 +111,20 @@ export function parseEspnScoreboard(json: any, sport: string, fallbackLeague = '
 			eventId: String(ev.id ?? comp.id ?? ''),
 			sport,
 			league,
+			leagueLogo,
 			startTime: String(ev.date ?? comp.date ?? ''),
 			status,
 			home: {
 				id: String(home.team?.id ?? ''),
 				name: String(home.team?.displayName ?? home.team?.name ?? ''),
-				abbr: String(home.team?.abbreviation ?? '')
+				abbr: String(home.team?.abbreviation ?? ''),
+				logo: teamLogo(home.team)
 			},
 			away: {
 				id: String(away.team?.id ?? ''),
 				name: String(away.team?.displayName ?? away.team?.name ?? ''),
-				abbr: String(away.team?.abbreviation ?? '')
+				abbr: String(away.team?.abbreviation ?? ''),
+				logo: teamLogo(away.team)
 			},
 			homeScore,
 			awayScore,

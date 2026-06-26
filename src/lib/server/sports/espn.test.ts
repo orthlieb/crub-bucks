@@ -25,7 +25,15 @@ describe('normalizeEspnStatus', () => {
 
 // A trimmed-but-realistic ESPN scoreboard payload.
 const FIXTURE = {
-	leagues: [{ name: 'FIFA World Cup' }],
+	leagues: [
+		{
+			name: 'FIFA World Cup',
+			logos: [
+				{ href: 'https://a.espncdn.com/fifa-dark.png', rel: ['full', 'dark'] },
+				{ href: 'https://a.espncdn.com/fifa.png', rel: ['full', 'default'] }
+			]
+		}
+	],
 	events: [
 		{
 			id: '700001',
@@ -37,12 +45,17 @@ const FIXTURE = {
 						{
 							homeAway: 'home',
 							score: '3',
-							team: { id: '1', displayName: 'Argentina', abbreviation: 'ARG' }
+							team: {
+								id: '1',
+								displayName: 'Argentina',
+								abbreviation: 'ARG',
+								logo: 'https://a.espncdn.com/arg.png'
+							}
 						},
 						{
 							homeAway: 'away',
 							score: '1',
-							team: { id: '2', displayName: 'Mexico', abbreviation: 'MEX' }
+							team: { id: '2', displayName: 'Mexico', abbreviation: 'MEX' } // no logo
 						}
 					]
 				}
@@ -135,6 +148,11 @@ describe('parseEspnScoreboard', () => {
 		});
 		expect(final.home.abbr).toBe('ARG');
 		expect(final.away.name).toBe('Mexico');
+		// logos: team logo extracted; league logo prefers the non-dark variant;
+		// a team without a logo is null (UI falls back to the abbreviation).
+		expect(final.home.logo).toBe('https://a.espncdn.com/arg.png');
+		expect(final.away.logo).toBeNull();
+		expect(final.leagueLogo).toBe('https://a.espncdn.com/fifa.png');
 
 		const upcoming = events[1];
 		expect(upcoming).toMatchObject({

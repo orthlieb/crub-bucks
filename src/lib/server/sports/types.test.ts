@@ -7,10 +7,11 @@ function ev(over: Partial<FeedEvent> & Pick<FeedEvent, 'provider' | 'eventId'>):
 	return {
 		sport: 'soccer',
 		league: 'FIFA World Cup',
+		leagueLogo: null,
 		startTime: '2026-06-26T19:00:00.000Z',
 		status: 'scheduled',
-		home: { id: 'h', name: 'Home', abbr: 'HOM' },
-		away: { id: 'a', name: 'Away', abbr: 'AWY' },
+		home: { id: 'h', name: 'Home', abbr: 'HOM', logo: null },
+		away: { id: 'a', name: 'Away', abbr: 'AWY', logo: null },
 		homeScore: null,
 		awayScore: null,
 		winner: null,
@@ -39,8 +40,16 @@ describe('deriveWinner', () => {
 
 describe('dedupeEvents', () => {
 	it('is a no-op when nothing collides', () => {
-		const a = ev({ provider: 'espn', eventId: '1', home: { id: 'x', name: 'X', abbr: 'AAA' } });
-		const b = ev({ provider: 'espn', eventId: '2', home: { id: 'y', name: 'Y', abbr: 'BBB' } });
+		const a = ev({
+			provider: 'espn',
+			eventId: '1',
+			home: { id: 'x', name: 'X', abbr: 'AAA', logo: null }
+		});
+		const b = ev({
+			provider: 'espn',
+			eventId: '2',
+			home: { id: 'y', name: 'Y', abbr: 'BBB', logo: null }
+		});
 		expect(dedupeEvents([a, b])).toHaveLength(2);
 	});
 
@@ -74,7 +83,7 @@ describe('dedupeEvents', () => {
 	});
 
 	it('never merges events that lack team identifiers', () => {
-		const blank = { id: '', name: '', abbr: '' };
+		const blank = { id: '', name: '', abbr: '', logo: null };
 		const a = ev({ provider: 'p', eventId: '1', home: blank, away: blank });
 		const b = ev({ provider: 'p', eventId: '2', home: blank, away: blank });
 		expect(dedupeEvents([a, b])).toHaveLength(2);

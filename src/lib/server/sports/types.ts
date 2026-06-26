@@ -26,6 +26,12 @@ export interface FeedTeam {
 	name: string;
 	/** Short code, e.g. "ARG", "FRA". May be empty if the provider omits it. */
 	abbr: string;
+	/**
+	 * Official crest/logo URL from the provider (hot-linked, not stored), or null
+	 * when none is available. The UI renders it as an <img> and falls back to the
+	 * abbreviation when absent.
+	 */
+	logo: string | null;
 }
 
 export interface FeedEvent {
@@ -40,6 +46,11 @@ export interface FeedEvent {
 	sport: string;
 	/** Human league/competition name, e.g. "FIFA World Cup" or "MLB". */
 	league: string;
+	/**
+	 * Official league/competition logo URL (e.g. the FIFA World Cup or MLB mark),
+	 * hot-linked from the provider, or null. Serves as the "sport" icon on a card.
+	 */
+	leagueLogo: string | null;
 	/** Kickoff, ISO-8601 UTC. This is the natural "enrollment closes" deadline. */
 	startTime: string;
 	status: FeedEventStatus;
