@@ -1,9 +1,20 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 
 	let { data }: { data: PageData } = $props();
+
+	// Kickoff times are formatted CLIENT-SIDE only, so they render in the
+	// visitor's own timezone. Formatting on the server would use the VPS
+	// timezone (UTC) and disagree with the browser on hydration. We render a
+	// neutral placeholder until mounted so SSR and the first client paint match
+	// (no hydration mismatch), then swap in the real local-time string.
+	let mounted = $state(false);
+	onMount(() => {
+		mounted = true;
+	});
 
 	// Element type inferred from the loader — avoids importing from $lib/server
 	// (which SvelteKit blocks in client code, even for type-only imports).
@@ -30,7 +41,9 @@
 	function kickoff(iso: string): string {
 		const d = new Date(iso);
 		if (Number.isNaN(d.getTime())) return '';
-		return d.toLocaleString(undefined, {
+		// Locale from the user's Accept-Language (root layout); timezone is the
+		// browser's own, since this only runs after mount.
+		return d.toLocaleString(data.locale, {
 			weekday: 'short',
 			month: 'short',
 			day: 'numeric',
@@ -86,7 +99,9 @@
 									>
 										{STATUS_LABEL[e.status]}
 									</span>
-									<span class="truncate text-xs text-muted-foreground">{kickoff(e.startTime)}</span>
+									<span class="truncate text-xs text-muted-foreground"
+										>{mounted ? kickoff(e.startTime) : ''}</span
+									>
 								</div>
 								<div class="mt-1.5 flex items-center gap-2 text-lg font-semibold">
 									<span class:opacity-50={e.winner === 'away'}>
