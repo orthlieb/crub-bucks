@@ -1,49 +1,27 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { PageData } from './$types';
+	import { enhance } from '$app/forms';
+	import type { PageData, ActionData } from './$types';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import { Input } from '$lib/components/ui/input';
+	import { Button } from '$lib/components/ui/button';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	// Kickoff times are formatted CLIENT-SIDE only, so they render in the
-	// visitor's own timezone. Formatting on the server would use the VPS
-	// timezone (UTC) and disagree with the browser on hydration. We render a
-	// neutral placeholder until mounted so SSR and the first client paint match
-	// (no hydration mismatch), then swap in the real local-time string.
+	type GameCard = PageData['cards'][number];
+	type Market = NonNullable<GameCard['market']>;
+
+	// Kickoff times render client-side only, in the visitor's timezone (avoids an
+	// SSR/UTC hydration mismatch).
 	let mounted = $state(false);
 	onMount(() => {
 		mounted = true;
 	});
 
-	// Element type inferred from the loader — avoids importing from $lib/server
-	// (which SvelteKit blocks in client code, even for type-only imports).
-	type Ev = PageData['events'][number];
-
-	const STATUS_LABEL: Record<string, string> = {
-		scheduled: 'Upcoming',
-		in_progress: 'Live',
-		final: 'Final',
-		postponed: 'Postponed',
-		cancelled: 'Cancelled'
-	};
-
-	// Tailwind classes for each status pill — driven by the design tokens already
-	// used across the app (accent / destructive / muted / primary).
-	const STATUS_CLASS: Record<string, string> = {
-		scheduled: 'bg-muted text-muted-foreground',
-		in_progress: 'bg-primary text-primary-foreground',
-		final: 'bg-accent text-accent-foreground',
-		postponed: 'bg-destructive/10 text-destructive',
-		cancelled: 'bg-destructive/10 text-destructive'
-	};
-
 	function kickoff(iso: string): string {
 		const d = new Date(iso);
 		if (Number.isNaN(d.getTime())) return '';
-		// Locale from the user's Accept-Language (root layout); timezone is the
-		// browser's own, since this only runs after mount.
 		return d.toLocaleString(data.locale, {
 			weekday: 'short',
 			month: 'short',
@@ -53,49 +31,89 @@
 		});
 	}
 
-	function scoreline(e: Ev): string {
-		if (e.homeScore === null || e.awayScore === null) return '';
-		return `${e.homeScore} – ${e.awayScore}`;
-	}
-
-	// Nice display names for sport filter tags; falls back to capitalizing.
 	const SPORT_LABELS: Record<string, string> = { cfl: 'CFL' };
-	function sportLabel(s: string): string {
-		return SPORT_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1);
+	const sportLabel = (s: string) => SPORT_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1);
+
+	function allowedSides(sport: string): ('home' | 'away' | 'draw')[] {
+		return sport === 'soccer' ? ['home', 'away', 'draw'] : ['home', 'away'];
+	}
+	function sideLabel(c: GameCard, side: string): string {
+		if (side === 'home') return c.home.abbr || c.home.name;
+		if (side === 'away') return c.away.abbr || c.away.name;
+		return 'Draw';
 	}
 
-	// Client-side filters: sport (chips), status (chips), and a team-name search.
-	let selectedSport = $state('all');
-	let selectedStatus = $state('all');
-	let query = $state('');
+	// --- card phase (drives the status pill + filter) ------------------------
+	type Phase = 'upcoming' | 'live' | 'settled';
+	function phase(c: GameCard): Phase {
+		const ms = c.market?.status;
+		if (ms === 'resolved' || ms === 'void' || c.feedStatus === 'final') return 'settled';
+		if (ms === 'closed' || c.feedStatus === 'in_progress') return 'live';
+		return 'upcoming';
+	}
+	const PHASE_LABEL: Record<Phase, string> = {
+		upcoming: 'Upcoming',
+		live: 'Live',
+		settled: 'Settled'
+	};
+	const PHASE_CLASS: Record<Phase, string> = {
+		upcoming: 'bg-muted text-muted-foreground',
+		live: 'bg-primary text-primary-foreground',
+		settled: 'bg-accent text-accent-foreground'
+	};
 
-	const STATUS_FILTERS = [
+	// --- pool / odds helpers -------------------------------------------------
+	function poolFor(m: Market, side: string) {
+		return m.pools.find((p) => p.side === side);
+	}
+	function totalPool(m: Market): number {
+		return m.pools.reduce((s, p) => s + p.total, 0);
+	}
+	// Current parimutuel multiple for a side: a backer's return ≈ total / side
+	// pool. Shifts as more money comes in.
+	function oddsFor(m: Market, side: string): string {
+		const p = poolFor(m, side)?.total ?? 0;
+		const t = totalPool(m);
+		if (p <= 0 || t <= 0) return '—';
+		return `×${(t / p).toFixed(2)}`;
+	}
+
+	// --- filters -------------------------------------------------------------
+	let selectedSport = $state('all');
+	let selectedPhase = $state<'all' | Phase>('all');
+	let query = $state('');
+	const PHASES: { key: 'all' | Phase; label: string }[] = [
 		{ key: 'all', label: 'All' },
-		{ key: 'scheduled', label: 'Upcoming' },
-		{ key: 'in_progress', label: 'Live' },
-		{ key: 'final', label: 'Final' }
+		{ key: 'upcoming', label: 'Upcoming' },
+		{ key: 'live', label: 'Live' },
+		{ key: 'settled', label: 'Settled' }
 	];
 
 	const shown = $derived.by(() => {
 		const q = query.trim().toLowerCase();
-		return data.events.filter((e) => {
-			if (selectedSport !== 'all' && e.sport !== selectedSport) return false;
-			if (selectedStatus !== 'all' && e.status !== selectedStatus) return false;
+		return data.cards.filter((c) => {
+			if (selectedSport !== 'all' && c.sport !== selectedSport) return false;
+			if (selectedPhase !== 'all' && phase(c) !== selectedPhase) return false;
 			if (q) {
-				const hay = `${e.home.name} ${e.home.abbr} ${e.away.name} ${e.away.abbr}`.toLowerCase();
+				const hay = `${c.home.name} ${c.home.abbr} ${c.away.name} ${c.away.abbr}`.toLowerCase();
 				if (!hay.includes(q)) return false;
 			}
 			return true;
 		});
 	});
+
+	const errorFor = (marketId: string) =>
+		form && 'marketId' in form && form.marketId === marketId && 'message' in form
+			? (form.message as string)
+			: null;
 </script>
 
 <div class="space-y-6">
 	<header>
 		<h1 class="text-3xl font-bold tracking-tight">Sports</h1>
 		<p class="mt-1 text-muted-foreground">
-			Upcoming games and results from the sports feed. Read-only preview — you can't bet on these
-			yet.
+			Back an outcome with Crub Bucks — winners split the losers' pool. Balance:
+			<span class="font-medium tabular-nums">{data.balance} ₡</span>
 		</p>
 	</header>
 
@@ -103,9 +121,7 @@
 		<Alert variant="warning">
 			<AlertTitle>Sample data</AlertTitle>
 			<AlertDescription>
-				The feed is running in <code>mock</code> mode, so these matchups and scores are
-				<strong>invented sample fixtures</strong>, not real results. Point
-				<code>SPORTS_FEED=espn</code> at a live provider (and allowlist its host) to show real games.
+				The feed is running in <code>mock</code> mode — these are invented sample fixtures, not real games.
 			</AlertDescription>
 		</Alert>
 	{/if}
@@ -118,7 +134,6 @@
 			aria-label="Search teams"
 			class="max-w-xs"
 		/>
-
 		{#if data.sports.length > 1}
 			<div class="flex flex-wrap gap-2">
 				{#each ['all', ...data.sports] as s (s)}
@@ -134,13 +149,12 @@
 				{/each}
 			</div>
 		{/if}
-
 		<div class="flex flex-wrap gap-2">
-			{#each STATUS_FILTERS as f (f.key)}
+			{#each PHASES as f (f.key)}
 				<button
 					type="button"
-					onclick={() => (selectedStatus = f.key)}
-					class="rounded-full border px-3 py-1 text-sm transition-colors {selectedStatus === f.key
+					onclick={() => (selectedPhase = f.key)}
+					class="rounded-full border px-3 py-1 text-sm transition-colors {selectedPhase === f.key
 						? 'border-primary bg-primary text-primary-foreground'
 						: 'text-muted-foreground hover:bg-accent'}"
 				>
@@ -153,74 +167,188 @@
 	{#if shown.length === 0}
 		<Card>
 			<CardContent class="py-10 text-center text-muted-foreground">
-				No games available from the feed right now.
+				No games match your filters.
 			</CardContent>
 		</Card>
 	{:else}
 		<ul class="space-y-3">
-			{#each shown as e (e.provider + ':' + e.eventId)}
+			{#each shown as c (c.key)}
+				{@const ph = phase(c)}
 				<li>
 					<Card>
-						<CardContent class="flex items-center justify-between gap-4 py-4">
-							<div class="min-w-0">
+						<CardContent class="space-y-3 py-4">
+							<!-- Header: status, kickoff, league -->
+							<div class="flex items-center justify-between gap-3">
 								<div class="flex items-center gap-2">
 									<span
-										class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {STATUS_CLASS[
-											e.status
+										class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {PHASE_CLASS[
+											ph
 										]}"
 									>
-										{STATUS_LABEL[e.status]}
+										{PHASE_LABEL[ph]}
 									</span>
-									<span class="truncate text-xs text-muted-foreground"
-										>{mounted ? kickoff(e.startTime) : ''}</span
+									<span class="text-xs text-muted-foreground"
+										>{mounted ? kickoff(c.startTime) : ''}</span
 									>
 								</div>
-								<div class="mt-1.5 flex items-center gap-2 text-lg font-semibold">
+								<p class="flex items-center gap-1 text-xs text-muted-foreground">
+									{#if c.leagueLogo}
+										<img src={c.leagueLogo} alt="" class="h-4 w-4 object-contain" loading="lazy" />
+									{/if}
+									{c.league}
+								</p>
+							</div>
+
+							<!-- Teams + score -->
+							<div class="flex items-center justify-between gap-4">
+								<div class="flex items-center gap-2 text-lg font-semibold">
 									<span
 										class="inline-flex items-center gap-1.5"
-										class:opacity-50={e.winner === 'away'}
+										class:opacity-50={c.winner === 'away'}
 									>
-										{#if e.home.logo}
-											<img src={e.home.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
+										{#if c.home.logo}
+											<img src={c.home.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
 										{/if}
-										{e.home.name}
-										<span class="text-sm font-normal text-muted-foreground">({e.home.abbr})</span>
+										{c.home.name}
+										<span class="text-sm font-normal text-muted-foreground">({c.home.abbr})</span>
 									</span>
 									<span class="text-sm text-muted-foreground">vs</span>
 									<span
 										class="inline-flex items-center gap-1.5"
-										class:opacity-50={e.winner === 'home'}
+										class:opacity-50={c.winner === 'home'}
 									>
-										{#if e.away.logo}
-											<img src={e.away.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
+										{#if c.away.logo}
+											<img src={c.away.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
 										{/if}
-										{e.away.name}
-										<span class="text-sm font-normal text-muted-foreground">({e.away.abbr})</span>
+										{c.away.name}
+										<span class="text-sm font-normal text-muted-foreground">({c.away.abbr})</span>
 									</span>
 								</div>
-								<p class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-									{#if e.leagueLogo}
-										<img src={e.leagueLogo} alt="" class="h-4 w-4 object-contain" loading="lazy" />
-									{/if}
-									{e.league}
-								</p>
-							</div>
-							<div class="shrink-0 text-right">
-								{#if scoreline(e)}
-									<div class="text-xl font-bold tabular-nums">{scoreline(e)}</div>
-								{/if}
-								{#if e.status === 'final'}
-									<div class="text-xs text-muted-foreground">
-										{#if e.winner === 'draw'}
-											Draw
-										{:else if e.winner === 'home'}
-											{e.home.abbr} win
-										{:else if e.winner === 'away'}
-											{e.away.abbr} win
-										{/if}
+								{#if c.homeScore !== null && c.awayScore !== null}
+									<div class="shrink-0 text-xl font-bold tabular-nums">
+										{c.homeScore} – {c.awayScore}
 									</div>
 								{/if}
 							</div>
+
+							<!-- Market -->
+							{#if !c.market}
+								{#if data.isAdmin && ph === 'upcoming'}
+									<form method="POST" action="?/openMarket" use:enhance>
+										<input type="hidden" name="eventId" value={c.eventId} />
+										<Button type="submit" variant="outline" size="sm">Open market</Button>
+									</form>
+								{:else}
+									<p class="text-xs text-muted-foreground">No market yet.</p>
+								{/if}
+							{:else}
+								{@const m = c.market}
+								<div class="rounded-md border bg-muted/30 p-3">
+									<!-- Pools -->
+									<div class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+										{#each allowedSides(c.sport) as side (side)}
+											{@const p = poolFor(m, side)}
+											<span>
+												<span class="font-medium">{sideLabel(c, side)}</span>
+												<span class="text-muted-foreground">
+													{p?.total ?? 0} ₡ · {p?.count ?? 0} backer{(p?.count ?? 0) === 1
+														? ''
+														: 's'}
+													· {oddsFor(m, side)}
+												</span>
+											</span>
+										{/each}
+									</div>
+
+									{#if m.myWager}
+										<p class="mt-2 text-sm">
+											Your wager: <span class="font-medium"
+												>{m.myWager.stake} ₡ on {sideLabel(c, m.myWager.side)}</span
+											>
+											{#if m.myWager.settledDelta !== null}
+												—
+												<span
+													class={m.myWager.settledDelta > 0
+														? 'text-success'
+														: m.myWager.settledDelta < 0
+															? 'text-destructive'
+															: 'text-muted-foreground'}
+												>
+													{m.myWager.settledDelta > 0 ? '+' : ''}{m.myWager.settledDelta} ₡
+												</span>
+											{/if}
+										</p>
+									{/if}
+
+									{#if m.status === 'open'}
+										<form
+											method="POST"
+											action="?/placeWager"
+											use:enhance
+											class="mt-3 flex flex-wrap items-end gap-2"
+										>
+											<input type="hidden" name="marketId" value={m.id} />
+											<label class="text-sm">
+												<span class="block text-xs text-muted-foreground">Pick</span>
+												<select
+													name="side"
+													class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+												>
+													{#each allowedSides(c.sport) as side (side)}
+														<option value={side}>{sideLabel(c, side)}</option>
+													{/each}
+												</select>
+											</label>
+											<label class="text-sm">
+												<span class="block text-xs text-muted-foreground">Stake (₡)</span>
+												<Input
+													type="number"
+													name="stake"
+													min="1"
+													max={data.balance}
+													step="1"
+													required
+													class="w-28"
+												/>
+											</label>
+											<Button type="submit" size="sm">
+												{m.myWager ? 'Update wager' : 'Place wager'}
+											</Button>
+										</form>
+									{:else if m.status === 'closed'}
+										<p class="mt-2 text-sm text-muted-foreground">
+											Wagering closed — awaiting the result.
+										</p>
+									{:else if m.status === 'resolved'}
+										<p class="mt-2 text-sm">
+											Result: <span class="font-medium">{sideLabel(c, m.winningSide ?? '')}</span> won.
+										</p>
+									{:else if m.status === 'void'}
+										<p class="mt-2 text-sm text-muted-foreground">
+											Voided — all wagers refunded.{m.resolutionNote
+												? ` (${m.resolutionNote})`
+												: ''}
+										</p>
+									{/if}
+
+									{#if errorFor(m.id)}
+										<p class="mt-2 text-sm text-destructive">{errorFor(m.id)}</p>
+									{/if}
+
+									{#if data.isAdmin && (m.status === 'open' || m.status === 'closed')}
+										<div class="mt-3 flex gap-2 border-t pt-3">
+											<form method="POST" action="?/resolveFromFeed" use:enhance>
+												<input type="hidden" name="marketId" value={m.id} />
+												<Button type="submit" variant="outline" size="sm">Resolve from feed</Button>
+											</form>
+											<form method="POST" action="?/voidMarket" use:enhance>
+												<input type="hidden" name="marketId" value={m.id} />
+												<Button type="submit" variant="ghost" size="sm">Void</Button>
+											</form>
+										</div>
+									{/if}
+								</div>
+							{/if}
 						</CardContent>
 					</Card>
 				</li>
