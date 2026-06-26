@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { sportMarkets, sportWagers } from '../db/schema';
 import { transferInTx, getOrCreateUserWallet, userBalance } from '../ledger';
@@ -277,5 +277,86 @@ export async function poolsBySide(marketId: string): Promise<MarketPool[]> {
 		side: r.side as WagerSide,
 		total: Number(r.total),
 		count: Number(r.count)
+	}));
+}
+
+export interface MarketView {
+	id: string;
+	provider: string;
+	eventId: string;
+	sport: string;
+	league: string;
+	homeName: string;
+	homeAbbr: string;
+	awayName: string;
+	awayAbbr: string;
+	/** ISO-8601, serializable for the loader payload. */
+	startTime: string;
+	status: 'open' | 'closed' | 'resolved' | 'void';
+	winningSide: WagerSide | null;
+	resolutionNote: string | null;
+	pools: MarketPool[];
+	/** The requesting user's own wager on this market, if any. */
+	myWager: { side: WagerSide; stake: number; settledDelta: number | null } | null;
+}
+
+/**
+ * All markets (recent first) with their per-side pools and the requesting
+ * user's own wager folded in — the read model the Sports page renders from.
+ * One query for markets + one for their wagers; aggregated in memory
+ * (friends-and-family scale).
+ */
+export async function listMarketViews(userId: string): Promise<MarketView[]> {
+	const markets = await db
+		.select()
+		.from(sportMarkets)
+		.orderBy(desc(sportMarkets.startTime))
+		.limit(200);
+	if (markets.length === 0) return [];
+
+	const ids = markets.map((m) => m.id);
+	const wagers = await db.select().from(sportWagers).where(inArray(sportWagers.marketId, ids));
+
+	const poolsByMarket = new Map<string, Map<string, { total: number; count: number }>>();
+	const mineByMarket = new Map<string, MarketView['myWager']>();
+	for (const w of wagers) {
+		let pm = poolsByMarket.get(w.marketId);
+		if (!pm) {
+			pm = new Map();
+			poolsByMarket.set(w.marketId, pm);
+		}
+		const cur = pm.get(w.side) ?? { total: 0, count: 0 };
+		cur.total += w.stake;
+		cur.count += 1;
+		pm.set(w.side, cur);
+		if (w.userId === userId) {
+			mineByMarket.set(w.marketId, {
+				side: w.side as WagerSide,
+				stake: w.stake,
+				settledDelta: w.settledDelta
+			});
+		}
+	}
+
+	return markets.map((m) => ({
+		id: m.id,
+		provider: m.provider,
+		eventId: m.eventId,
+		sport: m.sport,
+		league: m.league,
+		homeName: m.homeName,
+		homeAbbr: m.homeAbbr,
+		awayName: m.awayName,
+		awayAbbr: m.awayAbbr,
+		startTime: m.startTime.toISOString(),
+		status: m.status,
+		winningSide: m.winningSide as WagerSide | null,
+		resolutionNote: m.resolutionNote,
+		pools: [...(poolsByMarket.get(m.id)?.entries() ?? [])].map(([side, v]) => ({
+			side: side as WagerSide,
+			total: v.total,
+			count: v.count
+		})),
+		myWager: mineByMarket.get(m.id) ?? null
 	}));
 }
