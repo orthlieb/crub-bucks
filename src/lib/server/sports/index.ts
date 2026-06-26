@@ -27,4 +27,4 @@ export function getFeed(): FeedAdapter {
 }
 
 export type { FeedAdapter, FeedEvent, FeedEventStatus, FeedTeam } from './types';
-export { deriveWinner } from './types';
+export { deriveWinner, dedupeEvents } from './types';

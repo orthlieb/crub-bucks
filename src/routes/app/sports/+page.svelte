@@ -56,6 +56,17 @@
 		if (e.homeScore === null || e.awayScore === null) return '';
 		return `${e.homeScore} – ${e.awayScore}`;
 	}
+
+	function sportLabel(s: string): string {
+		return s.charAt(0).toUpperCase() + s.slice(1);
+	}
+
+	// Client-side sport filter. 'all' shows everything; chips only render when
+	// more than one sport is present.
+	let selectedSport = $state('all');
+	const shown = $derived(
+		selectedSport === 'all' ? data.events : data.events.filter((e) => e.sport === selectedSport)
+	);
 </script>
 
 <div class="space-y-6">
@@ -78,7 +89,23 @@
 		</Alert>
 	{/if}
 
-	{#if data.events.length === 0}
+	{#if data.sports.length > 1}
+		<div class="flex flex-wrap gap-2">
+			{#each ['all', ...data.sports] as s (s)}
+				<button
+					type="button"
+					onclick={() => (selectedSport = s)}
+					class="rounded-full border px-3 py-1 text-sm transition-colors {selectedSport === s
+						? 'border-primary bg-primary text-primary-foreground'
+						: 'text-muted-foreground hover:bg-accent'}"
+				>
+					{s === 'all' ? 'All' : sportLabel(s)}
+				</button>
+			{/each}
+		</div>
+	{/if}
+
+	{#if shown.length === 0}
 		<Card>
 			<CardContent class="py-10 text-center text-muted-foreground">
 				No games available from the feed right now.
@@ -86,7 +113,7 @@
 		</Card>
 	{:else}
 		<ul class="space-y-3">
-			{#each data.events as e (e.provider + ':' + e.eventId)}
+			{#each shown as e (e.provider + ':' + e.eventId)}
 				<li>
 					<Card>
 						<CardContent class="flex items-center justify-between gap-4 py-4">
