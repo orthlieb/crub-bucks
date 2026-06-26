@@ -6,6 +6,10 @@
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
+	import { cn } from '$lib/utils';
+	import Search from '@lucide/svelte/icons/search';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import FilterX from '@lucide/svelte/icons/filter-x';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -13,11 +17,8 @@
 	type Market = NonNullable<GameCard['market']>;
 
 	// Kickoff times render client-side only, in the visitor's timezone (avoids an
-	// SSR/UTC hydration mismatch).
+	// SSR/UTC hydration mismatch). `mounted` flips in onMount below.
 	let mounted = $state(false);
-	onMount(() => {
-		mounted = true;
-	});
 
 	function kickoff(iso: string): string {
 		const d = new Date(iso);
@@ -69,13 +70,15 @@
 	function totalPool(m: Market): number {
 		return m.pools.reduce((s, p) => s + p.total, 0);
 	}
-	// Current parimutuel multiple for a side: a backer's return ≈ total / side
-	// pool. Shifts as more money comes in.
+	// Current parimutuel odds for a side as profit-to-stake (N:1): you'd win ≈ N
+	// CB of profit per 1 staked if this side wins. N = total/side − 1, so even
+	// pools read "1:1". Shifts as more money comes in.
 	function oddsFor(m: Market, side: string): string {
 		const p = poolFor(m, side)?.total ?? 0;
 		const t = totalPool(m);
 		if (p <= 0 || t <= 0) return '—';
-		return `×${(t / p).toFixed(2)}`;
+		const profit = Math.round((t / p - 1) * 10) / 10; // 1 decimal, trimmed
+		return `${profit}:1`;
 	}
 
 	// --- filters -------------------------------------------------------------
@@ -88,6 +91,61 @@
 		{ key: 'live', label: 'Live' },
 		{ key: 'settled', label: 'Settled' }
 	];
+
+	// Filter UI modelled on the Account statement: search + collapsible panel of
+	// rounded pill chips + a clear control.
+	let filtersOpen = $state(false);
+	const pill = (active: boolean) =>
+		cn(
+			'rounded-full border px-3 py-1 text-xs transition-colors',
+			active
+				? 'border-primary bg-accent font-medium text-accent-foreground'
+				: 'text-muted-foreground hover:bg-accent'
+		);
+	const isFiltering = $derived(
+		query.trim() !== '' || selectedSport !== 'all' || selectedPhase !== 'all'
+	);
+	function clearFilters() {
+		query = '';
+		selectedSport = 'all';
+		selectedPhase = 'all';
+	}
+
+	// Persist the filter state across sessions (localStorage). Restored on mount;
+	// re-saved whenever it changes. Validated on restore so a stale sport that's
+	// no longer in the feed doesn't hide every game.
+	const FILTERS_KEY = 'cb:sportsFilters';
+	onMount(() => {
+		try {
+			const raw = localStorage.getItem(FILTERS_KEY);
+			if (raw) {
+				const f = JSON.parse(raw);
+				if (typeof f.query === 'string') query = f.query;
+				if (f.sport === 'all' || data.sports.includes(f.sport)) selectedSport = f.sport;
+				if (PHASES.some((p) => p.key === f.phase)) selectedPhase = f.phase;
+				if (typeof f.open === 'boolean') filtersOpen = f.open;
+			}
+		} catch {
+			// ignore unreadable / outdated saved state
+		}
+		mounted = true;
+	});
+	$effect(() => {
+		// Read deps first so the effect tracks them, then gate on mounted so we
+		// never clobber saved state with defaults before the restore runs.
+		const snapshot = JSON.stringify({
+			query,
+			sport: selectedSport,
+			phase: selectedPhase,
+			open: filtersOpen
+		});
+		if (!mounted) return;
+		try {
+			localStorage.setItem(FILTERS_KEY, snapshot);
+		} catch {
+			// ignore (private mode / quota)
+		}
+	});
 
 	const shown = $derived.by(() => {
 		const q = query.trim().toLowerCase();
@@ -127,41 +185,74 @@
 	{/if}
 
 	<div class="space-y-3">
-		<Input
-			type="search"
-			bind:value={query}
-			placeholder="Search teams…"
-			aria-label="Search teams"
-			class="max-w-xs"
-		/>
-		{#if data.sports.length > 1}
-			<div class="flex flex-wrap gap-2">
-				{#each ['all', ...data.sports] as s (s)}
-					<button
-						type="button"
-						onclick={() => (selectedSport = s)}
-						class="rounded-full border px-3 py-1 text-sm transition-colors {selectedSport === s
-							? 'border-primary bg-primary text-primary-foreground'
-							: 'text-muted-foreground hover:bg-accent'}"
-					>
-						{s === 'all' ? 'All' : sportLabel(s)}
-					</button>
-				{/each}
+		<div class="flex items-center gap-2">
+			<div class="relative flex-1">
+				<Search
+					class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+				/>
+				<Input
+					type="search"
+					bind:value={query}
+					placeholder="Search teams…"
+					aria-label="Search teams"
+					class="pl-9"
+				/>
 			</div>
-		{/if}
-		<div class="flex flex-wrap gap-2">
-			{#each PHASES as f (f.key)}
+			<button
+				type="button"
+				onclick={() => (filtersOpen = !filtersOpen)}
+				aria-expanded={filtersOpen}
+				class="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
+			>
+				Filters
+				<ChevronDown class={cn('size-4 transition-transform', filtersOpen && 'rotate-180')} />
+			</button>
+			{#if isFiltering}
 				<button
 					type="button"
-					onclick={() => (selectedPhase = f.key)}
-					class="rounded-full border px-3 py-1 text-sm transition-colors {selectedPhase === f.key
-						? 'border-primary bg-primary text-primary-foreground'
-						: 'text-muted-foreground hover:bg-accent'}"
+					onclick={clearFilters}
+					class="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent"
 				>
-					{f.label}
+					<FilterX class="size-4" />
+					Clear
 				</button>
-			{/each}
+			{/if}
 		</div>
+
+		{#if filtersOpen}
+			<div class="space-y-3 rounded-md border bg-muted/20 p-3">
+				{#if data.sports.length > 1}
+					<div class="flex flex-wrap items-center gap-2">
+						<span class="w-12 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+							Sport
+						</span>
+						{#each ['all', ...data.sports] as s (s)}
+							<button
+								type="button"
+								class={pill(selectedSport === s)}
+								onclick={() => (selectedSport = s)}
+							>
+								{s === 'all' ? 'All' : sportLabel(s)}
+							</button>
+						{/each}
+					</div>
+				{/if}
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="w-12 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+						Phase
+					</span>
+					{#each PHASES as f (f.key)}
+						<button
+							type="button"
+							class={pill(selectedPhase === f.key)}
+							onclick={() => (selectedPhase = f.key)}
+						>
+							{f.label}
+						</button>
+					{/each}
+				</div>
+			</div>
+		{/if}
 	</div>
 
 	{#if shown.length === 0}
@@ -199,33 +290,47 @@
 								</p>
 							</div>
 
-							<!-- Teams + score -->
-							<div class="flex items-center justify-between gap-4">
-								<div class="flex items-center gap-2 text-lg font-semibold">
+							<!-- Teams + score. The team block can shrink (min-w-0) and wrap
+							     (flex-wrap) so long names never push the score off the card;
+							     the score keeps its own non-shrinking, no-wrap column. -->
+							<div class="flex items-start justify-between gap-3">
+								<div
+									class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-lg font-semibold"
+								>
 									<span
-										class="inline-flex items-center gap-1.5"
+										class="inline-flex min-w-0 items-center gap-1.5"
 										class:opacity-50={c.winner === 'away'}
 									>
 										{#if c.home.logo}
-											<img src={c.home.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
+											<img
+												src={c.home.logo}
+												alt=""
+												class="h-5 w-5 shrink-0 object-contain"
+												loading="lazy"
+											/>
 										{/if}
-										{c.home.name}
+										<span class="min-w-0 break-words">{c.home.name}</span>
 										<span class="text-sm font-normal text-muted-foreground">({c.home.abbr})</span>
 									</span>
 									<span class="text-sm text-muted-foreground">vs</span>
 									<span
-										class="inline-flex items-center gap-1.5"
+										class="inline-flex min-w-0 items-center gap-1.5"
 										class:opacity-50={c.winner === 'home'}
 									>
 										{#if c.away.logo}
-											<img src={c.away.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
+											<img
+												src={c.away.logo}
+												alt=""
+												class="h-5 w-5 shrink-0 object-contain"
+												loading="lazy"
+											/>
 										{/if}
-										{c.away.name}
+										<span class="min-w-0 break-words">{c.away.name}</span>
 										<span class="text-sm font-normal text-muted-foreground">({c.away.abbr})</span>
 									</span>
 								</div>
 								{#if c.homeScore !== null && c.awayScore !== null}
-									<div class="shrink-0 text-xl font-bold tabular-nums">
+									<div class="shrink-0 whitespace-nowrap text-xl font-bold tabular-nums">
 										{c.homeScore} – {c.awayScore}
 									</div>
 								{/if}
@@ -333,19 +438,6 @@
 
 									{#if errorFor(m.id)}
 										<p class="mt-2 text-sm text-destructive">{errorFor(m.id)}</p>
-									{/if}
-
-									{#if data.isAdmin && (m.status === 'open' || m.status === 'closed')}
-										<div class="mt-3 flex gap-2 border-t pt-3">
-											<form method="POST" action="?/resolveFromFeed" use:enhance>
-												<input type="hidden" name="marketId" value={m.id} />
-												<Button type="submit" variant="outline" size="sm">Resolve from feed</Button>
-											</form>
-											<form method="POST" action="?/voidMarket" use:enhance>
-												<input type="hidden" name="marketId" value={m.id} />
-												<Button type="submit" variant="ghost" size="sm">Void</Button>
-											</form>
-										</div>
 									{/if}
 								</div>
 							{/if}

@@ -233,42 +233,6 @@ export async function voidMarket(opts: {
 	});
 }
 
-/**
- * Settle a market straight from the live feed: a final game resolves on its
- * derived winner; a postponed/cancelled game voids; anything else is rejected
- * because there's no result yet.
- */
-export async function resolveMarketFromFeed(opts: {
-	marketId: string;
-	resolvedBy: string | null;
-	note?: string;
-}): Promise<{ outcome: 'resolved' | 'void' }> {
-	const [market] = await db
-		.select()
-		.from(sportMarkets)
-		.where(eq(sportMarkets.id, opts.marketId))
-		.limit(1);
-	if (!market) throw new MarketError('Market not found');
-
-	const event = await getFeed().getEvent(market.eventId);
-	if (!event) throw new MarketError('Game not found in the feed');
-
-	if (event.status === 'postponed' || event.status === 'cancelled') {
-		await voidMarket({ marketId: opts.marketId, resolvedBy: opts.resolvedBy, note: opts.note });
-		return { outcome: 'void' };
-	}
-	if (event.status !== 'final' || event.winner === null) {
-		throw new MarketError('This game has no final result yet');
-	}
-	await resolveMarket({
-		marketId: opts.marketId,
-		winningSide: event.winner,
-		resolvedBy: opts.resolvedBy,
-		note: opts.note
-	});
-	return { outcome: 'resolved' };
-}
-
 export interface MarketPool {
 	side: WagerSide;
 	total: number;
