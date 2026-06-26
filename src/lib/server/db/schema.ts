@@ -62,6 +62,17 @@ export const betModeEnum = pgEnum('bet_mode', [
 export const friendshipStatusEnum = pgEnum('friendship_status', ['pending', 'accepted']);
 export const notificationLevelEnum = pgEnum('notification_level', ['info', 'success', 'warning']);
 export const badgeTierEnum = pgEnum('badge_tier', ['bronze', 'silver', 'gold']);
+// Sports betting markets (parimutuel pools bound to a feed event):
+//   open     — enrolling; wagers can be placed until kickoff
+//   closed   — kickoff passed; awaiting the result (no new wagers)
+//   resolved — settled: winners split the losers' pool
+//   void     — refunded (postponed/cancelled game, or a push); no money moved
+export const sportMarketStatusEnum = pgEnum('sport_market_status', [
+	'open',
+	'closed',
+	'resolved',
+	'void'
+]);
 
 // ---------------------------------------------------------------------------
 // Users + sessions
@@ -353,6 +364,75 @@ export const betParticipants = pgTable(
 	(t) => ({
 		pk: primaryKey({ columns: [t.betId, t.userId] }),
 		userIdx: index('bet_participants_user_idx').on(t.userId)
+	})
+);
+
+// ---------------------------------------------------------------------------
+// Sports betting — parimutuel markets bound to a sports-feed event.
+//
+// Unlike peer bets (invite/accept, manual resolution), a market is open
+// enrollment: anyone can stake CB on an outcome until kickoff, and it's
+// resolved from the feed result. Backers of the winning side split the losers'
+// pool in proportion to stake (see parimutuelDeltas in ledger-math.ts). Same
+// zero-sum ledger: settlement writes matched loser→winner transfers; nothing
+// moves while the market is open (no escrow).
+// ---------------------------------------------------------------------------
+
+export const sportMarkets = pgTable(
+	'sport_markets',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		// Binding to the feed event. (provider, eventId) is unique — one market
+		// per real-world game.
+		provider: text('provider').notNull(),
+		eventId: text('event_id').notNull(),
+		sport: text('sport').notNull(),
+		league: text('league').notNull(),
+		// Team snapshot taken at market creation, so the card renders even if the
+		// feed later drops the event.
+		homeName: text('home_name').notNull(),
+		homeAbbr: text('home_abbr').notNull(),
+		awayName: text('away_name').notNull(),
+		awayAbbr: text('away_abbr').notNull(),
+		// Kickoff — the natural "enrollment closes" deadline.
+		startTime: timestamp('start_time', { withTimezone: true }).notNull(),
+		status: sportMarketStatusEnum('status').notNull().default('open'),
+		// 'home' | 'away' | 'draw' once resolved; null while open/closed/void.
+		winningSide: text('winning_side'),
+		createdBy: uuid('created_by')
+			.notNull()
+			.references(() => users.id),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+		resolvedBy: uuid('resolved_by').references(() => users.id),
+		resolutionNote: text('resolution_note')
+	},
+	(t) => ({
+		eventUnique: uniqueIndex('sport_markets_event_idx').on(t.provider, t.eventId),
+		statusIdx: index('sport_markets_status_idx').on(t.status)
+	})
+);
+
+// One wager per user per market. `side` is the outcome they backed; `stake` is
+// whole CB. `settledDelta` holds their signed net (+ won / − lost / 0) after
+// resolution — null while the market is open.
+export const sportWagers = pgTable(
+	'sport_wagers',
+	{
+		marketId: uuid('market_id')
+			.notNull()
+			.references(() => sportMarkets.id, { onDelete: 'cascade' }),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		side: text('side').notNull(),
+		stake: bigint('stake', { mode: 'number' }).notNull(),
+		settledDelta: bigint('settled_delta', { mode: 'number' }),
+		placedAt: timestamp('placed_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => ({
+		pk: primaryKey({ columns: [t.marketId, t.userId] }),
+		userIdx: index('sport_wagers_user_idx').on(t.userId)
 	})
 );
 

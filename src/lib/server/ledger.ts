@@ -47,7 +47,7 @@ const WELCOME_GRANT_CB = 100;
 export const MAX_FRIENDS = 99;
 const FRIEND_CAP_MESSAGE = "You can't have any more friends.";
 
-type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // ---------------------------------------------------------------------------
 // Wallet lookup / provisioning
@@ -119,7 +119,7 @@ export interface TransferOpts {
 	betId?: string | null;
 }
 
-async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<string> {
+export async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<string> {
 	const {
 		fromWalletId,
 		toWalletId,
