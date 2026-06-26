@@ -342,7 +342,7 @@
 								{#if data.isAdmin && ph === 'upcoming'}
 									<form method="POST" action="?/openMarket" use:enhance>
 										<input type="hidden" name="eventId" value={c.eventId} />
-										<Button type="submit" variant="outline" size="sm">Open market</Button>
+										<Button type="submit" variant="outline" size="sm">Open</Button>
 									</form>
 								{:else}
 									<p class="text-xs text-muted-foreground">No market yet.</p>
