@@ -2,11 +2,11 @@ import type { FeedAdapter, FeedEvent, FeedEventStatus } from './types';
 import { deriveWinner } from './types';
 
 /**
- * Mock sports feed — synthetic FIFA World Cup 2026 fixtures.
+ * Mock sports feed — synthetic multi-sport fixtures (World Cup soccer + MLB).
  *
  * ⚠️ THE SCORES AND OUTCOMES HERE ARE INVENTED for offline development and
- * tests. They are NOT real match results. The team names are real World Cup
- * nations; the matchups, kickoff times, and scores are illustrative only.
+ * tests. They are NOT real results. The team names are real; the matchups,
+ * kickoff times, and scores are illustrative only.
  *
  * This adapter exists so the feature runs end-to-end with zero network access
  * (the dev sandbox's egress allowlist blocks real sports APIs). Select it with
@@ -16,12 +16,12 @@ import { deriveWinner } from './types';
  */
 
 const PROVIDER = 'mock';
-const LEAGUE = 'FIFA World Cup';
 const HOUR = 60 * 60 * 1000;
 
 type SeedTeam = { id: string; name: string; abbr: string };
 
 const TEAMS: Record<string, SeedTeam> = {
+	// Soccer — World Cup nations
 	ARG: { id: 'arg', name: 'Argentina', abbr: 'ARG' },
 	FRA: { id: 'fra', name: 'France', abbr: 'FRA' },
 	BRA: { id: 'bra', name: 'Brazil', abbr: 'BRA' },
@@ -29,11 +29,18 @@ const TEAMS: Record<string, SeedTeam> = {
 	ENG: { id: 'eng', name: 'England', abbr: 'ENG' },
 	USA: { id: 'usa', name: 'United States', abbr: 'USA' },
 	MEX: { id: 'mex', name: 'Mexico', abbr: 'MEX' },
-	CAN: { id: 'can', name: 'Canada', abbr: 'CAN' }
+	CAN: { id: 'can', name: 'Canada', abbr: 'CAN' },
+	// Baseball — MLB clubs
+	NYY: { id: 'nyy', name: 'New York Yankees', abbr: 'NYY' },
+	BOS: { id: 'bos', name: 'Boston Red Sox', abbr: 'BOS' },
+	LAD: { id: 'lad', name: 'Los Angeles Dodgers', abbr: 'LAD' },
+	CHC: { id: 'chc', name: 'Chicago Cubs', abbr: 'CHC' }
 };
 
 type Seed = {
 	eventId: string;
+	sport: string;
+	league: string;
 	home: SeedTeam;
 	away: SeedTeam;
 	/** Hours from "now" — negative = already played, positive = upcoming. */
@@ -43,10 +50,15 @@ type Seed = {
 	awayScore: number | null;
 };
 
-// Synthetic schedule centered on "now": two finished games, one live, two
-// upcoming, plus a postponed one so the void/refund path is exercisable.
+const WC = { sport: 'soccer', league: 'FIFA World Cup' };
+const MLB = { sport: 'baseball', league: 'MLB' };
+
+// Synthetic schedule centered on "now": finished games, one live, several
+// upcoming, plus a postponed one so the void/refund path is exercisable —
+// across two sports so the filter has something to do.
 const SEEDS: Seed[] = [
 	{
+		...WC,
 		eventId: 'wc2026-001',
 		home: TEAMS.ARG,
 		away: TEAMS.MEX,
@@ -56,6 +68,7 @@ const SEEDS: Seed[] = [
 		awayScore: 0
 	},
 	{
+		...WC,
 		eventId: 'wc2026-002',
 		home: TEAMS.FRA,
 		away: TEAMS.CAN,
@@ -65,6 +78,7 @@ const SEEDS: Seed[] = [
 		awayScore: 1
 	},
 	{
+		...WC,
 		eventId: 'wc2026-003',
 		home: TEAMS.BRA,
 		away: TEAMS.USA,
@@ -74,6 +88,7 @@ const SEEDS: Seed[] = [
 		awayScore: 1
 	},
 	{
+		...WC,
 		eventId: 'wc2026-004',
 		home: TEAMS.ESP,
 		away: TEAMS.ENG,
@@ -83,20 +98,42 @@ const SEEDS: Seed[] = [
 		awayScore: null
 	},
 	{
-		eventId: 'wc2026-005',
-		home: TEAMS.ENG,
-		away: TEAMS.USA,
-		offsetHours: 50,
-		status: 'scheduled',
-		homeScore: null,
-		awayScore: null
-	},
-	{
+		...WC,
 		eventId: 'wc2026-006',
 		home: TEAMS.MEX,
 		away: TEAMS.CAN,
 		offsetHours: 74,
 		status: 'postponed',
+		homeScore: null,
+		awayScore: null
+	},
+	{
+		...MLB,
+		eventId: 'mlb-001',
+		home: TEAMS.NYY,
+		away: TEAMS.BOS,
+		offsetHours: -2,
+		status: 'final',
+		homeScore: 5,
+		awayScore: 3
+	},
+	{
+		...MLB,
+		eventId: 'mlb-002',
+		home: TEAMS.LAD,
+		away: TEAMS.CHC,
+		offsetHours: 1,
+		status: 'in_progress',
+		homeScore: 2,
+		awayScore: 2
+	},
+	{
+		...MLB,
+		eventId: 'mlb-003',
+		home: TEAMS.CHC,
+		away: TEAMS.NYY,
+		offsetHours: 28,
+		status: 'scheduled',
 		homeScore: null,
 		awayScore: null
 	}
@@ -106,11 +143,15 @@ function toEvent(seed: Seed, nowMs: number): FeedEvent {
 	return {
 		provider: PROVIDER,
 		eventId: seed.eventId,
-		league: LEAGUE,
+		sport: seed.sport,
+		league: seed.league,
+		// Synthetic fixtures have no real logo URLs; the UI falls back to the
+		// team abbreviation / league name text.
+		leagueLogo: null,
 		startTime: new Date(nowMs + seed.offsetHours * HOUR).toISOString(),
 		status: seed.status,
-		home: seed.home,
-		away: seed.away,
+		home: { ...seed.home, logo: null },
+		away: { ...seed.away, logo: null },
 		homeScore: seed.homeScore,
 		awayScore: seed.awayScore,
 		winner: deriveWinner(seed.status, seed.homeScore, seed.awayScore)

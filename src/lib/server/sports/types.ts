@@ -26,6 +26,12 @@ export interface FeedTeam {
 	name: string;
 	/** Short code, e.g. "ARG", "FRA". May be empty if the provider omits it. */
 	abbr: string;
+	/**
+	 * Official crest/logo URL from the provider (hot-linked, not stored), or null
+	 * when none is available. The UI renders it as an <img> and falls back to the
+	 * abbreviation when absent.
+	 */
+	logo: string | null;
 }
 
 export interface FeedEvent {
@@ -36,8 +42,15 @@ export interface FeedEvent {
 	 * `provider` when persisting, because ids collide across providers.
 	 */
 	eventId: string;
-	/** Human league/competition name, e.g. "FIFA World Cup". */
+	/** Sport family, e.g. "soccer" or "baseball". Drives the sport filter. */
+	sport: string;
+	/** Human league/competition name, e.g. "FIFA World Cup" or "MLB". */
 	league: string;
+	/**
+	 * Official league/competition logo URL (e.g. the FIFA World Cup or MLB mark),
+	 * hot-linked from the provider, or null. Serves as the "sport" icon on a card.
+	 */
+	leagueLogo: string | null;
 	/** Kickoff, ISO-8601 UTC. This is the natural "enrollment closes" deadline. */
 	startTime: string;
 	status: FeedEventStatus;
@@ -80,4 +93,43 @@ export function deriveWinner(
 	if (homeScore > awayScore) return 'home';
 	if (awayScore > homeScore) return 'away';
 	return 'draw';
+}
+
+// How "settled" each status is — higher wins when two providers report the same
+// game. A final result should always beat a scheduled stub.
+const STATUS_RANK: Record<FeedEventStatus, number> = {
+	final: 4,
+	in_progress: 3,
+	postponed: 2,
+	cancelled: 2,
+	scheduled: 1
+};
+
+/**
+ * Collapse events that represent the SAME real-world game arriving from more
+ * than one provider. With a single provider this is a no-op — each provider's
+ * event ids are already unique — so it's cheap insurance that only does real
+ * work once two feeds overlap.
+ *
+ * Cross-provider identity is necessarily fuzzy (ids and naming differ between
+ * sources): same sport, same UTC calendar day, same two teams by abbreviation
+ * (case-insensitive). When a team has no abbreviation we fall back to its id or
+ * name, and if even that is missing we key on provider+eventId so distinct
+ * games are never merged by accident. On a collision we keep the more-resolved
+ * event (see {@link STATUS_RANK}); ties keep the first seen.
+ */
+export function dedupeEvents(events: FeedEvent[]): FeedEvent[] {
+	const byKey = new Map<string, FeedEvent>();
+	for (const e of events) {
+		const homeK = e.home.abbr || e.home.id || e.home.name;
+		const awayK = e.away.abbr || e.away.id || e.away.name;
+		const day = e.startTime.slice(0, 10); // YYYY-MM-DD from the ISO timestamp
+		const key =
+			homeK && awayK
+				? `${e.sport}|${day}|${homeK.toLowerCase()}|${awayK.toLowerCase()}`
+				: `${e.provider}:${e.eventId}`; // not enough to match on — keep it unique
+		const existing = byKey.get(key);
+		if (!existing || STATUS_RANK[e.status] > STATUS_RANK[existing.status]) byKey.set(key, e);
+	}
+	return [...byKey.values()];
 }

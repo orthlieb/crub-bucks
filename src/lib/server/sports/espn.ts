@@ -13,15 +13,24 @@ import { deriveWinner } from './types';
  * NOTE: outbound egress to `site.api.espn.com` must be allowlisted in the
  * deployment's network policy, or every call here fails closed to empty.
  *
- * Scoreboard endpoint:
- *   https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard
+ * Scoreboard endpoint shape:
+ *   https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard
  */
 
 const BASE = 'https://site.api.espn.com/apis/site/v2/sports';
-// Soccer "league" slug for the men's World Cup on ESPN's API.
-const COMPETITION = 'soccer/fifa.world';
 const PROVIDER = 'espn';
 const TIMEOUT_MS = 6000;
+
+/**
+ * The scoreboards we pull. `path` is ESPN's `{sport}/{league}` slug, `sport`
+ * tags every event for the sport filter, and `league` is a display fallback if
+ * a payload omits its own name. Add a row to surface another competition — the
+ * adapter fetches them all in parallel and each fails safe on its own.
+ */
+export const COMPETITIONS: { sport: string; path: string; league: string }[] = [
+	{ sport: 'soccer', path: 'soccer/fifa.world', league: 'FIFA World Cup' },
+	{ sport: 'baseball', path: 'baseball/mlb', league: 'MLB' }
+];
 
 /**
  * Map ESPN's status (`type.name` + `state` + `completed`) onto our normalized
@@ -54,14 +63,33 @@ function num(score: unknown): number | null {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/** First usable logo href from an ESPN `logos` array, preferring a non-dark
+ *  variant so it reads on a light background. Returns null if none. */
+function firstLogo(logos: any): string | null {
+	if (!Array.isArray(logos)) return null;
+	const light = logos.find((l: any) => !String(l?.rel ?? '').includes('dark'));
+	const href = (light ?? logos[0])?.href;
+	return typeof href === 'string' && href ? href : null;
+}
+
+/** A team's logo: ESPN gives a single `team.logo` on scoreboards, sometimes a
+ *  `team.logos[]` array instead. Try both. */
+function teamLogo(team: any): string | null {
+	if (typeof team?.logo === 'string' && team.logo) return team.logo;
+	return firstLogo(team?.logos);
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Parse one ESPN scoreboard payload into normalized events. Pure — no network —
  * so the messy shape-handling is fully unit-testable from a captured fixture.
  * Unparseable events are skipped rather than throwing the whole batch away.
  */
-export function parseEspnScoreboard(json: any): FeedEvent[] {
+export function parseEspnScoreboard(json: any, sport: string, fallbackLeague = ''): FeedEvent[] {
 	const events = Array.isArray(json?.events) ? json.events : [];
-	const league: string = json?.leagues?.[0]?.name ?? 'FIFA World Cup';
+	const league: string = json?.leagues?.[0]?.name ?? fallbackLeague;
+	const leagueLogo = firstLogo(json?.leagues?.[0]?.logos);
 
 	const out: FeedEvent[] = [];
 	for (const ev of events) {
@@ -81,18 +109,22 @@ export function parseEspnScoreboard(json: any): FeedEvent[] {
 		out.push({
 			provider: PROVIDER,
 			eventId: String(ev.id ?? comp.id ?? ''),
+			sport,
 			league,
+			leagueLogo,
 			startTime: String(ev.date ?? comp.date ?? ''),
 			status,
 			home: {
 				id: String(home.team?.id ?? ''),
 				name: String(home.team?.displayName ?? home.team?.name ?? ''),
-				abbr: String(home.team?.abbreviation ?? '')
+				abbr: String(home.team?.abbreviation ?? ''),
+				logo: teamLogo(home.team)
 			},
 			away: {
 				id: String(away.team?.id ?? ''),
 				name: String(away.team?.displayName ?? away.team?.name ?? ''),
-				abbr: String(away.team?.abbreviation ?? '')
+				abbr: String(away.team?.abbreviation ?? ''),
+				logo: teamLogo(away.team)
 			},
 			homeScore,
 			awayScore,
@@ -103,25 +135,32 @@ export function parseEspnScoreboard(json: any): FeedEvent[] {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-async function fetchScoreboard(): Promise<FeedEvent[]> {
+async function fetchCompetition(c: (typeof COMPETITIONS)[number]): Promise<FeedEvent[]> {
 	try {
-		const res = await fetch(`${BASE}/${COMPETITION}/scoreboard`, {
+		const res = await fetch(`${BASE}/${c.path}/scoreboard`, {
 			signal: AbortSignal.timeout(TIMEOUT_MS)
 		});
 		if (!res.ok) return []; // fail safe
-		return parseEspnScoreboard(await res.json());
+		return parseEspnScoreboard(await res.json(), c.sport, c.league);
 	} catch {
 		return []; // network error / timeout / bad JSON — fail safe
 	}
 }
 
+/** Fetch every configured scoreboard in parallel; one failing competition
+ *  yields [] for itself without taking down the others. */
+async function fetchAll(): Promise<FeedEvent[]> {
+	const batches = await Promise.all(COMPETITIONS.map(fetchCompetition));
+	return batches.flat();
+}
+
 export const espnAdapter: FeedAdapter = {
 	provider: PROVIDER,
 	async listUpcoming() {
-		return fetchScoreboard();
+		return fetchAll();
 	},
 	async getEvent(eventId: string) {
-		const all = await fetchScoreboard();
+		const all = await fetchAll();
 		return all.find((e) => e.eventId === eventId) ?? null;
 	}
 };

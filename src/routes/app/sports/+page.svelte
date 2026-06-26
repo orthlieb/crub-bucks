@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
+	import { Input } from '$lib/components/ui/input';
 
 	let { data }: { data: PageData } = $props();
 
@@ -56,6 +57,35 @@
 		if (e.homeScore === null || e.awayScore === null) return '';
 		return `${e.homeScore} – ${e.awayScore}`;
 	}
+
+	function sportLabel(s: string): string {
+		return s.charAt(0).toUpperCase() + s.slice(1);
+	}
+
+	// Client-side filters: sport (chips), status (chips), and a team-name search.
+	let selectedSport = $state('all');
+	let selectedStatus = $state('all');
+	let query = $state('');
+
+	const STATUS_FILTERS = [
+		{ key: 'all', label: 'All' },
+		{ key: 'scheduled', label: 'Upcoming' },
+		{ key: 'in_progress', label: 'Live' },
+		{ key: 'final', label: 'Final' }
+	];
+
+	const shown = $derived.by(() => {
+		const q = query.trim().toLowerCase();
+		return data.events.filter((e) => {
+			if (selectedSport !== 'all' && e.sport !== selectedSport) return false;
+			if (selectedStatus !== 'all' && e.status !== selectedStatus) return false;
+			if (q) {
+				const hay = `${e.home.name} ${e.home.abbr} ${e.away.name} ${e.away.abbr}`.toLowerCase();
+				if (!hay.includes(q)) return false;
+			}
+			return true;
+		});
+	});
 </script>
 
 <div class="space-y-6">
@@ -78,7 +108,47 @@
 		</Alert>
 	{/if}
 
-	{#if data.events.length === 0}
+	<div class="space-y-3">
+		<Input
+			type="search"
+			bind:value={query}
+			placeholder="Search teams…"
+			aria-label="Search teams"
+			class="max-w-xs"
+		/>
+
+		{#if data.sports.length > 1}
+			<div class="flex flex-wrap gap-2">
+				{#each ['all', ...data.sports] as s (s)}
+					<button
+						type="button"
+						onclick={() => (selectedSport = s)}
+						class="rounded-full border px-3 py-1 text-sm transition-colors {selectedSport === s
+							? 'border-primary bg-primary text-primary-foreground'
+							: 'text-muted-foreground hover:bg-accent'}"
+					>
+						{s === 'all' ? 'All' : sportLabel(s)}
+					</button>
+				{/each}
+			</div>
+		{/if}
+
+		<div class="flex flex-wrap gap-2">
+			{#each STATUS_FILTERS as f (f.key)}
+				<button
+					type="button"
+					onclick={() => (selectedStatus = f.key)}
+					class="rounded-full border px-3 py-1 text-sm transition-colors {selectedStatus === f.key
+						? 'border-primary bg-primary text-primary-foreground'
+						: 'text-muted-foreground hover:bg-accent'}"
+				>
+					{f.label}
+				</button>
+			{/each}
+		</div>
+	</div>
+
+	{#if shown.length === 0}
 		<Card>
 			<CardContent class="py-10 text-center text-muted-foreground">
 				No games available from the feed right now.
@@ -86,7 +156,7 @@
 		</Card>
 	{:else}
 		<ul class="space-y-3">
-			{#each data.events as e (e.provider + ':' + e.eventId)}
+			{#each shown as e (e.provider + ':' + e.eventId)}
 				<li>
 					<Card>
 						<CardContent class="flex items-center justify-between gap-4 py-4">
@@ -104,17 +174,34 @@
 									>
 								</div>
 								<div class="mt-1.5 flex items-center gap-2 text-lg font-semibold">
-									<span class:opacity-50={e.winner === 'away'}>
+									<span
+										class="inline-flex items-center gap-1.5"
+										class:opacity-50={e.winner === 'away'}
+									>
+										{#if e.home.logo}
+											<img src={e.home.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
+										{/if}
 										{e.home.name}
 										<span class="text-sm font-normal text-muted-foreground">({e.home.abbr})</span>
 									</span>
 									<span class="text-sm text-muted-foreground">vs</span>
-									<span class:opacity-50={e.winner === 'home'}>
+									<span
+										class="inline-flex items-center gap-1.5"
+										class:opacity-50={e.winner === 'home'}
+									>
+										{#if e.away.logo}
+											<img src={e.away.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
+										{/if}
 										{e.away.name}
 										<span class="text-sm font-normal text-muted-foreground">({e.away.abbr})</span>
 									</span>
 								</div>
-								<p class="mt-0.5 text-xs text-muted-foreground">{e.league}</p>
+								<p class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+									{#if e.leagueLogo}
+										<img src={e.leagueLogo} alt="" class="h-4 w-4 object-contain" loading="lazy" />
+									{/if}
+									{e.league}
+								</p>
 							</div>
 							<div class="shrink-0 text-right">
 								{#if scoreline(e)}

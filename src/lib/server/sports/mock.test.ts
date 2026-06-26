@@ -39,6 +39,14 @@ describe('mockEvents', () => {
 		expect(new Set(ids).size).toBe(ids.length); // unique
 		expect(mockEvents(REF).every((e) => e.provider === 'mock')).toBe(true);
 	});
+
+	it('spans more than one sport so the filter has something to do', () => {
+		const sports = new Set(mockEvents(REF).map((e) => e.sport));
+		expect(sports.has('soccer')).toBe(true);
+		expect(sports.has('baseball')).toBe(true);
+		// every event carries a sport + a league
+		expect(mockEvents(REF).every((e) => e.sport && e.league)).toBe(true);
+	});
 });
 
 describe('mockAdapter', () => {
