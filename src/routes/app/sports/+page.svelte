@@ -418,7 +418,7 @@
 												/>
 											</label>
 											<Button type="submit" size="sm">
-												{m.myWager ? 'Update wager' : 'Place wager'}
+												{m.myWager ? 'Update' : 'Place wager'}
 											</Button>
 										</form>
 									{:else if m.status === 'closed'}
