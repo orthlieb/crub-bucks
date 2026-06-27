@@ -182,6 +182,25 @@ describe('resolveMarket', () => {
 		expect(wagers.every((w) => w.settledDelta === 0)).toBe(true);
 	});
 
+	it('stores the final score on resolution', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(100);
+		const b = await fundedUser(100);
+		const marketId = await openMarketFromEvent(makeEvent(), admin.id);
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 10 });
+		await placeWager({ marketId, userId: b.id, side: 'away', stake: 10 });
+		await resolveMarket({
+			marketId,
+			winningSide: 'home',
+			resolvedBy: admin.id,
+			homeScore: 3,
+			awayScore: 1
+		});
+		const [m] = await db.select().from(sportMarkets).where(eq(sportMarkets.id, marketId));
+		expect(m.homeScore).toBe(3);
+		expect(m.awayScore).toBe(1);
+	});
+
 	it('pushes a drawn game — home and away backers both refunded', async () => {
 		const admin = await createUser();
 		const a = await fundedUser(100);
@@ -290,7 +309,12 @@ describe('settleDueMarkets', () => {
 		expect(await userBalance(b.id)).toBe(900);
 
 		const [m] = await db.select().from(sportMarkets).where(eq(sportMarkets.id, marketId));
-		expect(m).toMatchObject({ status: 'resolved', winningSide: 'home' });
+		expect(m).toMatchObject({
+			status: 'resolved',
+			winningSide: 'home',
+			homeScore: 1,
+			awayScore: 0
+		});
 
 		// both backers got a settlement notification
 		const aNotes = await db.select().from(notifications).where(eq(notifications.userId, a.id));

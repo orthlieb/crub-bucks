@@ -61,7 +61,6 @@
 	}
 
 	const m = $derived(data.market);
-	const open = $derived(m.status === 'open');
 </script>
 
 <div class="space-y-6">
@@ -80,6 +79,14 @@
 		{/if}
 		<div class="min-w-0">
 			<h1 class="text-2xl font-bold tracking-tight">{m.homeName} vs {m.awayName}</h1>
+			{#if data.score}
+				<p class="mt-0.5 text-2xl font-bold tabular-nums">
+					{data.score.home} – {data.score.away}
+					{#if m.status === 'open'}<span
+							class="align-middle text-xs font-medium uppercase text-primary">Live</span
+						>{/if}
+				</p>
+			{/if}
 			<p class="text-sm text-muted-foreground">
 				{m.league}{#if mounted}
 					· {kickoff(m.startTime)}{/if}
@@ -142,7 +149,7 @@
 	{/if}
 
 	<!-- Bet form / status -->
-	{#if open}
+	{#if data.bettable}
 		<Card>
 			<CardContent class="space-y-3 py-4">
 				<h2 class="text-sm font-semibold">{m.myWager ? 'Update your bet' : 'Place a bet'}</h2>

@@ -150,6 +150,10 @@
 				{/if}
 				{item.awayAbbr}
 			</span>
+			{#if item.homeScore !== null && item.awayScore !== null}
+				<span class="text-muted-foreground">·</span>
+				<strong class="text-foreground tabular-nums">{item.homeScore} – {item.awayScore}</strong>
+			{/if}
 			<span class="text-muted-foreground">·</span>
 			{#if item.push}
 				<span>Push — refunded</span>
