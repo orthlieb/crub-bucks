@@ -83,8 +83,8 @@
 		/>
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Sports</h1>
-			<p class="mt-1 text-muted-foreground">
-				Back an outcome with Crub Bucks — winners split the losers' pool.
+			<p class="mt-1 italic text-muted-foreground">
+				Because it's not about fetch, it's how the ball tastes.
 			</p>
 		</div>
 	</header>
