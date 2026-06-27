@@ -4,6 +4,7 @@
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import BetCard, { type BetTone } from '$lib/components/BetCard.svelte';
+	import { assetUrl } from '$lib/assets';
 
 	let { data }: { data: PageData } = $props();
 
@@ -74,11 +75,18 @@
 </script>
 
 <div class="space-y-8">
-	<header>
-		<h1 class="text-3xl font-bold tracking-tight">Sports</h1>
-		<p class="mt-1 text-muted-foreground">
-			Back an outcome with Crub Bucks — winners split the losers' pool.
-		</p>
+	<header class="flex items-center gap-3">
+		<img
+			src={assetUrl('/sports.png', data.assetVersion)}
+			alt=""
+			class="h-16 w-16 shrink-0 object-contain"
+		/>
+		<div>
+			<h1 class="text-3xl font-bold tracking-tight">Sports</h1>
+			<p class="mt-1 text-muted-foreground">
+				Back an outcome with Crub Bucks — winners split the losers' pool.
+			</p>
+		</div>
 	</header>
 
 	<div class="flex flex-wrap gap-2">
