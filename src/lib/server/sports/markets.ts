@@ -129,6 +129,8 @@ export async function resolveMarket(opts: {
 	winningSide: WagerSide;
 	resolvedBy: string | null;
 	note?: string;
+	homeScore?: number | null;
+	awayScore?: number | null;
 }): Promise<{ userId: string; delta: number }[]> {
 	return db.transaction(async (tx) => {
 		// FOR UPDATE: lock the market row so two concurrent settlers (e.g. the
@@ -167,7 +169,9 @@ export async function resolveMarket(opts: {
 					status: 'void',
 					resolvedAt: new Date(),
 					resolvedBy: opts.resolvedBy,
-					resolutionNote: opts.note ?? 'No opposing bets — pushed'
+					resolutionNote: opts.note ?? 'No opposing bets — pushed',
+					homeScore: opts.homeScore ?? null,
+					awayScore: opts.awayScore ?? null
 				})
 				.where(eq(sportMarkets.id, opts.marketId));
 			return wagers.map((w) => ({ userId: w.userId, delta: 0 }));
@@ -214,7 +218,9 @@ export async function resolveMarket(opts: {
 				winningSide: opts.winningSide,
 				resolvedAt: new Date(),
 				resolvedBy: opts.resolvedBy,
-				resolutionNote: opts.note ?? null
+				resolutionNote: opts.note ?? null,
+				homeScore: opts.homeScore ?? null,
+				awayScore: opts.awayScore ?? null
 			})
 			.where(eq(sportMarkets.id, opts.marketId));
 
@@ -305,6 +311,9 @@ export interface MarketView {
 	status: 'open' | 'closed' | 'resolved' | 'void';
 	winningSide: WagerSide | null;
 	resolutionNote: string | null;
+	/** Final score, stored at settlement (null while open / for no-score voids). */
+	homeScore: number | null;
+	awayScore: number | null;
 	pools: MarketPool[];
 	/** The requesting user's own wager on this market, if any. */
 	myWager: { side: WagerSide; stake: number; settledDelta: number | null } | null;
@@ -342,6 +351,8 @@ function toMarketView(m: MarketRow, wagers: WagerRow[], userId: string): MarketV
 		status: m.status,
 		winningSide: m.winningSide as WagerSide | null,
 		resolutionNote: m.resolutionNote,
+		homeScore: m.homeScore,
+		awayScore: m.awayScore,
 		pools: [...pools.entries()].map(([side, v]) => ({
 			side: side as WagerSide,
 			total: v.total,
@@ -502,7 +513,9 @@ export async function settleDueMarkets(opts?: {
 					marketId: m.id,
 					winningSide: ev.winner,
 					resolvedBy: null,
-					note: 'Auto-resolved from feed'
+					note: 'Auto-resolved from feed',
+					homeScore: ev.homeScore,
+					awayScore: ev.awayScore
 				});
 				await notifyResolved(m, deltas);
 				summary.resolved++;

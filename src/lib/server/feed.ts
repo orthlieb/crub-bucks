@@ -117,6 +117,8 @@ export type FeedItem =
 			awayName: string;
 			awayAbbr: string;
 			awayLogo: string | null;
+			homeScore: number | null;
+			awayScore: number | null;
 			/** Final result; 'draw' (or a void) is a push — no winners/losers. */
 			winningSide: 'home' | 'away' | 'draw' | null;
 			push: boolean;
@@ -506,6 +508,8 @@ export async function getFeed(opts: {
 				awayName: m.awayName,
 				awayAbbr: m.awayAbbr,
 				awayLogo: m.awayLogo,
+				homeScore: m.homeScore,
+				awayScore: m.awayScore,
 				winningSide: m.winningSide as 'home' | 'away' | 'draw' | null,
 				push,
 				winners,

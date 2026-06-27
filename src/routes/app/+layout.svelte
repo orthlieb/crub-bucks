@@ -116,9 +116,9 @@
 		{ href: '/app', label: 'Bets', exact: true },
 		{ href: '/app/feed', label: 'Feed' },
 		{ href: '/app/sports', label: 'Sports' },
-		{ href: '/app/account', label: 'Account' },
 		{ href: '/app/friends', label: 'Friends' },
-		{ href: '/app/awards', label: 'Awards' }
+		{ href: '/app/awards', label: 'Awards' },
+		{ href: '/app/account', label: 'Account' }
 	];
 
 	function isActive(href: string, exact?: boolean): boolean {

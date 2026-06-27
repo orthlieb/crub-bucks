@@ -405,6 +405,10 @@ export const sportMarkets = pgTable(
 		homeLogo: text('home_logo'),
 		awayLogo: text('away_logo'),
 		leagueLogo: text('league_logo'),
+		// Final score, captured at settlement (null until then; null for
+		// postponed/cancelled voids). Live in-play scores come from the feed.
+		homeScore: integer('home_score'),
+		awayScore: integer('away_score'),
 		// Kickoff — the natural "enrollment closes" deadline.
 		startTime: timestamp('start_time', { withTimezone: true }).notNull(),
 		status: sportMarketStatusEnum('status').notNull().default('open'),

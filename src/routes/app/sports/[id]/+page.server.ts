@@ -1,9 +1,11 @@
 import { error, fail } from '@sveltejs/kit';
+import { getFeed } from '$lib/server/sports';
 import { getMarketView, placeWager, MarketError, type WagerSide } from '$lib/server/sports/markets';
 import { userBalance } from '$lib/server/ledger';
 import type { Actions, PageServerLoad } from './$types';
 
-/** Sports market detail — pools/odds, your wager, and (while open) the bet form. */
+/** Sports market detail — pools/odds, your wager, score, and (while bettable)
+ *  the bet form. Wagering is only open before kickoff. */
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const userId = locals.user!.id;
 	const [market, balance] = await Promise.all([
@@ -11,7 +13,26 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		userBalance(userId)
 	]);
 	if (!market) throw error(404, 'Market not found');
-	return { market, balance };
+
+	// Score: the stored final if settled, otherwise the live in-play score.
+	let score: { home: number; away: number } | null =
+		market.homeScore !== null && market.awayScore !== null
+			? { home: market.homeScore, away: market.awayScore }
+			: null;
+	if (!score && market.status === 'open') {
+		try {
+			const ev = await getFeed().getEvent(market.eventId);
+			if (ev && ev.homeScore !== null && ev.awayScore !== null) {
+				score = { home: ev.homeScore, away: ev.awayScore };
+			}
+		} catch {
+			// feed down — no live score this load
+		}
+	}
+
+	// Wagering is open only before kickoff (the cron settles after the game ends).
+	const bettable = market.status === 'open' && Date.parse(market.startTime) > Date.now();
+	return { market, balance, score, bettable };
 };
 
 export const actions: Actions = {
