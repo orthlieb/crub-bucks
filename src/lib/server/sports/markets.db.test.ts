@@ -326,16 +326,33 @@ describe('settleDueMarkets', () => {
 
 	it('skips games that are not final and games missing from the feed', async () => {
 		const admin = await createUser();
+		const a = await fundedUser(1000);
+		const b = await fundedUser(1000);
 		const ev1 = makeEvent(); // will be reported still in progress
 		const ev2 = makeEvent(); // will be absent from the feed
-		await openMarketFromEvent(ev1, admin.id);
-		await openMarketFromEvent(ev2, admin.id);
+		const m1 = await openMarketFromEvent(ev1, admin.id);
+		const m2 = await openMarketFromEvent(ev2, admin.id);
+		// give both markets two-sided action so they aren't scrapped as empty
+		await placeWager({ marketId: m1, userId: a.id, side: 'home', stake: 10 });
+		await placeWager({ marketId: m1, userId: b.id, side: 'away', stake: 10 });
+		await placeWager({ marketId: m2, userId: a.id, side: 'home', stake: 10 });
+		await placeWager({ marketId: m2, userId: b.id, side: 'away', stake: 10 });
 
 		const summary = await settleDueMarkets({
 			feed: stubFeed([{ ...ev1, status: 'in_progress' }]),
 			now: FUTURE()
 		});
-		expect(summary).toMatchObject({ resolved: 0, voided: 0, skipped: 2, errors: 0 });
+		expect(summary).toMatchObject({ resolved: 0, voided: 0, scrapped: 0, skipped: 2, errors: 0 });
+	});
+
+	it('scraps a started market that has no bettors', async () => {
+		const admin = await createUser();
+		const ev = makeEvent();
+		const marketId = await openMarketFromEvent(ev, admin.id); // no wagers placed
+		const summary = await settleDueMarkets({ feed: stubFeed([ev]), now: FUTURE() });
+		expect(summary).toMatchObject({ scrapped: 1, resolved: 0, voided: 0 });
+		const rows = await db.select().from(sportMarkets).where(eq(sportMarkets.id, marketId));
+		expect(rows).toHaveLength(0); // deleted
 	});
 
 	it('does not settle markets whose game has not started yet', async () => {

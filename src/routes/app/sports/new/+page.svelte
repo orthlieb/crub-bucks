@@ -71,8 +71,7 @@
 	<header>
 		<h1 class="text-3xl font-bold tracking-tight">Bet on a game</h1>
 		<p class="mt-1 text-muted-foreground">
-			Pick an upcoming game and place the first wager — that opens the market. Balance:
-			<span class="font-medium tabular-nums">{data.balance} ₡</span>
+			Pick an upcoming game and place the first wager — that opens the market.
 		</p>
 	</header>
 
