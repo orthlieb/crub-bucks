@@ -200,6 +200,25 @@ describe('resolveMarket', () => {
 		expect(wagers.every((w) => w.settledDelta === 0)).toBe(true);
 	});
 
+	it('pushes (voids + refunds) when only one side has bets by settlement', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(100);
+		const b = await fundedUser(100);
+		const marketId = await openMarketFromEvent(makeEvent(), admin.id);
+		// both on home — no counter-bets
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 40 });
+		await placeWager({ marketId, userId: b.id, side: 'home', stake: 30 });
+
+		await resolveMarket({ marketId, winningSide: 'home', resolvedBy: admin.id });
+
+		expect(await userBalance(a.id)).toBe(100); // refunded — no money moved
+		expect(await userBalance(b.id)).toBe(100);
+		const [m] = await db.select().from(sportMarkets).where(eq(sportMarkets.id, marketId));
+		expect(m.status).toBe('void');
+		const wagers = await db.select().from(sportWagers).where(eq(sportWagers.marketId, marketId));
+		expect(wagers.every((w) => w.settledDelta === 0)).toBe(true);
+	});
+
 	it('refuses to settle a market twice', async () => {
 		const admin = await createUser();
 		const a = await fundedUser(100);
