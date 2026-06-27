@@ -150,6 +150,29 @@ export async function resolveMarket(opts: {
 			.from(sportWagers)
 			.where(eq(sportWagers.marketId, opts.marketId));
 
+		// No opposing bets by settlement (one side only, or empty) → a push:
+		// parimutuel can't pay out without a losing pool, so refund everyone and
+		// mark the market void.
+		const distinctSides = new Set(wagers.map((w) => w.side));
+		if (distinctSides.size < 2) {
+			for (const w of wagers) {
+				await tx
+					.update(sportWagers)
+					.set({ settledDelta: 0 })
+					.where(and(eq(sportWagers.marketId, opts.marketId), eq(sportWagers.userId, w.userId)));
+			}
+			await tx
+				.update(sportMarkets)
+				.set({
+					status: 'void',
+					resolvedAt: new Date(),
+					resolvedBy: opts.resolvedBy,
+					resolutionNote: opts.note ?? 'No opposing bets — pushed'
+				})
+				.where(eq(sportMarkets.id, opts.marketId));
+			return wagers.map((w) => ({ userId: w.userId, delta: 0 }));
+		}
+
 		const deltas = parimutuelDeltas(
 			wagers.map((w) => ({ userId: w.userId, side: w.side, stake: w.stake })),
 			opts.winningSide
@@ -274,6 +297,9 @@ export interface MarketView {
 	homeAbbr: string;
 	awayName: string;
 	awayAbbr: string;
+	homeLogo: string | null;
+	awayLogo: string | null;
+	leagueLogo: string | null;
 	/** ISO-8601, serializable for the loader payload. */
 	startTime: string;
 	status: 'open' | 'closed' | 'resolved' | 'void';
@@ -284,11 +310,50 @@ export interface MarketView {
 	myWager: { side: WagerSide; stake: number; settledDelta: number | null } | null;
 }
 
+type WagerRow = typeof sportWagers.$inferSelect;
+
+/** Fold a market row + its wagers into the view model (pools + my wager). */
+function toMarketView(m: MarketRow, wagers: WagerRow[], userId: string): MarketView {
+	const pools = new Map<string, { total: number; count: number }>();
+	let mine: MarketView['myWager'] = null;
+	for (const w of wagers) {
+		const cur = pools.get(w.side) ?? { total: 0, count: 0 };
+		cur.total += w.stake;
+		cur.count += 1;
+		pools.set(w.side, cur);
+		if (w.userId === userId) {
+			mine = { side: w.side as WagerSide, stake: w.stake, settledDelta: w.settledDelta };
+		}
+	}
+	return {
+		id: m.id,
+		provider: m.provider,
+		eventId: m.eventId,
+		sport: m.sport,
+		league: m.league,
+		homeName: m.homeName,
+		homeAbbr: m.homeAbbr,
+		awayName: m.awayName,
+		awayAbbr: m.awayAbbr,
+		homeLogo: m.homeLogo,
+		awayLogo: m.awayLogo,
+		leagueLogo: m.leagueLogo,
+		startTime: m.startTime.toISOString(),
+		status: m.status,
+		winningSide: m.winningSide as WagerSide | null,
+		resolutionNote: m.resolutionNote,
+		pools: [...pools.entries()].map(([side, v]) => ({
+			side: side as WagerSide,
+			total: v.total,
+			count: v.count
+		})),
+		myWager: mine
+	};
+}
+
 /**
  * All markets (recent first) with their per-side pools and the requesting
- * user's own wager folded in — the read model the Sports page renders from.
- * One query for markets + one for their wagers; aggregated in memory
- * (friends-and-family scale).
+ * user's own wager folded in — the read model the Sports list renders from.
  */
 export async function listMarketViews(userId: string): Promise<MarketView[]> {
 	const markets = await db
@@ -300,49 +365,21 @@ export async function listMarketViews(userId: string): Promise<MarketView[]> {
 
 	const ids = markets.map((m) => m.id);
 	const wagers = await db.select().from(sportWagers).where(inArray(sportWagers.marketId, ids));
-
-	const poolsByMarket = new Map<string, Map<string, { total: number; count: number }>>();
-	const mineByMarket = new Map<string, MarketView['myWager']>();
+	const byMarket = new Map<string, WagerRow[]>();
 	for (const w of wagers) {
-		let pm = poolsByMarket.get(w.marketId);
-		if (!pm) {
-			pm = new Map();
-			poolsByMarket.set(w.marketId, pm);
-		}
-		const cur = pm.get(w.side) ?? { total: 0, count: 0 };
-		cur.total += w.stake;
-		cur.count += 1;
-		pm.set(w.side, cur);
-		if (w.userId === userId) {
-			mineByMarket.set(w.marketId, {
-				side: w.side as WagerSide,
-				stake: w.stake,
-				settledDelta: w.settledDelta
-			});
-		}
+		const arr = byMarket.get(w.marketId) ?? [];
+		arr.push(w);
+		byMarket.set(w.marketId, arr);
 	}
+	return markets.map((m) => toMarketView(m, byMarket.get(m.id) ?? [], userId));
+}
 
-	return markets.map((m) => ({
-		id: m.id,
-		provider: m.provider,
-		eventId: m.eventId,
-		sport: m.sport,
-		league: m.league,
-		homeName: m.homeName,
-		homeAbbr: m.homeAbbr,
-		awayName: m.awayName,
-		awayAbbr: m.awayAbbr,
-		startTime: m.startTime.toISOString(),
-		status: m.status,
-		winningSide: m.winningSide as WagerSide | null,
-		resolutionNote: m.resolutionNote,
-		pools: [...(poolsByMarket.get(m.id)?.entries() ?? [])].map(([side, v]) => ({
-			side: side as WagerSide,
-			total: v.total,
-			count: v.count
-		})),
-		myWager: mineByMarket.get(m.id) ?? null
-	}));
+/** A single market view by id, or null if it doesn't exist. */
+export async function getMarketView(userId: string, marketId: string): Promise<MarketView | null> {
+	const [m] = await db.select().from(sportMarkets).where(eq(sportMarkets.id, marketId)).limit(1);
+	if (!m) return null;
+	const wagers = await db.select().from(sportWagers).where(eq(sportWagers.marketId, marketId));
+	return toMarketView(m, wagers, userId);
 }
 
 // ---------------------------------------------------------------------------
