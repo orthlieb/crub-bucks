@@ -28,6 +28,16 @@
 		});
 	}
 
+	const SPORT_ICON: Record<string, string> = {
+		soccer: '⚽',
+		baseball: '⚾',
+		basketball: '🏀',
+		hockey: '🏒',
+		football: '🏈',
+		cfl: '🏈'
+	};
+	const sportIcon = (s: string) => SPORT_ICON[s] ?? '🏆';
+
 	const sides: ('home' | 'away')[] = ['home', 'away'];
 	function sideName(m: Market, side: string | null): string {
 		if (side === 'home') return m.homeAbbr || m.homeName;
@@ -65,6 +75,8 @@
 	<header class="flex items-center gap-3">
 		{#if m.leagueLogo}
 			<img src={m.leagueLogo} alt="" class="h-10 w-10 shrink-0 object-contain" />
+		{:else}
+			<span class="text-3xl leading-none">{sportIcon(m.sport)}</span>
 		{/if}
 		<div class="min-w-0">
 			<h1 class="text-2xl font-bold tracking-tight">{m.homeName} vs {m.awayName}</h1>
@@ -134,7 +146,6 @@
 		<Card>
 			<CardContent class="space-y-3 py-4">
 				<h2 class="text-sm font-semibold">{m.myWager ? 'Update your bet' : 'Place a bet'}</h2>
-				<p class="text-xs text-muted-foreground">Balance: {data.balance} ₡</p>
 				<form
 					method="POST"
 					action="?/placeWager"

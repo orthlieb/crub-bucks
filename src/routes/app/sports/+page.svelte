@@ -31,6 +31,19 @@
 	const SPORT_LABELS: Record<string, string> = { cfl: 'CFL' };
 	const sportLabel = (s: string) => SPORT_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1);
 
+	// Per-sport fallback glyph for the card icon when no league logo is present
+	// (in production the real league crest — e.g. the FIFA World Cup mark for
+	// soccer — comes through as the logo).
+	const SPORT_ICON: Record<string, string> = {
+		soccer: '⚽',
+		baseball: '⚾',
+		basketball: '🏀',
+		hockey: '🏒',
+		football: '🏈',
+		cfl: '🏈'
+	};
+	const sportIcon = (s: string) => SPORT_ICON[s] ?? '🏆';
+
 	function sideName(m: Market, side: string | null): string {
 		if (side === 'home') return m.homeAbbr || m.homeName;
 		if (side === 'away') return m.awayAbbr || m.awayName;
@@ -124,8 +137,7 @@
 	<header>
 		<h1 class="text-3xl font-bold tracking-tight">Sports</h1>
 		<p class="mt-1 text-muted-foreground">
-			Back an outcome with Crub Bucks — winners split the losers' pool. Balance:
-			<span class="font-medium tabular-nums">{data.balance} ₡</span>
+			Back an outcome with Crub Bucks — winners split the losers' pool.
 		</p>
 	</header>
 
@@ -199,7 +211,7 @@
 					{#each markets as m (m.id)}
 						<BetCard
 							href={`/app/sports/${m.id}`}
-							icon="🏆"
+							icon={sportIcon(m.sport)}
 							iconImg={m.leagueLogo}
 							label={cardLabel(m)}
 							tone={cardTone(m)}

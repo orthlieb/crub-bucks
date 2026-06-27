@@ -1,5 +1,4 @@
 import { listMarketViews, type MarketView } from '$lib/server/sports/markets';
-import { userBalance } from '$lib/server/ledger';
 import type { PageServerLoad } from './$types';
 
 /**
@@ -16,11 +15,11 @@ function marketPhase(m: MarketView, now: number): Phase {
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.user!.id;
-	const [markets, balance] = await Promise.all([listMarketViews(userId), userBalance(userId)]);
+	const markets = await listMarketViews(userId);
 	// Phase is computed server-side so SSR and the client agree (no hydration
 	// drift around kickoff); the layout poll refreshes it.
 	const now = Date.now();
 	const withPhase = markets.map((m) => ({ ...m, phase: marketPhase(m, now) }));
 	const sports = [...new Set(markets.map((m) => m.sport))].sort();
-	return { markets: withPhase, sports, balance };
+	return { markets: withPhase, sports };
 };

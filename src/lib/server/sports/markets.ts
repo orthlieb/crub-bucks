@@ -389,6 +389,8 @@ export async function getMarketView(userId: string, marketId: string): Promise<M
 export interface SettleSummary {
 	resolved: number;
 	voided: number;
+	/** Started markets with no wagers at all — deleted outright. */
+	scrapped: number;
 	skipped: number;
 	errors: number;
 }
@@ -440,13 +442,37 @@ export async function settleDueMarkets(opts?: {
 }): Promise<SettleSummary> {
 	const feed = opts?.feed ?? getFeed();
 	const now = opts?.now ?? new Date();
-	const summary: SettleSummary = { resolved: 0, voided: 0, skipped: 0, errors: 0 };
+	const summary: SettleSummary = { resolved: 0, voided: 0, scrapped: 0, skipped: 0, errors: 0 };
 
 	const candidates = await db
 		.select()
 		.from(sportMarkets)
 		.where(and(inArray(sportMarkets.status, ['open', 'closed']), lte(sportMarkets.startTime, now)));
 	if (candidates.length === 0) return summary;
+
+	// Scrap markets that reached kickoff with no bettors at all — delete them
+	// outright (feed-independent; nothing to settle or refund). The rest go on
+	// to feed-based settlement.
+	const candidateIds = candidates.map((c) => c.id);
+	const wagered = await db
+		.select({ marketId: sportWagers.marketId })
+		.from(sportWagers)
+		.where(inArray(sportWagers.marketId, candidateIds));
+	const hasWagers = new Set(wagered.map((w) => w.marketId));
+	const live: MarketRow[] = [];
+	for (const m of candidates) {
+		if (hasWagers.has(m.id)) {
+			live.push(m);
+			continue;
+		}
+		try {
+			await db.delete(sportMarkets).where(eq(sportMarkets.id, m.id));
+			summary.scrapped++;
+		} catch {
+			summary.errors++;
+		}
+	}
+	if (live.length === 0) return summary;
 
 	let events: FeedEvent[];
 	try {
@@ -456,7 +482,7 @@ export async function settleDueMarkets(opts?: {
 	}
 	const byId = new Map(events.map((e) => [e.eventId, e]));
 
-	for (const m of candidates) {
+	for (const m of live) {
 		try {
 			const ev = byId.get(m.eventId);
 			if (!ev) {
