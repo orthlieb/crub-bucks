@@ -37,7 +37,8 @@
 		locale,
 		people = [],
 		href,
-		class: className
+		class: className,
+		children
 	}: {
 		icon?: string | null;
 		/** Preferred image icon (e.g. badge art); falls back to `icon` emoji. */
@@ -57,13 +58,17 @@
 		/** When set, the whole card is a link. */
 		href?: string;
 		class?: string;
+		/** Optional full-width footer rendered below the body (e.g. an inline
+		 *  form). Only use WITHOUT `href` — interactive content can't live in a
+		 *  link. */
+		children?: Snippet;
 	} = $props();
 
 	const t = $derived(TONES[tone]);
 
 	const shell = $derived(
 		cn(
-			'flex items-stretch overflow-hidden rounded-lg border bg-card shadow-sm',
+			'block overflow-hidden rounded-lg border bg-card shadow-sm',
 			href && 'transition-colors hover:bg-accent',
 			className
 		)
@@ -83,57 +88,62 @@
 </script>
 
 {#snippet inner()}
-	<!-- State column: full card height, tinted; emoji centred, label at the bottom. -->
-	<div class={cn('flex w-20 shrink-0 flex-col sm:w-24', t.box)}>
-		<div class="flex flex-1 items-center justify-center pt-2 text-3xl leading-none sm:text-4xl">
-			{#if iconImg && !iconImgFailed}
-				<img
-					src={iconImg}
-					alt=""
-					class="h-9 w-9 object-contain sm:h-11 sm:w-11"
-					onerror={() => (iconImgFailed = true)}
-				/>
-			{:else}
-				{icon ?? '💰'}
-			{/if}
-		</div>
-		<div class={cn('pb-2 text-center text-[10px] font-semibold uppercase tracking-wide', t.text)}>
-			{label}
-		</div>
-	</div>
-
-	<!-- Standardised body: title + amount, optional comment, date — then avatars. -->
-	<div class="flex min-w-0 flex-1 items-center justify-between gap-3 p-4">
-		<div class="min-w-0 flex-1 space-y-1">
-			<div class="truncate text-sm font-semibold">
-				{#if amount != null}<span class="tabular-nums">{formatAmount(amount, locale)} ₡</span> —
-				{/if}{title}
+	<div class="flex items-stretch">
+		<!-- State column: full card height, tinted; emoji centred, label at the bottom. -->
+		<div class={cn('flex w-20 shrink-0 flex-col sm:w-24', t.box)}>
+			<div class="flex flex-1 items-center justify-center pt-2 text-3xl leading-none sm:text-4xl">
+				{#if iconImg && !iconImgFailed}
+					<img
+						src={iconImg}
+						alt=""
+						class="h-9 w-9 object-contain sm:h-11 sm:w-11"
+						onerror={() => (iconImgFailed = true)}
+					/>
+				{:else}
+					{icon ?? '💰'}
+				{/if}
 			</div>
-			{#if comment}
-				<div class="break-words text-xs text-muted-foreground">
-					{#if typeof comment === 'function'}{@render comment()}{:else}{comment}{/if}
+			<div class={cn('pb-2 text-center text-[10px] font-semibold uppercase tracking-wide', t.text)}>
+				{label}
+			</div>
+		</div>
+
+		<!-- Standardised body: title + amount, optional comment, date — then avatars. -->
+		<div class="flex min-w-0 flex-1 items-center justify-between gap-3 p-4">
+			<div class="min-w-0 flex-1 space-y-1">
+				<div class="truncate text-sm font-semibold">
+					{#if amount != null}<span class="tabular-nums">{formatAmount(amount, locale)} ₡</span> —
+					{/if}{title}
+				</div>
+				{#if comment}
+					<div class="break-words text-xs text-muted-foreground">
+						{#if typeof comment === 'function'}{@render comment()}{:else}{comment}{/if}
+					</div>
+				{/if}
+				<div class="text-xs text-muted-foreground">{fmtDate(date)}</div>
+			</div>
+			{#if people.length > 0}
+				<div
+					class="grid shrink-0 gap-1.5"
+					style={`grid-template-columns:repeat(${avatarCols}, auto)`}
+				>
+					{#each people as p (p.id)}
+						<Avatar
+							id={p.id}
+							name={p.name}
+							avatarUpdatedAt={p.avatarUpdatedAt}
+							avatarIcon={p.avatarIcon ?? null}
+							ring={p.ring ?? null}
+							size={24}
+						/>
+					{/each}
 				</div>
 			{/if}
-			<div class="text-xs text-muted-foreground">{fmtDate(date)}</div>
 		</div>
-		{#if people.length > 0}
-			<div
-				class="grid shrink-0 gap-1.5"
-				style={`grid-template-columns:repeat(${avatarCols}, auto)`}
-			>
-				{#each people as p (p.id)}
-					<Avatar
-						id={p.id}
-						name={p.name}
-						avatarUpdatedAt={p.avatarUpdatedAt}
-						avatarIcon={p.avatarIcon ?? null}
-						ring={p.ring ?? null}
-						size={24}
-					/>
-				{/each}
-			</div>
-		{/if}
 	</div>
+	{#if children}
+		<div class="border-t p-4">{@render children()}</div>
+	{/if}
 {/snippet}
 
 {#if href}
