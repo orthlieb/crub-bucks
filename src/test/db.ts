@@ -65,6 +65,8 @@ const ALL_TABLES = [
 	'ledger_entries',
 	'bets',
 	'bet_participants',
+	'sport_markets',
+	'sport_wagers',
 	'auth_tokens',
 	'security_events',
 	'sessions',

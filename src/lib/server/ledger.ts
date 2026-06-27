@@ -47,7 +47,7 @@ const WELCOME_GRANT_CB = 100;
 export const MAX_FRIENDS = 99;
 const FRIEND_CAP_MESSAGE = "You can't have any more friends.";
 
-type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type DbOrTx = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // ---------------------------------------------------------------------------
 // Wallet lookup / provisioning
@@ -117,9 +117,11 @@ export interface TransferOpts {
 	createdBy?: string | null;
 	/** Optional context — the bet whose resolution produced this transfer. */
 	betId?: string | null;
+	/** Optional context — the sports market whose settlement produced this. */
+	sportMarketId?: string | null;
 }
 
-async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<string> {
+export async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<string> {
 	const {
 		fromWalletId,
 		toWalletId,
@@ -127,7 +129,8 @@ async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<string> {
 		memo = null,
 		icon = null,
 		createdBy = null,
-		betId = null
+		betId = null,
+		sportMarketId = null
 	} = opts;
 
 	if (!Number.isInteger(amount) || amount <= 0) {
@@ -147,8 +150,17 @@ async function transferInTx(tx: DbOrTx, opts: TransferOpts): Promise<string> {
 
 	const transferId = crypto.randomUUID();
 	await tx.insert(ledgerEntries).values([
-		{ transferId, walletId: fromWalletId, delta: -amount, memo, icon, createdBy, betId },
-		{ transferId, walletId: toWalletId, delta: amount, memo, icon, createdBy, betId }
+		{
+			transferId,
+			walletId: fromWalletId,
+			delta: -amount,
+			memo,
+			icon,
+			createdBy,
+			betId,
+			sportMarketId
+		},
+		{ transferId, walletId: toWalletId, delta: amount, memo, icon, createdBy, betId, sportMarketId }
 	]);
 
 	// Keep the Bank-total stat current: this transfer's net effect on the Bank

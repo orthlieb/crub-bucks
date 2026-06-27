@@ -204,6 +204,20 @@
       "when": 1781587408026,
       "tag": "0028_system_config_asset_version",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1782496753475,
+      "tag": "0029_new_stepford_cuckoos",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1782513321885,
+      "tag": "0030_loud_captain_midlands",
+      "breakpoints": true
     }
   ]
 }
