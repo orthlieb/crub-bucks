@@ -28,7 +28,7 @@
 		});
 	}
 
-	const SPORT_LABELS: Record<string, string> = { cfl: 'CFL' };
+	const SPORT_LABELS: Record<string, string> = { cfl: 'CFL', mma: 'MMA' };
 	const sportLabel = (s: string) => SPORT_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1);
 
 	let selectedSport = $state('all');

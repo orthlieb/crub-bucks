@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { normalizeEspnStatus, parseEspnScoreboard, parseEspnTennis, espnAdapter } from './espn';
+import {
+	normalizeEspnStatus,
+	parseEspnScoreboard,
+	parseEspnAthleteMatches,
+	espnAdapter
+} from './espn';
 
 describe('normalizeEspnStatus', () => {
 	it('maps the common status names', () => {
@@ -235,9 +240,9 @@ const TENNIS_FIXTURE = {
 	]
 };
 
-describe('parseEspnTennis', () => {
+describe('parseEspnAthleteMatches', () => {
 	it('parses per-match competitions with athletes + the winner flag', () => {
-		const events = parseEspnTennis(TENNIS_FIXTURE, 'tennis', 'ATP');
+		const events = parseEspnAthleteMatches(TENNIS_FIXTURE, 'tennis', 'ATP');
 		expect(events).toHaveLength(2); // two matches under one tournament event
 
 		expect(events[0]).toMatchObject({
@@ -257,8 +262,45 @@ describe('parseEspnTennis', () => {
 	});
 
 	it('tolerates an empty payload', () => {
-		expect(parseEspnTennis({}, 'tennis')).toEqual([]);
-		expect(parseEspnTennis(null, 'tennis')).toEqual([]);
+		expect(parseEspnAthleteMatches({}, 'tennis')).toEqual([]);
+		expect(parseEspnAthleteMatches(null, 'tennis')).toEqual([]);
+	});
+
+	// MMA cards share tennis's per-match athlete shape: fights live under the
+	// event's `competitions`, winner from the per-competitor flag, no scores.
+	it('parses an MMA card with no numeric scores, winner from the flag', () => {
+		const MMA_FIXTURE = {
+			leagues: [{ name: 'UFC' }],
+			events: [
+				{
+					id: 'ufc-card-1',
+					competitions: [
+						{
+							id: 'fight-1',
+							date: '2026-07-04T03:00Z',
+							status: { type: { name: 'STATUS_FINAL', state: 'post', completed: true } },
+							competitors: [
+								{ order: 1, winner: true, athlete: { id: 'f1', displayName: 'Jon Jones' } },
+								{ order: 2, winner: false, athlete: { id: 'f2', displayName: 'Tom Aspinall' } }
+							]
+						}
+					]
+				}
+			]
+		};
+		const events = parseEspnAthleteMatches(MMA_FIXTURE, 'mma', 'UFC');
+		expect(events).toHaveLength(1);
+		expect(events[0]).toMatchObject({
+			eventId: 'fight-1',
+			sport: 'mma',
+			league: 'UFC',
+			status: 'final',
+			winner: 'home',
+			homeScore: null,
+			awayScore: null
+		});
+		expect(events[0].home.name).toBe('Jon Jones');
+		expect(events[0].away.name).toBe('Tom Aspinall');
 	});
 });
 
