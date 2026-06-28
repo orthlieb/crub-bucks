@@ -3,6 +3,7 @@ import {
 	normalizeEspnStatus,
 	parseEspnScoreboard,
 	parseEspnAthleteMatches,
+	forwardWindow,
 	espnAdapter
 } from './espn';
 
@@ -304,8 +305,28 @@ describe('parseEspnAthleteMatches', () => {
 	});
 });
 
+describe('forwardWindow', () => {
+	it('formats a YYYYMMDD-YYYYMMDD range from the given day', () => {
+		expect(forwardWindow(10, new Date('2026-06-28T12:00:00Z'))).toBe('20260628-20260708');
+	});
+
+	it('zero-pads month and day', () => {
+		expect(forwardWindow(5, new Date('2026-01-03T00:00:00Z'))).toBe('20260103-20260108');
+	});
+});
+
 describe('espnAdapter', () => {
 	afterEach(() => vi.restoreAllMocks());
+
+	it('requests a forward date window so upcoming (not just today) games come through', async () => {
+		stubFetch({ soccer: FIXTURE, baseball: BASEBALL_FIXTURE });
+		await espnAdapter.listUpcoming();
+		const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+		expect(fetchMock).toHaveBeenCalled();
+		for (const call of fetchMock.mock.calls) {
+			expect(String(call[0])).toMatch(/scoreboard\?dates=\d{8}-\d{8}/);
+		}
+	});
 
 	it('aggregates multiple competitions, tagging each with its sport', async () => {
 		stubFetch({ soccer: FIXTURE, baseball: BASEBALL_FIXTURE });
