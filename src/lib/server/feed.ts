@@ -122,6 +122,8 @@ export type FeedItem =
 			/** Final result; 'draw' (or a void) is a push — no winners/losers. */
 			winningSide: 'home' | 'away' | 'draw' | null;
 			push: boolean;
+			/** Voided because no one took the other side (vs a genuine push). */
+			noBets: boolean;
 			winners: FeedPerson[];
 			losers: FeedPerson[];
 			people: FeedUser[];
@@ -512,6 +514,7 @@ export async function getFeed(opts: {
 				awayScore: m.awayScore,
 				winningSide: m.winningSide as 'home' | 'away' | 'draw' | null,
 				push,
+				noBets: m.status === 'void' && m.resolutionNote === 'No bets',
 				winners,
 				losers,
 				people

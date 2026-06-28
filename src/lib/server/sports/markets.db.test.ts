@@ -234,6 +234,7 @@ describe('resolveMarket', () => {
 		expect(await userBalance(b.id)).toBe(100);
 		const [m] = await db.select().from(sportMarkets).where(eq(sportMarkets.id, marketId));
 		expect(m.status).toBe('void');
+		expect(m.resolutionNote).toBe('No bets'); // flagged as No Bets, not a push
 		const wagers = await db.select().from(sportWagers).where(eq(sportWagers.marketId, marketId));
 		expect(wagers.every((w) => w.settledDelta === 0)).toBe(true);
 	});

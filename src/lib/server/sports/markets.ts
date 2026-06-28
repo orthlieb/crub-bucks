@@ -169,7 +169,8 @@ export async function resolveMarket(opts: {
 					status: 'void',
 					resolvedAt: new Date(),
 					resolvedBy: opts.resolvedBy,
-					resolutionNote: opts.note ?? 'No opposing bets — pushed',
+					// No one took the other side — not a true push; flagged as "No bets".
+					resolutionNote: opts.note ?? 'No bets',
 					homeScore: opts.homeScore ?? null,
 					awayScore: opts.awayScore ?? null
 				})
