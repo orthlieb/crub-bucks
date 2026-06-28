@@ -120,7 +120,7 @@
 			item.type === 'bet_cancelled'
 		)
 			return `/app/bet/${item.betId}`;
-		if (item.type === 'sports_settled') return '/app/sports';
+		if (item.type === 'sports_settled') return `/app/sports/${item.marketId}`;
 		return undefined;
 	});
 </script>
