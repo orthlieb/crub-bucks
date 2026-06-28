@@ -238,8 +238,16 @@ export function parseEspnAthleteMatches(
 /** How many days ahead to pull. ESPN scoreboards return only the current day's
  *  slate by default, which leaves day-scheduled tennis draws and the weekly UFC
  *  card (and any sport with no game *today*) invisible on the "Bet on a game"
- *  list. A forward window surfaces the upcoming schedule for every sport. */
+ *  list. A forward window surfaces the upcoming schedule for every sport.
+ *
+ *  Team sports run most days, so a short window already fills the list. The
+ *  "athlete" sports are episodic — a UFC card can be weeks out and a tennis
+ *  tournament only posts a few days at a time — so they look much further ahead
+ *  to reach the next event. */
 const WINDOW_DAYS = 10;
+const ATHLETE_WINDOW_DAYS = 60;
+const windowFor = (c: { kind?: 'team' | 'athlete' }) =>
+	c.kind === 'athlete' ? ATHLETE_WINDOW_DAYS : WINDOW_DAYS;
 
 /** ESPN's `dates` range param, `YYYYMMDD-YYYYMMDD`, from today through the
  *  window. Endpoints that don't honour a range just return today's slate, so
@@ -253,7 +261,7 @@ export function forwardWindow(days = WINDOW_DAYS, from: Date = new Date()): stri
 
 async function fetchCompetition(c: (typeof COMPETITIONS)[number]): Promise<FeedEvent[]> {
 	try {
-		const res = await fetch(`${BASE}/${c.path}/scoreboard?dates=${forwardWindow()}`, {
+		const res = await fetch(`${BASE}/${c.path}/scoreboard?dates=${forwardWindow(windowFor(c))}`, {
 			signal: AbortSignal.timeout(TIMEOUT_MS)
 		});
 		if (!res.ok) return []; // fail safe
