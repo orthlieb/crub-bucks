@@ -77,13 +77,21 @@
 				? '🏆'
 				: item.icon
 	);
-	// Badge items prefer the tier art PNG; sports items use the league/franchise
-	// logo. BetCard falls back to `icon` (emoji) if the image fails to load.
+	// The winning team's crest for a settled sports item (null on push/no-bets/draw).
+	const sportsWinnerLogo = $derived.by(() => {
+		if (item.type !== 'sports_settled') return null;
+		if (item.winningSide === 'home') return item.homeLogo;
+		if (item.winningSide === 'away') return item.awayLogo;
+		return null;
+	});
+	// Badge items prefer the tier art PNG; a settled sports item shows the WINNING
+	// team's logo (falling back to the league/franchise mark). BetCard falls back
+	// to `icon` (emoji) if the image fails to load.
 	const iconImg = $derived(
 		item.type === 'badge_earned'
 			? badgeIcon(item.badgeKey, item.tier)
 			: item.type === 'sports_settled'
-				? item.leagueLogo
+				? (sportsWinnerLogo ?? item.leagueLogo)
 				: null
 	);
 
