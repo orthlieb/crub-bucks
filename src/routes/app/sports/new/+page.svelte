@@ -8,6 +8,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils';
 	import Search from '@lucide/svelte/icons/search';
+	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import FilterX from '@lucide/svelte/icons/filter-x';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -31,8 +34,23 @@
 	const SPORT_LABELS: Record<string, string> = { cfl: 'CFL', mma: 'MMA' };
 	const sportLabel = (s: string) => SPORT_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1);
 
-	let selectedSport = $state('all');
 	let query = $state('');
+	// Multi-select facets (Iron-Ledger style): OR within a category, AND across.
+	let filtersOpen = $state(false);
+	let selectedSports = $state<string[]>([]);
+	let selectedLeagues = $state<string[]>([]);
+
+	const activeCount = $derived(selectedSports.length + selectedLeagues.length);
+	const hasFacets = $derived(data.sports.length > 1 || data.leagues.length > 1);
+
+	function toggle(list: string[], value: string): string[] {
+		return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+	}
+	function clearFilters() {
+		selectedSports = [];
+		selectedLeagues = [];
+	}
+
 	const pill = (active: boolean) =>
 		cn(
 			'rounded-full border px-3 py-1 text-xs transition-colors',
@@ -44,7 +62,8 @@
 	const shown = $derived.by(() => {
 		const q = query.trim().toLowerCase();
 		return data.games.filter((g) => {
-			if (selectedSport !== 'all' && g.sport !== selectedSport) return false;
+			if (selectedSports.length && !selectedSports.includes(g.sport)) return false;
+			if (selectedLeagues.length && !selectedLeagues.includes(g.league)) return false;
 			if (q) {
 				const hay =
 					`${g.home.name} ${g.home.abbr} ${g.away.name} ${g.away.abbr} ${g.league} ${g.sport}`.toLowerCase();
@@ -80,29 +99,93 @@
 	{/if}
 
 	<div class="space-y-3">
-		<div class="relative">
-			<Search
-				class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-			/>
-			<Input
-				type="search"
-				bind:value={query}
-				placeholder="Search teams or leagues…"
-				aria-label="Search teams or leagues"
-				class="pl-9"
-			/>
+		<div class="flex items-center gap-2">
+			<div class="relative flex-1">
+				<Search
+					class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+				/>
+				<Input
+					type="search"
+					bind:value={query}
+					placeholder="Search teams or leagues…"
+					aria-label="Search teams or leagues"
+					class="pl-9"
+				/>
+			</div>
+			{#if hasFacets}
+				<Button
+					variant="outline"
+					class="h-9 shrink-0 gap-1.5"
+					aria-expanded={filtersOpen}
+					onclick={() => (filtersOpen = !filtersOpen)}
+				>
+					<SlidersHorizontal class="size-4" />
+					Filters
+					{#if activeCount > 0}
+						<span
+							class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground"
+							>{activeCount}</span
+						>
+					{/if}
+					<ChevronDown class={cn('size-4 transition-transform', filtersOpen && 'rotate-180')} />
+				</Button>
+			{/if}
 		</div>
-		{#if data.sports.length > 1}
-			<div class="flex flex-wrap gap-2">
-				{#each ['all', ...data.sports] as s (s)}
-					<button
-						type="button"
-						class={pill(selectedSport === s)}
-						onclick={() => (selectedSport = s)}
+
+		{#if hasFacets && filtersOpen}
+			<div class="space-y-3 rounded-lg border p-3">
+				<div class="grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-2">
+					{#if data.sports.length > 1}
+						<span
+							class="pt-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+						>
+							Sport
+						</span>
+						<div class="flex flex-wrap gap-2">
+							{#each data.sports as s (s)}
+								<button
+									type="button"
+									class={pill(selectedSports.includes(s))}
+									aria-pressed={selectedSports.includes(s)}
+									onclick={() => (selectedSports = toggle(selectedSports, s))}
+								>
+									{sportLabel(s)}
+								</button>
+							{/each}
+						</div>
+					{/if}
+					{#if data.leagues.length > 1}
+						<span
+							class="pt-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+						>
+							League
+						</span>
+						<div class="flex flex-wrap gap-2">
+							{#each data.leagues as l (l)}
+								<button
+									type="button"
+									class={pill(selectedLeagues.includes(l))}
+									aria-pressed={selectedLeagues.includes(l)}
+									onclick={() => (selectedLeagues = toggle(selectedLeagues, l))}
+								>
+									{l}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+				<div class="flex justify-end">
+					<Button
+						variant="ghost"
+						size="sm"
+						class="gap-1.5 text-muted-foreground"
+						disabled={activeCount === 0}
+						onclick={clearFilters}
 					>
-						{s === 'all' ? 'All' : sportLabel(s)}
-					</button>
-				{/each}
+						<FilterX class="size-4" />
+						Clear filters
+					</Button>
+				</div>
 			</div>
 		{/if}
 	</div>
@@ -116,7 +199,7 @@
 	{:else if shown.length === 0}
 		<Card>
 			<CardContent class="py-10 text-center text-muted-foreground">
-				No games match your search.
+				No games match your search or filters.
 			</CardContent>
 		</Card>
 	{:else}
