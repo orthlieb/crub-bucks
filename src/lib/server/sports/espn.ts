@@ -290,9 +290,13 @@ export function forwardWindow(days = WINDOW_DAYS, from: Date = new Date()): stri
 	return `${fmt(from)}-${fmt(end)}`;
 }
 
-async function fetchCompetition(c: (typeof COMPETITIONS)[number]): Promise<FeedEvent[]> {
+/** Fetch + parse one scoreboard URL for a competition. Fails safe to []. */
+async function fetchScoreboard(
+	c: (typeof COMPETITIONS)[number],
+	query: string
+): Promise<FeedEvent[]> {
 	try {
-		const res = await fetch(`${BASE}/${c.path}/scoreboard?dates=${forwardWindow(windowFor(c))}`, {
+		const res = await fetch(`${BASE}/${c.path}/scoreboard${query}`, {
 			signal: AbortSignal.timeout(TIMEOUT_MS)
 		});
 		if (!res.ok) return []; // fail safe
@@ -303,6 +307,27 @@ async function fetchCompetition(c: (typeof COMPETITIONS)[number]): Promise<FeedE
 	} catch {
 		return []; // network error / timeout / bad JSON — fail safe
 	}
+}
+
+/**
+ * Pull a competition two ways and union them:
+ *  - the **default** scoreboard (no `dates`) returns each league's current/next
+ *    slate, so an out-of-window or off-season league still surfaces its next
+ *    games (this is what kept e.g. the NFL/EPL visible before the date window);
+ *  - the **forward window** (`dates=…`) adds the near-term schedule for
+ *    in-season sports (and the day-scheduled tennis / weekly UFC card).
+ * Deduped by eventId so the overlap (today's games) isn't listed twice.
+ */
+async function fetchCompetition(c: (typeof COMPETITIONS)[number]): Promise<FeedEvent[]> {
+	const [base, windowed] = await Promise.all([
+		fetchScoreboard(c, ''),
+		fetchScoreboard(c, `?dates=${forwardWindow(windowFor(c))}`)
+	]);
+	const byId = new Map<string, FeedEvent>();
+	for (const e of [...base, ...windowed]) {
+		if (e.eventId && !byId.has(e.eventId)) byId.set(e.eventId, e);
+	}
+	return [...byId.values()];
 }
 
 /** Fetch every configured scoreboard in parallel; one failing competition

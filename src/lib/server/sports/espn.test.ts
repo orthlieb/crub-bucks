@@ -399,14 +399,15 @@ describe('forwardWindow', () => {
 describe('espnAdapter', () => {
 	afterEach(() => vi.restoreAllMocks());
 
-	it('requests a forward date window so upcoming (not just today) games come through', async () => {
+	it('queries each competition both at the default scoreboard and a forward window', async () => {
 		stubFetch({ soccer: FIXTURE, baseball: BASEBALL_FIXTURE });
 		await espnAdapter.listUpcoming();
 		const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
-		expect(fetchMock).toHaveBeenCalled();
-		for (const call of fetchMock.mock.calls) {
-			expect(String(call[0])).toMatch(/scoreboard\?dates=\d{8}-\d{8}/);
-		}
+		const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+		// the default (no-dates) fetch keeps off-season leagues' next slate visible…
+		expect(urls.some((u) => /\/scoreboard$/.test(u))).toBe(true);
+		// …and the forward window pulls the near-term schedule.
+		expect(urls.some((u) => /\/scoreboard\?dates=\d{8}-\d{8}$/.test(u))).toBe(true);
 	});
 
 	it('aggregates multiple competitions, tagging each with its sport', async () => {
