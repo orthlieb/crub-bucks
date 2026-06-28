@@ -5,7 +5,6 @@
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
-	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -64,12 +63,7 @@
 </script>
 
 <div class="space-y-6">
-	<a
-		href="/app/sports"
-		class="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-	>
-		<ChevronLeft class="size-4" /> Sports
-	</a>
+	<a href="/app/sports" class="text-sm text-muted-foreground hover:text-foreground">← Sports</a>
 
 	<header class="flex items-center gap-3">
 		{#if m.leagueLogo}

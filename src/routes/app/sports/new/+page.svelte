@@ -7,7 +7,6 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils';
-	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import Search from '@lucide/svelte/icons/search';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -61,12 +60,7 @@
 </script>
 
 <div class="space-y-6">
-	<a
-		href="/app/sports"
-		class="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-	>
-		<ChevronLeft class="size-4" /> Sports
-	</a>
+	<a href="/app/sports" class="text-sm text-muted-foreground hover:text-foreground">← Sports</a>
 
 	<header>
 		<h1 class="text-3xl font-bold tracking-tight">Bet on a game</h1>
