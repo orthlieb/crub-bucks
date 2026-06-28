@@ -11,6 +11,7 @@
 		TableCell
 	} from '$lib/components/ui/table';
 	import { formatAmount } from '$lib/format';
+	import InstallHelp from '$lib/components/InstallHelp.svelte';
 	import { assetUrl } from '$lib/assets';
 	import { cn } from '$lib/utils';
 	import Search from '@lucide/svelte/icons/search';
@@ -120,6 +121,8 @@
 			<p class="mt-1 text-muted-foreground">Your Crub Bucks statement — every debit and credit.</p>
 		</div>
 	</header>
+
+	<InstallHelp />
 
 	{#if data.statement.length === 0}
 		<Card>
