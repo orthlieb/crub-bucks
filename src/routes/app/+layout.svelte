@@ -115,8 +115,8 @@
 	const navlinks = [
 		{ href: '/app', label: 'Bets', exact: true },
 		{ href: '/app/feed', label: 'Feed' },
-		{ href: '/app/sports', label: 'Sports' },
 		{ href: '/app/friends', label: 'Friends' },
+		{ href: '/app/sports', label: 'Sports' },
 		{ href: '/app/awards', label: 'Awards' },
 		{ href: '/app/account', label: 'Account' }
 	];
@@ -180,16 +180,20 @@
 	<header class="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
 		<div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
 			<div class="flex items-center gap-4">
-				<a href="/app" class="flex items-center gap-2 font-semibold tracking-tight">
-					<span
-						class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm"
-						>₡</span
+				<div class="flex items-center gap-2 font-semibold tracking-tight">
+					<a
+						href="/about"
+						aria-label="About Crub Bucks"
+						class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground transition-opacity hover:opacity-90"
+						>₡</a
 					>
-					<span>Crub Bucks</span>
-					<span class="tabular-nums {balanceClass}"
-						>{formatAmount(data.balance, data.locale)} ₡</span
-					>
-				</a>
+					<a href="/app" class="flex items-center gap-2">
+						<span>Crub Bucks</span>
+						<span class="tabular-nums {balanceClass}"
+							>{formatAmount(data.balance, data.locale)} ₡</span
+						>
+					</a>
+				</div>
 				<!-- Desktop nav lives inline with the brand. The mobile tab strip
 				     below the brand row takes over under sm. -->
 				<nav class="hidden items-center gap-1 text-sm sm:flex">
