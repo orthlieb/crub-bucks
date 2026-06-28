@@ -155,7 +155,9 @@
 				<strong class="text-foreground tabular-nums">{item.homeScore} – {item.awayScore}</strong>
 			{/if}
 			<span class="text-muted-foreground">·</span>
-			{#if item.push}
+			{#if item.noBets}
+				<span>No bets — refunded</span>
+			{:else if item.push}
 				<span>Push — refunded</span>
 			{:else}
 				<span>{item.winningSide === 'home' ? item.homeAbbr : item.awayAbbr} won</span>

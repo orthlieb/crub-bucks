@@ -29,7 +29,7 @@
 	const scoreText = (m: Market) => (m.score ? `${m.score.home} – ${m.score.away}` : null);
 
 	function cardLabel(m: Market): string {
-		if (m.status === 'void') return 'Push';
+		if (m.status === 'void') return m.resolutionNote === 'No bets' ? 'No Bets' : 'Void';
 		if (m.status === 'resolved') return m.winningSide === 'draw' ? 'Push' : 'Final';
 		return m.phase === 'live' ? 'Live' : 'Open';
 	}
