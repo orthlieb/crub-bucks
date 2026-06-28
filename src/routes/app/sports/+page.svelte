@@ -67,9 +67,7 @@
 		/>
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Sports</h1>
-			<p class="mt-1 italic text-muted-foreground">
-				Because it's not about fetch, it's how the ball tastes.
-			</p>
+			<p class="mt-1 italic text-muted-foreground">It's not about winning...</p>
 		</div>
 	</header>
 
