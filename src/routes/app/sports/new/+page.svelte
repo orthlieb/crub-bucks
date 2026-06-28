@@ -40,7 +40,20 @@
 	let selectedSports = $state<string[]>([]);
 	let selectedLeagues = $state<string[]>([]);
 
-	const activeCount = $derived(selectedSports.length + selectedLeagues.length);
+	// Leagues belong to a sport, so only offer the leagues for the chosen sports.
+	// With no sport selected ("all"), leagues are neither shown nor applied.
+	const availableLeagues = $derived.by(() => {
+		if (selectedSports.length === 0) return [];
+		const out: string[] = [];
+		for (const g of data.games) {
+			if (selectedSports.includes(g.sport) && !out.includes(g.league)) out.push(g.league);
+		}
+		return out.sort();
+	});
+	// Drop any selected league no longer offered by the current sport selection.
+	const effectiveLeagues = $derived(selectedLeagues.filter((l) => availableLeagues.includes(l)));
+
+	const activeCount = $derived(selectedSports.length + effectiveLeagues.length);
 	const hasFacets = $derived(data.sports.length > 1 || data.leagues.length > 1);
 
 	function toggle(list: string[], value: string): string[] {
@@ -63,7 +76,7 @@
 		const q = query.trim().toLowerCase();
 		return data.games.filter((g) => {
 			if (selectedSports.length && !selectedSports.includes(g.sport)) return false;
-			if (selectedLeagues.length && !selectedLeagues.includes(g.league)) return false;
+			if (effectiveLeagues.length && !effectiveLeagues.includes(g.league)) return false;
 			if (q) {
 				const hay =
 					`${g.home.name} ${g.home.abbr} ${g.away.name} ${g.away.abbr} ${g.league} ${g.sport}`.toLowerCase();
@@ -154,14 +167,14 @@
 							{/each}
 						</div>
 					{/if}
-					{#if data.leagues.length > 1}
+					{#if availableLeagues.length > 0}
 						<span
 							class="pt-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
 						>
 							League
 						</span>
 						<div class="flex flex-wrap gap-2">
-							{#each data.leagues as l (l)}
+							{#each availableLeagues as l (l)}
 								<button
 									type="button"
 									class={pill(selectedLeagues.includes(l))}
