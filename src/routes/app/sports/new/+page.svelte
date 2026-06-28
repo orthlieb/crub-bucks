@@ -50,8 +50,13 @@
 		}
 		return out.sort();
 	});
+	// Only worth filtering by league when the chosen sports span more than one;
+	// a single league has nothing to narrow, so the row is hidden (and ignored).
+	const showLeagueFilter = $derived(availableLeagues.length > 1);
 	// Drop any selected league no longer offered by the current sport selection.
-	const effectiveLeagues = $derived(selectedLeagues.filter((l) => availableLeagues.includes(l)));
+	const effectiveLeagues = $derived(
+		showLeagueFilter ? selectedLeagues.filter((l) => availableLeagues.includes(l)) : []
+	);
 
 	const activeCount = $derived(selectedSports.length + effectiveLeagues.length);
 	const hasFacets = $derived(data.sports.length > 1 || data.leagues.length > 1);
@@ -167,7 +172,7 @@
 							{/each}
 						</div>
 					{/if}
-					{#if availableLeagues.length > 0}
+					{#if showLeagueFilter}
 						<span
 							class="pt-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
 						>
