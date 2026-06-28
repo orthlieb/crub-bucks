@@ -46,7 +46,8 @@
 		return data.games.filter((g) => {
 			if (selectedSport !== 'all' && g.sport !== selectedSport) return false;
 			if (q) {
-				const hay = `${g.home.name} ${g.home.abbr} ${g.away.name} ${g.away.abbr}`.toLowerCase();
+				const hay =
+					`${g.home.name} ${g.home.abbr} ${g.away.name} ${g.away.abbr} ${g.league} ${g.sport}`.toLowerCase();
 				if (!hay.includes(q)) return false;
 			}
 			return true;
@@ -86,8 +87,8 @@
 			<Input
 				type="search"
 				bind:value={query}
-				placeholder="Search teams…"
-				aria-label="Search teams"
+				placeholder="Search teams or leagues…"
+				aria-label="Search teams or leagues"
 				class="pl-9"
 			/>
 		</div>
