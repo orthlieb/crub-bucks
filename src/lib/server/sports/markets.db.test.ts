@@ -8,6 +8,7 @@ import { getFeed } from '../feed';
 import {
 	openMarketFromEvent,
 	placeWager,
+	cancelWager,
 	resolveMarket,
 	voidMarket,
 	poolsBySide,
@@ -133,6 +134,62 @@ describe('placeWager', () => {
 		await expect(
 			placeWager({ marketId, userId: u.id, side: 'home', stake: 10 })
 		).rejects.toBeInstanceOf(MarketError);
+	});
+});
+
+describe('cancelWager', () => {
+	it('removes the wager and leaves the market when others remain', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(100);
+		const b = await fundedUser(100);
+		const marketId = await openMarketFromEvent(makeEvent(), admin.id);
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 40 });
+		await placeWager({ marketId, userId: b.id, side: 'away', stake: 30 });
+
+		const res = await cancelWager({ marketId, userId: a.id });
+		expect(res.marketRemoved).toBe(false);
+
+		// a's wager is gone, b's remains, market still open, no money moved
+		const wagers = await db.select().from(sportWagers).where(eq(sportWagers.marketId, marketId));
+		expect(wagers).toHaveLength(1);
+		expect(wagers[0].userId).toBe(b.id);
+		const [m] = await db.select().from(sportMarkets).where(eq(sportMarkets.id, marketId));
+		expect(m.status).toBe('open');
+		expect(await userBalance(a.id)).toBe(100);
+	});
+
+	it('scraps the market when the last wager is cancelled', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(100);
+		const marketId = await openMarketFromEvent(makeEvent(), admin.id);
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 40 });
+
+		const res = await cancelWager({ marketId, userId: a.id });
+		expect(res.marketRemoved).toBe(true);
+		const markets = await db.select().from(sportMarkets).where(eq(sportMarkets.id, marketId));
+		expect(markets).toHaveLength(0);
+	});
+
+	it('rejects cancelling after kickoff', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(100);
+		const marketId = await openMarketFromEvent(makeEvent(), admin.id);
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 40 });
+		// move kickoff into the past
+		await db
+			.update(sportMarkets)
+			.set({ startTime: new Date(Date.now() - 3600 * 1000) })
+			.where(eq(sportMarkets.id, marketId));
+		await expect(cancelWager({ marketId, userId: a.id })).rejects.toBeInstanceOf(MarketError);
+	});
+
+	it('errors when the caller has no wager to cancel', async () => {
+		const admin = await createUser();
+		const a = await fundedUser(100);
+		const b = await fundedUser(100);
+		const marketId = await openMarketFromEvent(makeEvent(), admin.id);
+		await placeWager({ marketId, userId: a.id, side: 'home', stake: 40 });
+		await expect(cancelWager({ marketId, userId: b.id })).rejects.toBeInstanceOf(MarketError);
 	});
 });
 

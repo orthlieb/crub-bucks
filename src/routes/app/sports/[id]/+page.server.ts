@@ -1,6 +1,12 @@
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import { getFeed } from '$lib/server/sports';
-import { getMarketView, placeWager, MarketError, type WagerSide } from '$lib/server/sports/markets';
+import {
+	getMarketView,
+	placeWager,
+	cancelWager,
+	MarketError,
+	type WagerSide
+} from '$lib/server/sports/markets';
 import { userBalance } from '$lib/server/ledger';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -42,6 +48,22 @@ export const actions: Actions = {
 		const stake = Number(form.get('stake'));
 		try {
 			await placeWager({ marketId: params.id, userId: locals.user!.id, side, stake });
+			return { ok: true as const };
+		} catch (e) {
+			if (e instanceof MarketError) return fail(400, { message: e.message });
+			throw e;
+		}
+	},
+
+	cancelWager: async ({ locals, params }) => {
+		try {
+			const { marketRemoved } = await cancelWager({
+				marketId: params.id,
+				userId: locals.user!.id
+			});
+			// If the cancel emptied the market it's been scrapped — the detail page
+			// would 404, so send the user back to the list.
+			if (marketRemoved) throw redirect(303, '/app/sports');
 			return { ok: true as const };
 		} catch (e) {
 			if (e instanceof MarketError) return fail(400, { message: e.message });
