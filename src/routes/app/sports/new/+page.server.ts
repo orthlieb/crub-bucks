@@ -41,7 +41,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			away: { name: e.away.name, abbr: e.away.abbr, logo: e.away.logo }
 		}));
 	const sports = [...new Set(games.map((g) => g.sport))].sort();
-	return { provider: feed.provider, games, sports, balance };
+	const leagues = [...new Set(games.map((g) => g.league))].sort();
+	return { provider: feed.provider, games, sports, leagues, balance };
 };
 
 export const actions: Actions = {
