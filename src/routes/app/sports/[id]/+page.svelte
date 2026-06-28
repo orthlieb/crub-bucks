@@ -180,8 +180,20 @@
 							class="w-28"
 						/>
 					</label>
-					<Button type="submit" size="sm">{m.myWager ? 'Update' : 'Bet'}</Button>
+					<Button type="submit" size="sm" class="h-9">{m.myWager ? 'Update' : 'Bet'}</Button>
 				</form>
+				{#if m.myWager}
+					<form method="POST" action="?/cancelWager" use:enhance>
+						<Button
+							type="submit"
+							variant="ghost"
+							size="sm"
+							class="px-0 text-destructive hover:bg-transparent hover:text-destructive hover:underline"
+						>
+							Cancel my bet
+						</Button>
+					</form>
+				{/if}
 				{#if form && 'message' in form}
 					<p class="text-sm text-destructive">{form.message}</p>
 				{/if}

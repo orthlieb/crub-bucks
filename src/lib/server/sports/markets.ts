@@ -119,6 +119,51 @@ export async function placeWager(opts: {
 }
 
 /**
+ * Cancel the caller's wager on an open market before kickoff. No money has moved
+ * (no escrow), so this just removes the wager row. If that empties the market
+ * while it's still open and pre-kickoff, the market is scrapped too — the same
+ * rule {@link settleDueMarkets} applies to zero-bettor games, just earlier.
+ * Returns whether the market itself was removed (the caller redirects then).
+ */
+export async function cancelWager(opts: {
+	marketId: string;
+	userId: string;
+	now?: Date;
+}): Promise<{ marketRemoved: boolean }> {
+	const now = opts.now ?? new Date();
+	return db.transaction(async (tx) => {
+		// Lock the market so a concurrent settle/scrap can't race the cancel.
+		const [market] = await tx
+			.select()
+			.from(sportMarkets)
+			.where(eq(sportMarkets.id, opts.marketId))
+			.for('update')
+			.limit(1);
+		if (!market) throw new MarketError('Market not found');
+		if (market.status !== 'open') throw new MarketError('This market is closed');
+		if (now >= market.startTime) throw new MarketError('Wagering has closed for this game');
+
+		const deleted = await tx
+			.delete(sportWagers)
+			.where(and(eq(sportWagers.marketId, opts.marketId), eq(sportWagers.userId, opts.userId)))
+			.returning({ userId: sportWagers.userId });
+		if (deleted.length === 0) {
+			throw new MarketError('You have no wager to cancel on this game');
+		}
+
+		const [{ n }] = await tx
+			.select({ n: sql<number>`count(*)` })
+			.from(sportWagers)
+			.where(eq(sportWagers.marketId, opts.marketId));
+		if (Number(n) === 0) {
+			await tx.delete(sportMarkets).where(eq(sportMarkets.id, opts.marketId));
+			return { marketRemoved: true };
+		}
+		return { marketRemoved: false };
+	});
+}
+
+/**
  * Settle a market on a known outcome. Backers of `winningSide` split the
  * losers' pool proportionally; everyone else loses their stake. A push (nobody
  * backed the result, or everybody did) yields all-zero deltas and no transfers.

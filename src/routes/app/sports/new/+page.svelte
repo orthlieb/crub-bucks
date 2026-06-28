@@ -177,7 +177,7 @@
 										class="w-28"
 									/>
 								</label>
-								<Button type="submit" size="sm">Bet</Button>
+								<Button type="submit" size="sm" class="h-9">Bet</Button>
 							</form>
 
 							{#if errorFor(g.eventId)}
