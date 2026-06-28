@@ -312,6 +312,19 @@
 		</Card>
 	{/if}
 
+	<!-- Favorites — pinned just under Pay-a-friend for quick access. Tap a row to
+	     load it into the pay form above. -->
+	{#if filteredFavorites.length > 0}
+		<section>
+			<h2 class="text-xl font-semibold tracking-tight">Favorites</h2>
+			<div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+				{#each filteredFavorites as f (f.id)}
+					{@render friendRow(f)}
+				{/each}
+			</div>
+		</section>
+	{/if}
+
 	<!-- Add / request -->
 	<Card class="overflow-hidden">
 		<div class="flex items-stretch">
@@ -536,34 +549,18 @@
 					No friends match “{friendFilter}”.
 				</CardContent>
 			</Card>
+		{:else if filteredOthers.length === 0}
+			<!-- Everything that matched is pinned to Favorites above. -->
+			<p class="mt-4 text-sm text-muted-foreground">
+				{friendFilter.trim()
+					? 'All matching friends are pinned to Favorites above.'
+					: 'All your friends are pinned to Favorites above.'}
+			</p>
 		{:else}
-			<div class="mt-4 space-y-3">
-				{#if filteredFavorites.length > 0}
-					<div>
-						<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-							Favorites
-						</h3>
-						<div class="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
-							{#each filteredFavorites as f (f.id)}
-								{@render friendRow(f)}
-							{/each}
-						</div>
-					</div>
-				{/if}
-				{#if filteredOthers.length > 0}
-					<div>
-						{#if filteredFavorites.length > 0}
-							<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-								All friends
-							</h3>
-						{/if}
-						<div class="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
-							{#each filteredOthers as f (f.id)}
-								{@render friendRow(f)}
-							{/each}
-						</div>
-					</div>
-				{/if}
+			<div class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+				{#each filteredOthers as f (f.id)}
+					{@render friendRow(f)}
+				{/each}
 			</div>
 		{/if}
 	</section>
