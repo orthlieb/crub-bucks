@@ -31,20 +31,37 @@ export const COMPETITIONS: {
 	sport: string;
 	path: string;
 	league: string;
-	/** 'tennis' uses the athlete/per-match parser; default is the team parser. */
-	kind?: 'team' | 'tennis';
+	/** 'athlete' uses the per-match athlete parser (tennis, MMA); default is the
+	 *  team parser. */
+	kind?: 'team' | 'athlete';
 }[] = [
 	{ sport: 'soccer', path: 'soccer/fifa.world', league: 'FIFA World Cup' },
+	// Club soccer — all tagged 'soccer' so they share the soccer filter/icon.
+	{ sport: 'soccer', path: 'soccer/eng.1', league: 'Premier League' },
+	{ sport: 'soccer', path: 'soccer/uefa.champions', league: 'Champions League' },
+	{ sport: 'soccer', path: 'soccer/usa.1', league: 'MLS' },
 	{ sport: 'baseball', path: 'baseball/mlb', league: 'MLB' },
 	{ sport: 'football', path: 'football/nfl', league: 'NFL' },
+	// College football rides the same `football` sport tag as the NFL.
+	{ sport: 'football', path: 'football/college-football', league: 'College Football' },
 	// ESPN serves Canadian football under the same `football` sport path; we tag
 	// it 'cfl' so it filters separately from the NFL.
 	{ sport: 'cfl', path: 'football/cfl', league: 'CFL' },
 	{ sport: 'basketball', path: 'basketball/nba', league: 'NBA' },
+	// WNBA + men's college hoops share the 'basketball' tag.
+	{ sport: 'basketball', path: 'basketball/wnba', league: 'WNBA' },
+	{
+		sport: 'basketball',
+		path: 'basketball/mens-college-basketball',
+		league: "Men's College Basketball"
+	},
 	{ sport: 'hockey', path: 'hockey/nhl', league: 'NHL' },
 	// Tennis singles — player vs player (head-to-head fits the two-sided market).
-	{ sport: 'tennis', path: 'tennis/atp', league: 'ATP', kind: 'tennis' },
-	{ sport: 'tennis', path: 'tennis/wta', league: 'WTA', kind: 'tennis' }
+	{ sport: 'tennis', path: 'tennis/atp', league: 'ATP', kind: 'athlete' },
+	{ sport: 'tennis', path: 'tennis/wta', league: 'WTA', kind: 'athlete' },
+	// MMA — each card's `competitions` are individual fights (fighter vs fighter),
+	// same per-match athlete shape as tennis.
+	{ sport: 'mma', path: 'mma/ufc', league: 'UFC', kind: 'athlete' }
 ];
 
 /**
@@ -163,12 +180,16 @@ function athleteSide(competitor: any): FeedEvent['home'] {
 }
 
 /**
- * Parse an ESPN tennis scoreboard. Unlike team sports, each event is a
- * tournament whose `competitions` are the individual matches; competitors are
- * athletes, and the winner comes from the per-competitor `winner` flag (no
- * draws). Singles only — sides with a single athlete each.
+ * Parse an ESPN per-match athlete scoreboard (tennis tournaments, MMA cards).
+ * Unlike team sports, each event groups several head-to-head matches in its
+ * `competitions` array; competitors are athletes, and the winner comes from the
+ * per-competitor `winner` flag (no draws). Singles only — one athlete a side.
  */
-export function parseEspnTennis(json: any, sport: string, fallbackLeague = ''): FeedEvent[] {
+export function parseEspnAthleteMatches(
+	json: any,
+	sport: string,
+	fallbackLeague = ''
+): FeedEvent[] {
 	const events = Array.isArray(json?.events) ? json.events : [];
 	const league: string = json?.leagues?.[0]?.name ?? fallbackLeague;
 	const leagueLogo = firstLogo(json?.leagues?.[0]?.logos);
@@ -221,8 +242,8 @@ async function fetchCompetition(c: (typeof COMPETITIONS)[number]): Promise<FeedE
 		});
 		if (!res.ok) return []; // fail safe
 		const json = await res.json();
-		return c.kind === 'tennis'
-			? parseEspnTennis(json, c.sport, c.league)
+		return c.kind === 'athlete'
+			? parseEspnAthleteMatches(json, c.sport, c.league)
 			: parseEspnScoreboard(json, c.sport, c.league);
 	} catch {
 		return []; // network error / timeout / bad JSON — fail safe

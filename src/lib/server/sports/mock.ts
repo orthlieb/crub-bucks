@@ -51,7 +51,30 @@ const TEAMS: Record<string, SeedTeam> = {
 	DJO: { id: 'djo', name: 'Novak Djokovic', abbr: 'DJO' },
 	ALC: { id: 'alc', name: 'Carlos Alcaraz', abbr: 'ALC' },
 	SIN: { id: 'sin', name: 'Jannik Sinner', abbr: 'SIN' },
-	SWI: { id: 'swi', name: 'Iga Swiatek', abbr: 'SWI' }
+	SWI: { id: 'swi', name: 'Iga Swiatek', abbr: 'SWI' },
+	// Club soccer — Premier League
+	MCI: { id: 'mci', name: 'Manchester City', abbr: 'MCI' },
+	ARS: { id: 'ars', name: 'Arsenal', abbr: 'ARS' },
+	// Club soccer — Champions League
+	RMA: { id: 'rma', name: 'Real Madrid', abbr: 'RMA' },
+	BAY: { id: 'bay', name: 'Bayern Munich', abbr: 'BAY' },
+	// Club soccer — MLS
+	MIA: { id: 'mia', name: 'Inter Miami', abbr: 'MIA' },
+	LAF: { id: 'laf', name: 'LAFC', abbr: 'LAF' },
+	// College football
+	UGA: { id: 'uga', name: 'Georgia Bulldogs', abbr: 'UGA' },
+	OSU: { id: 'osu', name: 'Ohio State Buckeyes', abbr: 'OSU' },
+	// Men's college basketball
+	DUKE: { id: 'duke', name: 'Duke Blue Devils', abbr: 'DUKE' },
+	KU: { id: 'ku', name: 'Kansas Jayhawks', abbr: 'KU' },
+	// WNBA
+	LV: { id: 'lv', name: 'Las Vegas Aces', abbr: 'LV' },
+	NYL: { id: 'nyl', name: 'New York Liberty', abbr: 'NY' },
+	// MMA — UFC fighters
+	JON: { id: 'jon', name: 'Jon Jones', abbr: 'JON' },
+	ASP: { id: 'asp', name: 'Tom Aspinall', abbr: 'ASP' },
+	MAK: { id: 'mak', name: 'Islam Makhachev', abbr: 'MAK' },
+	TOP: { id: 'top', name: 'Ilia Topuria', abbr: 'TOP' }
 };
 
 type Seed = {
@@ -75,6 +98,13 @@ const NBA = { sport: 'basketball', league: 'NBA' };
 const NHL = { sport: 'hockey', league: 'NHL' };
 const ATP = { sport: 'tennis', league: 'ATP' };
 const WTA = { sport: 'tennis', league: 'WTA' };
+const EPL = { sport: 'soccer', league: 'Premier League' };
+const UCL = { sport: 'soccer', league: 'Champions League' };
+const MLS = { sport: 'soccer', league: 'MLS' };
+const NCAAF = { sport: 'football', league: 'College Football' };
+const NCAAB = { sport: 'basketball', league: "Men's College Basketball" };
+const WNBA = { sport: 'basketball', league: 'WNBA' };
+const UFC = { sport: 'mma', league: 'UFC' };
 
 // Synthetic schedule centered on "now": finished games, one live, several
 // upcoming, plus a postponed one so the void/refund path is exercisable —
@@ -269,6 +299,119 @@ const SEEDS: Seed[] = [
 		status: 'in_progress',
 		homeScore: 1,
 		awayScore: 0
+	},
+	{
+		...EPL,
+		eventId: 'epl-001',
+		home: TEAMS.MCI,
+		away: TEAMS.ARS,
+		offsetHours: -6,
+		status: 'final',
+		homeScore: 2,
+		awayScore: 1
+	},
+	{
+		...EPL,
+		eventId: 'epl-002',
+		home: TEAMS.ARS,
+		away: TEAMS.MCI,
+		offsetHours: 22,
+		status: 'scheduled',
+		homeScore: null,
+		awayScore: null
+	},
+	{
+		...UCL,
+		eventId: 'ucl-001',
+		home: TEAMS.RMA,
+		away: TEAMS.BAY,
+		offsetHours: 30,
+		status: 'scheduled',
+		homeScore: null,
+		awayScore: null
+	},
+	{
+		...MLS,
+		eventId: 'mls-001',
+		home: TEAMS.MIA,
+		away: TEAMS.LAF,
+		offsetHours: 4,
+		status: 'in_progress',
+		homeScore: 1,
+		awayScore: 1
+	},
+	{
+		...NCAAF,
+		eventId: 'ncaaf-001',
+		home: TEAMS.UGA,
+		away: TEAMS.OSU,
+		offsetHours: -8,
+		status: 'final',
+		homeScore: 31,
+		awayScore: 28
+	},
+	{
+		...NCAAF,
+		eventId: 'ncaaf-002',
+		home: TEAMS.OSU,
+		away: TEAMS.UGA,
+		offsetHours: 48,
+		status: 'scheduled',
+		homeScore: null,
+		awayScore: null
+	},
+	{
+		...NCAAB,
+		eventId: 'ncaab-001',
+		home: TEAMS.DUKE,
+		away: TEAMS.KU,
+		offsetHours: 20,
+		status: 'scheduled',
+		homeScore: null,
+		awayScore: null
+	},
+	{
+		...WNBA,
+		eventId: 'wnba-001',
+		home: TEAMS.LV,
+		away: TEAMS.NYL,
+		offsetHours: -3,
+		status: 'final',
+		homeScore: 88,
+		awayScore: 81
+	},
+	{
+		...WNBA,
+		eventId: 'wnba-002',
+		home: TEAMS.NYL,
+		away: TEAMS.LV,
+		offsetHours: 26,
+		status: 'scheduled',
+		homeScore: null,
+		awayScore: null
+	},
+	// Real ESPN MMA reports the winner via a per-competitor flag with no numeric
+	// score; the mock has only score-derived winners, so we use 1–0 to mark the
+	// victor (the espn adapter reads the real flag).
+	{
+		...UFC,
+		eventId: 'ufc-001',
+		home: TEAMS.JON,
+		away: TEAMS.ASP,
+		offsetHours: -10,
+		status: 'final',
+		homeScore: 1,
+		awayScore: 0
+	},
+	{
+		...UFC,
+		eventId: 'ufc-002',
+		home: TEAMS.MAK,
+		away: TEAMS.TOP,
+		offsetHours: 40,
+		status: 'scheduled',
+		homeScore: null,
+		awayScore: null
 	}
 ];
 

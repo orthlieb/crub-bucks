@@ -18,7 +18,8 @@
 		hockey: '🏒',
 		football: '🏈',
 		cfl: '🏈',
-		tennis: '🎾'
+		tennis: '🎾',
+		mma: '🥊'
 	};
 	const sportIcon = (s: string) => SPORT_ICON[s] ?? '🏆';
 

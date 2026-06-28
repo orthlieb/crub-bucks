@@ -130,12 +130,13 @@
 					<CardTitle level={2}>Bet on real sports</CardTitle>
 				</CardHeader>
 				<CardContent class="text-muted-foreground">
-					Back real games — World Cup soccer, MLB, NFL, CFL, NBA, and NHL — pulled from a live feed.
-					The pools are parimutuel: your first wager opens the market, friends take the other side,
-					and when the game ends the winners split the losers' pool in proportion to their stake
-					(the odds shift as money comes in). A draw — or a game nobody counter-bets — simply
-					pushes, and everyone gets refunded. Results settle automatically from the feed. It's the
-					same closed CB ledger: no real money, no bookmaker.
+					Back real games across soccer (World Cup, Premier League, Champions League, MLS),
+					baseball, football (NFL, college, CFL), basketball (NBA, WNBA, college), hockey, tennis,
+					and UFC — pulled from a live feed. The pools are parimutuel: your first wager opens the
+					market, friends take the other side, and when the game ends the winners split the losers'
+					pool in proportion to their stake (the odds shift as money comes in). A draw — or a game
+					nobody counter-bets — simply pushes, and everyone gets refunded. Results settle
+					automatically from the feed. It's the same closed CB ledger: no real money, no bookmaker.
 				</CardContent>
 			</Card>
 
