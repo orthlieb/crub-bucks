@@ -168,22 +168,50 @@ export function parseEspnScoreboard(json: any, sport: string, fallbackLeague = '
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/** Normalize an ESPN tennis competitor (an `athlete`, occasionally a `team`)
- *  into our team shape — name, short code, and a headshot/flag logo. */
+/** Normalize an ESPN athlete competitor (an `athlete`, occasionally a `team`)
+ *  into our team shape — name, short code, and a headshot/country-flag logo.
+ *  Tennis athletes carry no `abbreviation`, so we fall back to `shortName`
+ *  ("Z. Piros") then the surname. */
 function athleteSide(competitor: any): FeedEvent['home'] {
 	const a = competitor?.athlete ?? competitor?.team ?? {};
 	const name = String(a.displayName ?? a.fullName ?? a.shortName ?? a.name ?? '');
 	const abbr = String(a.abbreviation ?? a.shortName ?? name.split(' ').pop() ?? '');
 	const headshot = typeof a.headshot === 'object' ? a.headshot?.href : a.headshot;
 	const logo = headshot || a.flag?.href || teamLogo(a) || null;
-	return { id: String(a.id ?? ''), name, abbr, logo };
+	return { id: String(a.id ?? a.guid ?? ''), name, abbr, logo };
+}
+
+/** Every match competition under an event, whether ESPN lists them flat (MMA
+ *  cards: `event.competitions[]`) or nested per round/draw (tennis tournaments:
+ *  `event.groupings[].competitions[]`). */
+function athleteCompetitions(ev: any): any[] {
+	const flat = Array.isArray(ev?.competitions) ? ev.competitions : [];
+	const grouped = Array.isArray(ev?.groupings)
+		? ev.groupings.flatMap((g: any) => (Array.isArray(g?.competitions) ? g.competitions : []))
+		: [];
+	return [...flat, ...grouped];
+}
+
+/** A real, bettable singles matchup: two single athletes (doubles sides carry a
+ *  `roster` array instead of one `athlete`), both actually named — an unfilled
+ *  bracket slot shows up as an empty name or "TBD". */
+function isNamedSingles(
+	home: any,
+	away: any,
+	homeSide: FeedEvent['home'],
+	awaySide: FeedEvent['home']
+): boolean {
+	if (home?.roster || away?.roster) return false; // doubles
+	const named = (n: string) => n.trim() !== '' && n.trim().toUpperCase() !== 'TBD';
+	return named(homeSide.name) && named(awaySide.name);
 }
 
 /**
  * Parse an ESPN per-match athlete scoreboard (tennis tournaments, MMA cards).
- * Unlike team sports, each event groups several head-to-head matches in its
- * `competitions` array; competitors are athletes, and the winner comes from the
- * per-competitor `winner` flag (no draws). Singles only — one athlete a side.
+ * Unlike team sports, matches live either flat on the event (MMA) or nested
+ * under `groupings[]` rounds (tennis); competitors are athletes and the winner
+ * comes from the per-competitor `winner` flag (no draws). Singles only — doubles
+ * (a `roster` side) and TBD bracket slots are skipped so the list stays bettable.
  */
 export function parseEspnAthleteMatches(
 	json: any,
@@ -196,13 +224,16 @@ export function parseEspnAthleteMatches(
 
 	const out: FeedEvent[] = [];
 	for (const ev of events) {
-		const comps = Array.isArray(ev?.competitions) ? ev.competitions : [];
-		for (const comp of comps) {
+		for (const comp of athleteCompetitions(ev)) {
 			const competitors = comp?.competitors;
 			if (!Array.isArray(competitors) || competitors.length < 2) continue;
 			const home = competitors.find((c: any) => c?.homeAway === 'home') ?? competitors[0];
 			const away = competitors.find((c: any) => c?.homeAway === 'away') ?? competitors[1];
 			if (!home || !away || home === away) continue;
+
+			const homeSide = athleteSide(home);
+			const awaySide = athleteSide(away);
+			if (!isNamedSingles(home, away, homeSide, awaySide)) continue;
 
 			const statusType = (comp.status ?? ev.status)?.type ?? {};
 			const status = normalizeEspnStatus(statusType.name, statusType.state, statusType.completed);
@@ -221,10 +252,10 @@ export function parseEspnAthleteMatches(
 				sport,
 				league,
 				leagueLogo,
-				startTime: String(comp.date ?? ev.date ?? ''),
+				startTime: String(comp.date ?? comp.startDate ?? ev.date ?? ''),
 				status,
-				home: athleteSide(home),
-				away: athleteSide(away),
+				home: homeSide,
+				away: awaySide,
 				homeScore,
 				awayScore,
 				winner

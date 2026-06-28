@@ -267,6 +267,87 @@ describe('parseEspnAthleteMatches', () => {
 		expect(parseEspnAthleteMatches(null, 'tennis')).toEqual([]);
 	});
 
+	// Real ESPN tennis nests matches under `event.groupings[].competitions[]`
+	// (not a flat `event.competitions`), athletes carry a `flag` + `shortName`
+	// (no abbreviation), doubles sides carry a `roster`, and future bracket slots
+	// are unnamed/"TBD". Only named singles should survive.
+	it('parses tennis groupings: singles only, skipping doubles and TBD slots', () => {
+		const GROUPED = {
+			leagues: [{ name: 'ATP' }],
+			events: [
+				{
+					id: '188-2026',
+					name: 'Wimbledon',
+					status: { type: { name: 'STATUS_FINAL', state: 'post', completed: true } },
+					groupings: [
+						{
+							competitions: [
+								// named singles, final
+								{
+									id: '179877',
+									date: '2026-06-22T10:05Z',
+									status: { type: { name: 'STATUS_FINAL', state: 'post', completed: true } },
+									competitors: [
+										{
+											homeAway: 'home',
+											order: 1,
+											winner: true,
+											athlete: {
+												displayName: 'Zsombor Piros',
+												shortName: 'Z. Piros',
+												flag: { href: 'https://a.espncdn.com/i/teamlogos/countries/500/hun.png' }
+											}
+										},
+										{
+											homeAway: 'away',
+											order: 2,
+											winner: false,
+											athlete: { displayName: 'Ivan Ivanov', shortName: 'I. Ivanov' }
+										}
+									]
+								},
+								// doubles — each side has a roster, must be skipped
+								{
+									id: 'dbl-1',
+									date: '2026-06-23T10:00Z',
+									status: { type: { name: 'STATUS_SCHEDULED', state: 'pre', completed: false } },
+									competitors: [
+										{ homeAway: 'home', roster: [{}, {}] },
+										{ homeAway: 'away', roster: [{}, {}] }
+									]
+								},
+								// future bracket slot — unnamed/TBD, must be skipped
+								{
+									id: 'tbd-1',
+									date: '2026-06-24T10:00Z',
+									status: { type: { name: 'STATUS_SCHEDULED', state: 'pre', completed: false } },
+									competitors: [
+										{ homeAway: 'home', athlete: { displayName: 'TBD' } },
+										{ homeAway: 'away', athlete: { displayName: '' } }
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		};
+		const events = parseEspnAthleteMatches(GROUPED, 'tennis', 'ATP');
+		expect(events).toHaveLength(1);
+		expect(events[0]).toMatchObject({
+			eventId: '179877',
+			sport: 'tennis',
+			league: 'ATP',
+			status: 'final',
+			winner: 'home',
+			startTime: '2026-06-22T10:05Z'
+		});
+		expect(events[0].home.name).toBe('Zsombor Piros');
+		expect(events[0].home.abbr).toBe('Z. Piros'); // shortName → abbr (no abbreviation)
+		expect(events[0].home.logo).toBe('https://a.espncdn.com/i/teamlogos/countries/500/hun.png');
+		expect(events[0].away.name).toBe('Ivan Ivanov');
+	});
+
 	// MMA cards share tennis's per-match athlete shape: fights live under the
 	// event's `competitions`, winner from the per-competitor flag, no scores.
 	it('parses an MMA card with no numeric scores, winner from the flag', () => {
