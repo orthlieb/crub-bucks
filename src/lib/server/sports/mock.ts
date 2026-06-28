@@ -46,7 +46,12 @@ const TEAMS: Record<string, SeedTeam> = {
 	GSW: { id: 'gsw', name: 'Golden State Warriors', abbr: 'GSW' },
 	// Hockey — NHL clubs
 	COL: { id: 'col', name: 'Colorado Avalanche', abbr: 'COL' },
-	TBL: { id: 'tbl', name: 'Tampa Bay Lightning', abbr: 'TBL' }
+	TBL: { id: 'tbl', name: 'Tampa Bay Lightning', abbr: 'TBL' },
+	// Tennis — singles players
+	DJO: { id: 'djo', name: 'Novak Djokovic', abbr: 'DJO' },
+	ALC: { id: 'alc', name: 'Carlos Alcaraz', abbr: 'ALC' },
+	SIN: { id: 'sin', name: 'Jannik Sinner', abbr: 'SIN' },
+	SWI: { id: 'swi', name: 'Iga Swiatek', abbr: 'SWI' }
 };
 
 type Seed = {
@@ -68,6 +73,8 @@ const NFL = { sport: 'football', league: 'NFL' };
 const CFL = { sport: 'cfl', league: 'CFL' };
 const NBA = { sport: 'basketball', league: 'NBA' };
 const NHL = { sport: 'hockey', league: 'NHL' };
+const ATP = { sport: 'tennis', league: 'ATP' };
+const WTA = { sport: 'tennis', league: 'WTA' };
 
 // Synthetic schedule centered on "now": finished games, one live, several
 // upcoming, plus a postponed one so the void/refund path is exercisable —
@@ -232,6 +239,36 @@ const SEEDS: Seed[] = [
 		status: 'scheduled',
 		homeScore: null,
 		awayScore: null
+	},
+	{
+		...ATP,
+		eventId: 'atp-001',
+		home: TEAMS.ALC,
+		away: TEAMS.DJO,
+		offsetHours: -4,
+		status: 'final',
+		homeScore: 2,
+		awayScore: 1
+	},
+	{
+		...ATP,
+		eventId: 'atp-002',
+		home: TEAMS.SIN,
+		away: TEAMS.ALC,
+		offsetHours: 18,
+		status: 'scheduled',
+		homeScore: null,
+		awayScore: null
+	},
+	{
+		...WTA,
+		eventId: 'wta-001',
+		home: TEAMS.SWI,
+		away: TEAMS.SIN,
+		offsetHours: 3,
+		status: 'in_progress',
+		homeScore: 1,
+		awayScore: 0
 	}
 ];
 

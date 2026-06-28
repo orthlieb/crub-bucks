@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { normalizeEspnStatus, parseEspnScoreboard, espnAdapter } from './espn';
+import { normalizeEspnStatus, parseEspnScoreboard, parseEspnTennis, espnAdapter } from './espn';
 
 describe('normalizeEspnStatus', () => {
 	it('maps the common status names', () => {
@@ -180,6 +180,85 @@ describe('parseEspnScoreboard', () => {
 			'MyLeague'
 		);
 		expect(events[0].league).toBe('MyLeague');
+	});
+});
+
+// ESPN tennis nests matches as `competitions` under a tournament event, with
+// athlete competitors and a per-competitor `winner` flag.
+const TENNIS_FIXTURE = {
+	leagues: [{ name: 'ATP' }],
+	events: [
+		{
+			id: 'tourney-1',
+			competitions: [
+				{
+					id: 'm1',
+					date: '2026-06-28T13:00Z',
+					status: { type: { name: 'STATUS_FINAL', state: 'post', completed: true } },
+					competitors: [
+						{
+							homeAway: 'home',
+							winner: true,
+							score: '2',
+							athlete: {
+								id: 'a1',
+								displayName: 'Carlos Alcaraz',
+								abbreviation: 'ALC',
+								flag: { href: 'https://a.espncdn.com/esp.png' }
+							}
+						},
+						{
+							homeAway: 'away',
+							winner: false,
+							score: '1',
+							athlete: { id: 'a2', displayName: 'Novak Djokovic', abbreviation: 'DJO' }
+						}
+					]
+				},
+				{
+					id: 'm2',
+					date: '2026-06-29T13:00Z',
+					status: { type: { name: 'STATUS_SCHEDULED', state: 'pre', completed: false } },
+					competitors: [
+						{
+							homeAway: 'home',
+							athlete: { id: 'a3', displayName: 'Jannik Sinner', abbreviation: 'SIN' }
+						},
+						{
+							homeAway: 'away',
+							athlete: { id: 'a4', displayName: 'Daniil Medvedev', abbreviation: 'MED' }
+						}
+					]
+				}
+			]
+		}
+	]
+};
+
+describe('parseEspnTennis', () => {
+	it('parses per-match competitions with athletes + the winner flag', () => {
+		const events = parseEspnTennis(TENNIS_FIXTURE, 'tennis', 'ATP');
+		expect(events).toHaveLength(2); // two matches under one tournament event
+
+		expect(events[0]).toMatchObject({
+			provider: 'espn',
+			eventId: 'm1',
+			sport: 'tennis',
+			league: 'ATP',
+			status: 'final',
+			winner: 'home'
+		});
+		expect(events[0].home.name).toBe('Carlos Alcaraz');
+		expect(events[0].home.abbr).toBe('ALC');
+		expect(events[0].home.logo).toBe('https://a.espncdn.com/esp.png'); // flag → logo
+
+		expect(events[1]).toMatchObject({ eventId: 'm2', status: 'scheduled', winner: null });
+		expect(events[1].away.name).toBe('Daniil Medvedev');
+	});
+
+	it('tolerates an empty payload', () => {
+		expect(parseEspnTennis({}, 'tennis')).toEqual([]);
+		expect(parseEspnTennis(null, 'tennis')).toEqual([]);
 	});
 });
 
