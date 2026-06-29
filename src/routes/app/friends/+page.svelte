@@ -17,6 +17,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import AddByQr from '$lib/components/AddByQr.svelte';
 	import FriendCombobox from '$lib/components/FriendCombobox.svelte';
+	import Mail from '@lucide/svelte/icons/mail';
 	import ReportDialog from '$lib/components/ReportDialog.svelte';
 	import { assetUrl } from '$lib/assets';
 
@@ -38,30 +39,6 @@
 	}
 	const canRemind = (last: Date | string | null) => cooledDown(last, REMIND_COOLDOWN_MS);
 	const canResend = (last: Date | string | null) => cooledDown(last, INVITE_RESEND_COOLDOWN_MS);
-
-	// A ready-to-share invite (link + suggested message) from the "Text a link"
-	// action — the user sends it themselves.
-	const textInvite = $derived(form && 'textInvite' in form ? form.textInvite : null);
-	let copied = $state(false);
-	// Share sheet on mobile (covers text, copy, email, etc.); on desktop browsers
-	// without the Web Share API, fall back to copying the message to the clipboard.
-	async function shareInvite(text: string, url: string) {
-		if (navigator.share) {
-			try {
-				await navigator.share({ text, url });
-				return;
-			} catch {
-				return; // user cancelled the share sheet
-			}
-		}
-		try {
-			await navigator.clipboard.writeText(text);
-			copied = true;
-			setTimeout(() => (copied = false), 1500);
-		} catch {
-			/* clipboard unavailable — the text is visible to copy by hand */
-		}
-	}
 
 	// Client-side filter over the already-loaded friends list. Case-insensitive
 	// substring match on display name OR email. Friends are capped at 99 so
@@ -382,28 +359,11 @@
 								aria-invalid={!!form?.requestError}
 							/>
 						</div>
-						<div class="flex gap-2">
-							<Button type="submit">Email invite</Button>
-							<Button type="submit" variant="outline" formaction="?/requestLink">Text a link</Button
-							>
-						</div>
+						<Button type="submit" class="gap-1.5">
+							<Mail class="size-4" />
+							Email invite
+						</Button>
 					</form>
-
-					{#if textInvite}
-						<div class="mt-4 space-y-3 rounded-md border bg-muted/30 p-3">
-							<p class="text-sm">
-								Invite ready for <strong>{textInvite.email}</strong>. Send it however you like —
-								they're connected to you when they sign up with it.
-							</p>
-							<p class="rounded bg-background p-2 text-sm break-words">{textInvite.text}</p>
-							<div class="flex flex-wrap gap-2">
-								<Button type="button" onclick={() => shareInvite(textInvite.text, textInvite.url)}>
-									Share…
-								</Button>
-							</div>
-							{#if copied}<p class="text-xs text-success">Copied to clipboard.</p>{/if}
-						</div>
-					{/if}
 				</CardContent>
 			</div>
 		</div>
