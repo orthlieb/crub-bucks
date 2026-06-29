@@ -3,6 +3,7 @@ import {
 	normalizeEspnStatus,
 	parseEspnScoreboard,
 	parseEspnAthleteMatches,
+	isPlaceholderTeam,
 	forwardWindow,
 	espnAdapter
 } from './espn';
@@ -171,6 +172,66 @@ describe('parseEspnScoreboard', () => {
 			awayScore: null,
 			winner: null
 		});
+	});
+
+	it('skips undecided knockout fixtures with placeholder teams', () => {
+		const KNOCKOUT = {
+			leagues: [{ name: 'FIFA World Cup' }],
+			events: [
+				{
+					id: 'ko-1',
+					date: '2026-07-04T19:00Z',
+					competitions: [
+						{
+							status: { type: { name: 'STATUS_SCHEDULED', state: 'pre', completed: false } },
+							competitors: [
+								{
+									homeAway: 'home',
+									score: '',
+									team: { displayName: 'Canada', abbreviation: 'CAN' }
+								},
+								{
+									homeAway: 'away',
+									score: '',
+									team: { displayName: 'Round of 32 3 Winner', abbreviation: '' }
+								}
+							]
+						}
+					]
+				}
+			]
+		};
+		expect(parseEspnScoreboard(KNOCKOUT, 'soccer', 'FIFA World Cup')).toEqual([]);
+	});
+
+	it('isPlaceholderTeam flags bracket stand-ins but not real teams', () => {
+		for (const p of [
+			'Round of 32 3 Winner',
+			'Group A Runner-Up',
+			'Winner Match 73',
+			'Winner Game 12',
+			'SEC Champion',
+			'ACC Champion',
+			'At-Large',
+			'Play-In Winner',
+			'Wild Card',
+			'3 Seed',
+			'Quarterfinal 2',
+			'TBD',
+			''
+		]) {
+			expect(isPlaceholderTeam(p)).toBe(true);
+		}
+		for (const real of [
+			'Canada',
+			'United States',
+			'Manchester City',
+			'Georgia Bulldogs',
+			'Real Madrid',
+			'Las Vegas Aces'
+		]) {
+			expect(isPlaceholderTeam(real)).toBe(false);
+		}
 	});
 
 	it('tolerates an empty / shapeless payload', () => {
