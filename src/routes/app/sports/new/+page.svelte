@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { PageData, ActionData } from './$types';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
+	import BetCard from '$lib/components/BetCard.svelte';
 	import { cn } from '$lib/utils';
 	import Search from '@lucide/svelte/icons/search';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
@@ -14,25 +14,33 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	let mounted = $state(false);
-	onMount(() => {
-		mounted = true;
-	});
-
-	function kickoff(iso: string): string {
-		const d = new Date(iso);
-		if (Number.isNaN(d.getTime())) return '';
-		return d.toLocaleString(data.locale, {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric',
-			hour: 'numeric',
-			minute: '2-digit'
-		});
-	}
-
 	const SPORT_LABELS: Record<string, string> = { cfl: 'CFL', mma: 'MMA' };
 	const sportLabel = (s: string) => SPORT_LABELS[s] ?? s.charAt(0).toUpperCase() + s.slice(1);
+
+	// Emoji fallback for the BetCard icon area when a league has no logo (mock /
+	// dev feed); in production the real league crest comes through as the image.
+	const SPORT_ICON: Record<string, string> = {
+		soccer: '⚽',
+		baseball: '⚾',
+		basketball: '🏀',
+		hockey: '🏒',
+		football: '🏈',
+		cfl: '🏈',
+		tennis: '🎾',
+		mma: '🥊'
+	};
+	const sportIcon = (s: string) => SPORT_ICON[s] ?? '🏆';
+
+	// Short "shirt name" shown under the league logo in the icon area. Most
+	// leagues are already short; only the long display names get abbreviated.
+	const LEAGUE_SHORT: Record<string, string> = {
+		'FIFA World Cup': 'FIFA',
+		'Premier League': 'EPL',
+		'Champions League': 'UCL',
+		'College Football': 'NCAAF',
+		"Men's College Basketball": 'NCAAB'
+	};
+	const leagueTag = (league: string) => LEAGUE_SHORT[league] ?? league;
 
 	let query = $state('');
 	// Multi-select facets (Iron-Ledger style): OR within a category, AND across.
@@ -224,68 +232,74 @@
 		<ul class="space-y-3">
 			{#each shown as g (g.eventId)}
 				<li>
-					<Card>
-						<CardContent class="space-y-3 py-4">
-							<div class="flex items-center justify-between gap-3">
-								<div class="flex min-w-0 items-center gap-2">
-									{#if g.leagueLogo}
-										<img src={g.leagueLogo} alt="" class="h-5 w-5 shrink-0 object-contain" />
-									{/if}
-									<span class="text-xs text-muted-foreground">{g.league}</span>
-								</div>
-								<span class="shrink-0 text-xs text-muted-foreground"
-									>{mounted ? kickoff(g.startTime) : ''}</span
-								>
-							</div>
-
-							<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg font-semibold">
-								<span class="inline-flex items-center gap-1.5">
+					<BetCard
+						iconImg={g.leagueLogo}
+						icon={sportIcon(g.sport)}
+						label={leagueTag(g.league)}
+						tone="amber"
+						title={`${g.home.name} vs ${g.away.name}`}
+						date={g.startTime}
+						locale={data.locale}
+					>
+						{#snippet comment()}
+							<span class="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+								<span class="inline-flex items-center gap-1">
 									{#if g.home.logo}
-										<img src={g.home.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
+										<img
+											src={g.home.logo}
+											alt=""
+											class="inline-block h-4 w-4 object-contain"
+											loading="lazy"
+										/>
 									{/if}
-									{g.home.name}
+									{g.home.abbr || g.home.name}
 								</span>
-								<span class="text-sm text-muted-foreground">vs</span>
-								<span class="inline-flex items-center gap-1.5">
+								<span class="text-muted-foreground">vs</span>
+								<span class="inline-flex items-center gap-1">
 									{#if g.away.logo}
-										<img src={g.away.logo} alt="" class="h-5 w-5 object-contain" loading="lazy" />
+										<img
+											src={g.away.logo}
+											alt=""
+											class="inline-block h-4 w-4 object-contain"
+											loading="lazy"
+										/>
 									{/if}
-									{g.away.name}
+									{g.away.abbr || g.away.name}
 								</span>
-							</div>
+							</span>
+						{/snippet}
 
-							<form method="POST" action="?/bet" use:enhance class="flex flex-wrap items-end gap-2">
-								<input type="hidden" name="eventId" value={g.eventId} />
-								<label class="text-sm">
-									<span class="block text-xs text-muted-foreground">Pick</span>
-									<select
-										name="side"
-										class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-									>
-										<option value="home">{g.home.abbr || g.home.name}</option>
-										<option value="away">{g.away.abbr || g.away.name}</option>
-									</select>
-								</label>
-								<label class="text-sm">
-									<span class="block text-xs text-muted-foreground">Stake (₡)</span>
-									<Input
-										type="number"
-										name="stake"
-										min="1"
-										max={data.balance}
-										step="1"
-										required
-										class="w-28"
-									/>
-								</label>
-								<Button type="submit" size="sm" class="h-9">Bet</Button>
-							</form>
+						<form method="POST" action="?/bet" use:enhance class="flex flex-wrap items-end gap-2">
+							<input type="hidden" name="eventId" value={g.eventId} />
+							<label class="text-sm">
+								<span class="block text-xs text-muted-foreground">Pick</span>
+								<select
+									name="side"
+									class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+								>
+									<option value="home">{g.home.abbr || g.home.name}</option>
+									<option value="away">{g.away.abbr || g.away.name}</option>
+								</select>
+							</label>
+							<label class="text-sm">
+								<span class="block text-xs text-muted-foreground">Stake (₡)</span>
+								<Input
+									type="number"
+									name="stake"
+									min="1"
+									max={data.balance}
+									step="1"
+									required
+									class="w-28"
+								/>
+							</label>
+							<Button type="submit" size="sm" class="h-9">Bet</Button>
+						</form>
 
-							{#if errorFor(g.eventId)}
-								<p class="text-sm text-destructive">{errorFor(g.eventId)}</p>
-							{/if}
-						</CardContent>
-					</Card>
+						{#if errorFor(g.eventId)}
+							<p class="mt-2 text-sm text-destructive">{errorFor(g.eventId)}</p>
+						{/if}
+					</BetCard>
 				</li>
 			{/each}
 		</ul>
