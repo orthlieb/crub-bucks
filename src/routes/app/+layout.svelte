@@ -184,7 +184,7 @@
 			<div class="flex items-center gap-4">
 				<div class="flex items-center gap-2 font-semibold tracking-tight">
 					<a
-						href="/about"
+						href="/"
 						aria-label="About Crub Bucks"
 						class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground transition-opacity hover:opacity-90"
 						>₡</a

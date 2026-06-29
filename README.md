@@ -61,8 +61,8 @@ Stack: **SvelteKit + TypeScript + Drizzle ORM + Postgres** (Node adapter), with
 
 ### Pages
 
-- `/` — landing
-- `/about` — about page
+- `/` — landing + about (single long-form page)
+- `/about` — redirects to `/` (content merged into the landing page)
 - `/register`, `/verify-email/[token]`, `/login`, `/forgot-password`,
   `/reset-password/[token]`, `/logout`
 - `/app` — bets (balance, your bets, recent activity)
