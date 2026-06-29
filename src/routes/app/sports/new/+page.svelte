@@ -6,6 +6,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import BetCard from '$lib/components/BetCard.svelte';
+	import { leagueColor } from '$lib/sports/colors';
 	import { cn } from '$lib/utils';
 	import Search from '@lucide/svelte/icons/search';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
@@ -237,6 +238,7 @@
 						icon={sportIcon(g.sport)}
 						label={leagueTag(g.league)}
 						tone="amber"
+						accent={leagueColor(g.league, g.sport)}
 						title={`${g.home.name} vs ${g.away.name}`}
 						date={g.startTime}
 						locale={data.locale}

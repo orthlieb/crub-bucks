@@ -38,6 +38,7 @@
 		people = [],
 		href,
 		class: className,
+		accent = null,
 		children
 	}: {
 		icon?: string | null;
@@ -45,6 +46,10 @@
 		iconImg?: string | null;
 		label: string;
 		tone: BetTone;
+		/** Optional CSS color overriding the icon column's tint (e.g. a per-league
+		 *  brand color). When set, the box is a soft tint of it and the label is a
+		 *  theme-adaptive shade of it; otherwise `tone` is used. */
+		accent?: string | null;
 		/** Headline: the bet title, or a payment's "A paid B" summary. */
 		title: string;
 		/** Total wagered (bets) or transferred (payments). Null hides the line. */
@@ -65,6 +70,16 @@
 	} = $props();
 
 	const t = $derived(TONES[tone]);
+
+	// When an accent color is supplied, tint the icon column with it (a soft mix
+	// over the card) and shade the label toward the theme's text colour so it
+	// stays legible in both light and dark mode.
+	const boxStyle = $derived(
+		accent ? `background-color: color-mix(in srgb, ${accent} 15%, var(--card))` : undefined
+	);
+	const labelStyle = $derived(
+		accent ? `color: color-mix(in srgb, ${accent} 70%, var(--foreground))` : undefined
+	);
 
 	const shell = $derived(
 		cn(
@@ -90,7 +105,7 @@
 {#snippet inner()}
 	<div class="flex items-stretch">
 		<!-- State column: full card height, tinted; emoji centred, label at the bottom. -->
-		<div class={cn('flex w-20 shrink-0 flex-col sm:w-24', t.box)}>
+		<div class={cn('flex w-20 shrink-0 flex-col sm:w-24', !accent && t.box)} style={boxStyle}>
 			<div class="flex flex-1 items-center justify-center pt-2 text-3xl leading-none sm:text-4xl">
 				{#if iconImg && !iconImgFailed}
 					<img
@@ -103,7 +118,13 @@
 					{icon ?? '💰'}
 				{/if}
 			</div>
-			<div class={cn('pb-2 text-center text-[10px] font-semibold uppercase tracking-wide', t.text)}>
+			<div
+				class={cn(
+					'pb-2 text-center text-[10px] font-semibold uppercase tracking-wide',
+					!accent && t.text
+				)}
+				style={labelStyle}
+			>
 				{label}
 			</div>
 		</div>
