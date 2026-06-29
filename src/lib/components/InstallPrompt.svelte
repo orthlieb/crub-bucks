@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { isStandalone, isIOS } from '$lib/pwa';
-	import Share from '@lucide/svelte/icons/share';
+	import SquareArrowUp from '@lucide/svelte/icons/square-arrow-up';
 	import Download from '@lucide/svelte/icons/download';
 	import X from '@lucide/svelte/icons/x';
 
@@ -76,7 +76,11 @@
 		<div
 			class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
 		>
-			<Download class="size-5" />
+			{#if mode === 'ios'}
+				<SquareArrowUp class="size-5" />
+			{:else}
+				<Download class="size-5" />
+			{/if}
 		</div>
 		<div class="min-w-0 flex-1 text-sm">
 			<div class="font-medium">Install Crub Bucks</div>
@@ -84,7 +88,7 @@
 				<p class="text-muted-foreground">
 					Tap
 					<span class="inline-flex items-center gap-1 font-medium text-foreground">
-						Share <Share class="inline size-4" />
+						Share <SquareArrowUp class="inline size-4" />
 					</span>, then <span class="font-medium text-foreground">Add to Home Screen</span>.
 				</p>
 			{:else}
