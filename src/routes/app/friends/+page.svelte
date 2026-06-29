@@ -15,6 +15,7 @@
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import AddByQr from '$lib/components/AddByQr.svelte';
 	import FriendCombobox from '$lib/components/FriendCombobox.svelte';
 	import ReportDialog from '$lib/components/ReportDialog.svelte';
 	import { assetUrl } from '$lib/assets';
@@ -341,10 +342,19 @@
 				<CardHeader>
 					<CardTitle level={2}>Add a friend</CardTitle>
 					<CardDescription
-						>Invite by email, or get a link to text them. Either way they approve once they're in.</CardDescription
+						>Share your code in person, or invite by email. Scanned codes connect instantly; email
+						invites are approved once they're in.</CardDescription
 					>
 				</CardHeader>
 				<CardContent>
+					<!-- In-person / share path: your personal QR + link. -->
+					<AddByQr addUrl={data.addUrl} />
+					<div class="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+						<span class="h-px flex-1 bg-border"></span>
+						or invite by email
+						<span class="h-px flex-1 bg-border"></span>
+					</div>
+
 					{#if form?.requestError}
 						<Alert variant="destructive" class="mb-4"
 							><AlertDescription>{form.requestError}</AlertDescription></Alert

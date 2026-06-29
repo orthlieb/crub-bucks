@@ -12,10 +12,12 @@ import { countRegistrationsToday, logSecurityEvent } from '$lib/server/auth/audi
 import { getSystemConfig } from '$lib/server/auth/system-config';
 import { DEFAULT_DAILY_FULL_MESSAGE, evaluateSignupGate } from '$lib/server/auth/signup-gate';
 import { materializeInvitesForUser, materializeInviteById } from '$lib/server/ledger';
+import { safeReturn } from '$lib/safe-return';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	if (locals.user) throw redirect(302, '/app');
+	const returnTo = url.searchParams.get('returnTo') ?? '';
+	if (locals.user) throw redirect(302, safeReturn(returnTo, '/app'));
 	const config = await getSystemConfig();
 
 	// Surface the soft daily-cap state so the form can disable itself and
@@ -49,7 +51,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		registrationFullTodayMessage:
 			config.registrationDailyLimitMessage || DEFAULT_DAILY_FULL_MESSAGE,
 		prefillEmail,
-		prefillInvite: inviteId
+		prefillInvite: inviteId,
+		returnTo
 	};
 };
 
@@ -185,6 +188,14 @@ export const actions: Actions = {
 		}
 
 		// Redirect to a "check your email" page (server-side, no PRG quirks).
-		throw redirect(303, '/register/check-email');
+		// Carry an internal returnTo so the eventual login (after verifying) can
+		// land the user back on the flow they came from (e.g. a QR /add link).
+		const returnTo = safeReturn(String(form.get('returnTo') ?? ''), '');
+		throw redirect(
+			303,
+			returnTo
+				? `/register/check-email?returnTo=${encodeURIComponent(returnTo)}`
+				: '/register/check-email'
+		);
 	}
 };

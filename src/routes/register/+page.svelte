@@ -84,6 +84,10 @@
 					{#if data.prefillInvite}
 						<input type="hidden" name="invite" value={data.prefillInvite} />
 					{/if}
+					<!-- Carries a QR /add deep link through signup → check-email → login. -->
+					{#if data.returnTo}
+						<input type="hidden" name="returnTo" value={data.returnTo} />
+					{/if}
 					<div class="space-y-2">
 						<Label for="displayName">Display name</Label>
 						<Input
@@ -147,8 +151,9 @@
 			</CardContent>
 
 			<CardFooter class="justify-center text-sm text-muted-foreground">
-				Already have one?&nbsp;<a href="/login" class="font-medium text-primary hover:underline"
-					>Log in</a
+				Already have one?&nbsp;<a
+					href={data.returnTo ? `/login?returnTo=${encodeURIComponent(data.returnTo)}` : '/login'}
+					class="font-medium text-primary hover:underline">Log in</a
 				>
 			</CardFooter>
 		</Card>

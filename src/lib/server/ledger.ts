@@ -1,4 +1,5 @@
 import { eq, and, sql, desc, ne, inArray, or, isNull } from 'drizzle-orm';
+import { randomBytes } from 'node:crypto';
 import { db } from './db';
 import {
 	wallets,
@@ -914,6 +915,138 @@ export async function acceptFriendRequest(userId: string, requestId: string): Pr
 	for (const uid of [userId, req.requesterId]) {
 		await evaluateBadges(uid).catch((err) => console.warn('[badges] eval failed:', err));
 	}
+}
+
+export type EstablishResult = 'self' | 'already' | 'created' | 'accepted_request';
+
+/** Count accepted friends within a transaction (sees the locked rows). */
+async function countAcceptedFriendsTx(
+	tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+	userId: string
+): Promise<number> {
+	const [row] = await tx
+		.select({ n: sql<number>`count(*)` })
+		.from(friendships)
+		.where(
+			and(
+				eq(friendships.status, 'accepted'),
+				or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId))
+			)
+		);
+	return Number(row?.n ?? 0);
+}
+
+/**
+ * Establish a mutual friendship immediately — the co-present QR / share-link
+ * path, where the scan itself is the consent, so there's no pending step. This
+ * is the single place QR/link friendships are written, and it's idempotent:
+ *   - self-add → no-op ('self')
+ *   - already accepted (either direction) → no-op ('already')
+ *   - a pending request exists either way → accept it ('accepted_request')
+ *   - otherwise insert an accepted row ('created')
+ * Enforces the friend cap on both sides. `actorId` is the scanner; the other
+ * party is notified (their consent was given up, so they get an after-the-fact
+ * heads-up with an unfriend affordance on the Friends page).
+ */
+export async function establishFriendship(
+	actorId: string,
+	targetId: string
+): Promise<EstablishResult> {
+	if (actorId === targetId) return 'self';
+
+	const result = await db.transaction(async (tx): Promise<EstablishResult> => {
+		// Lock any existing relationship row(s) in either direction so concurrent
+		// scans (double-tap / prefetch) can't both write.
+		const existing = await tx
+			.select({ id: friendships.id, status: friendships.status })
+			.from(friendships)
+			.where(
+				or(
+					and(eq(friendships.requesterId, actorId), eq(friendships.addresseeId, targetId)),
+					and(eq(friendships.requesterId, targetId), eq(friendships.addresseeId, actorId))
+				)
+			)
+			.for('update');
+
+		if (existing.some((r) => r.status === 'accepted')) return 'already';
+
+		// Friend cap (both sides) before creating/enabling.
+		const aCount = await countAcceptedFriendsTx(tx, actorId);
+		const bCount = await countAcceptedFriendsTx(tx, targetId);
+		if (aCount >= MAX_FRIENDS || bCount >= MAX_FRIENDS) throw new LedgerError(FRIEND_CAP_MESSAGE);
+
+		const pending = existing.find((r) => r.status === 'pending');
+		if (pending) {
+			await tx
+				.update(friendships)
+				.set({ status: 'accepted', respondedAt: new Date() })
+				.where(eq(friendships.id, pending.id));
+			return 'accepted_request';
+		}
+
+		await tx
+			.insert(friendships)
+			.values({
+				requesterId: actorId,
+				addresseeId: targetId,
+				status: 'accepted',
+				respondedAt: new Date()
+			})
+			.onConflictDoNothing({ target: [friendships.requesterId, friendships.addresseeId] });
+		return 'created';
+	});
+
+	if (result === 'self' || result === 'already') return result;
+
+	// New friendship — tell the target who added them (replaces the consent step),
+	// and re-evaluate the Social Butterfly badge for both. All best-effort.
+	const [actor] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, actorId))
+		.limit(1);
+	await createNotification({
+		userId: targetId,
+		level: 'info',
+		title: `${actor?.displayName ?? 'Someone'} added you via QR`,
+		body: "You're now friends. Not who you expected? Open Friends to unfriend.",
+		link: '/app/friends'
+	}).catch(() => {});
+	for (const uid of [actorId, targetId]) {
+		await evaluateBadges(uid).catch((err) => console.warn('[badges] eval failed:', err));
+	}
+	return result;
+}
+
+/** Look up a user by their QR/share token (the value in /add/{token}). */
+export async function findUserByQrToken(
+	token: string
+): Promise<{ id: string; displayName: string } | null> {
+	if (!token) return null;
+	const [u] = await db
+		.select({ id: users.id, displayName: users.displayName })
+		.from(users)
+		.where(eq(users.qrToken, token))
+		.limit(1);
+	return u ?? null;
+}
+
+/** The caller's current QR/share token (for rendering their code / link). */
+export async function getQrToken(userId: string): Promise<string | null> {
+	const [u] = await db
+		.select({ qrToken: users.qrToken })
+		.from(users)
+		.where(eq(users.id, userId))
+		.limit(1);
+	return u?.qrToken ?? null;
+}
+
+/** Rotate the caller's QR/share token, invalidating every previously shared
+ *  code/link. Returns the new token. */
+export async function resetQrToken(userId: string): Promise<string> {
+	const token = randomBytes(16).toString('base64url');
+	await db.update(users).set({ qrToken: token }).where(eq(users.id, userId));
+	return token;
 }
 
 /** Deny a pending request. Only the addressee may deny (row is deleted). */

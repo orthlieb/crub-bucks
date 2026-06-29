@@ -14,6 +14,7 @@ import {
 	customType
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
+import { randomBytes } from 'node:crypto';
 
 // Raw binary column (Postgres bytea). Holds stored avatar image bytes.
 const bytea = customType<{ data: Buffer; default: false }>({
@@ -105,6 +106,15 @@ export const users = pgTable(
 		// exclusive with a photo: setting one clears the other. null = no icon.
 		// Render precedence is photo → icon → generated initials.
 		avatarIcon: text('avatar_icon'),
+		// Per-user static token behind the "add me" QR / share link
+		// (/add/{qrToken}). A bearer credential, so it can be rotated via
+		// resetQrToken to invalidate previously shared codes. Auto-filled with a
+		// ~22-char base64url value on insert; existing rows are backfilled in the
+		// migration.
+		qrToken: text('qr_token')
+			.notNull()
+			.unique()
+			.$defaultFn(() => randomBytes(16).toString('base64url')),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},
 	(t) => ({
