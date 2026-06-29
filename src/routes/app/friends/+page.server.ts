@@ -15,6 +15,8 @@ import {
 	transferBetweenUsers,
 	areFriends,
 	setFavorite,
+	getQrToken,
+	resetQrToken,
 	LedgerError
 } from '$lib/server/ledger';
 import { checkClean } from '$lib/server/moderation';
@@ -23,13 +25,17 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.user!.id;
-	const [friends, incoming, outgoing, invites] = await Promise.all([
+	const [friends, incoming, outgoing, invites, qrToken] = await Promise.all([
 		getFriends(userId),
 		getIncomingRequests(userId),
 		getOutgoingRequests(userId),
-		getPendingInvites(userId)
+		getPendingInvites(userId),
+		getQrToken(userId)
 	]);
-	return { friends, incoming, outgoing, invites };
+	// Personal "add me" link behind the QR / share button. Absolute so it works
+	// when texted out of the app.
+	const addUrl = qrToken ? `${getAppUrl()}/add/${qrToken}` : null;
+	return { friends, incoming, outgoing, invites, addUrl };
 };
 
 export const actions: Actions = {
@@ -83,6 +89,12 @@ export const actions: Actions = {
 			if (e instanceof LedgerError) return fail(400, { requestError: e.message, email });
 			throw e;
 		}
+	},
+
+	// Rotate the QR/share token, invalidating every previously shared code/link.
+	resetQr: async ({ locals }) => {
+		await resetQrToken(locals.user!.id);
+		return { qrReset: true };
 	},
 
 	cancelInvite: async ({ request, locals }) => {

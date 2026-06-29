@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import type { ActionData } from './$types';
+	import type { ActionData, PageData } from './$types';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -15,7 +15,14 @@
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import Captcha from '$lib/components/Captcha.svelte';
 
-	let { form }: { form: ActionData } = $props();
+	let { form, data }: { form: ActionData; data: PageData } = $props();
+
+	// Carried through login so a QR /add/{token} deep link survives the bounce to
+	// auth (and onward to register).
+	const returnTo = $derived(data.returnTo ?? '');
+	const registerHref = $derived(
+		returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : '/register'
+	);
 
 	// Gate submission on a solved captcha so the form can't be sent prematurely
 	// (Enter key, autofill, or clicking before solving). resetCaptcha clears the
@@ -71,6 +78,7 @@
 					}}
 					class="space-y-4"
 				>
+					<input type="hidden" name="returnTo" value={returnTo} />
 					<div class="space-y-2">
 						<Label for="email">Email</Label>
 						<Input
@@ -126,7 +134,7 @@
 			</CardContent>
 
 			<CardFooter class="justify-center text-sm text-muted-foreground">
-				New here?&nbsp;<a href="/register" class="font-medium text-primary hover:underline"
+				New here?&nbsp;<a href={registerHref} class="font-medium text-primary hover:underline"
 					>Create an account</a
 				>
 			</CardFooter>

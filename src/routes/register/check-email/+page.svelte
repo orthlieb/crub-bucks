@@ -7,6 +7,14 @@
 		CardTitle
 	} from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
+	import { page } from '$app/state';
+
+	// Preserve a QR /add deep link carried through signup so logging in here lands
+	// the user back on the add flow.
+	const returnTo = $derived(page.url.searchParams.get('returnTo') ?? '');
+	const loginHref = $derived(
+		returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'
+	);
 </script>
 
 <div class="kibble-bg min-h-screen bg-background py-12 px-4">
@@ -39,7 +47,7 @@
 			</CardContent>
 			<div class="px-6 pb-6 pt-0 flex gap-2">
 				<Button variant="outline" href="/register">Try a different email</Button>
-				<Button href="/login">Go to log in</Button>
+				<Button href={loginHref}>Go to log in</Button>
 			</div>
 		</Card>
 	</div>

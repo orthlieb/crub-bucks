@@ -6,15 +6,24 @@ import { verifyPassword, dummyVerify, needsRehash, hashPassword } from '$lib/ser
 import { generateSessionToken, createSession, setSessionCookie } from '$lib/server/auth/session';
 import { verifyCaptcha } from '$lib/server/captcha';
 import { logSecurityEvent } from '$lib/server/auth/audit';
+import { rateLimit } from '$lib/server/auth/rate-limit';
 import { grantWelcomeIfNeeded } from '$lib/server/ledger';
+import { safeReturn } from '$lib/safe-return';
 import type { Actions, PageServerLoad } from './$types';
 
 const LOCKOUT_THRESHOLD = 5;
 
+// Per-IP throttle on the login action: blind password guessing is capped before
+// it touches the DB. Per-account lockout still applies on top of this.
+const LOGIN_RATE_LIMIT = 10;
+const LOGIN_RATE_WINDOW_MS = 5 * 60 * 1000;
+
 const GENERIC_LOGIN_FAILURE = 'Invalid email or password.';
 
-export const load: PageServerLoad = async ({ locals }) => {
-	if (locals.user) throw redirect(302, '/app');
+export const load: PageServerLoad = async ({ locals, url }) => {
+	const returnTo = url.searchParams.get('returnTo') ?? '';
+	if (locals.user) throw redirect(302, safeReturn(returnTo, '/app'));
+	return { returnTo };
 };
 
 export const actions: Actions = {
@@ -28,6 +37,24 @@ export const actions: Actions = {
 		// Checkboxes only submit a value when checked — typically "on" — so
 		// presence-test rather than equality-test (covers "true"/"1"/etc.).
 		const remember = form.get('remember') !== null;
+		const returnTo = String(form.get('returnTo') ?? '');
+
+		// Per-IP throttle: blind guessing is rejected before any DB/captcha work.
+		const ip = event.getClientAddress?.() ?? 'unknown';
+		const limit = rateLimit(`login:${ip}`, LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW_MS);
+		if (!limit.ok) {
+			await logSecurityEvent({
+				userId: null,
+				eventType: 'login_failure',
+				event,
+				metadata: { email, reason: 'rate_limited' }
+			});
+			return fail(429, {
+				error: 'Too many attempts. Please wait a few minutes and try again.',
+				email,
+				remember
+			});
+		}
 
 		// Captcha first — cheap reject for bots before we touch the DB.
 		const captcha = await verifyCaptcha(
@@ -173,6 +200,8 @@ export const actions: Actions = {
 			event
 		});
 
-		throw redirect(303, '/app');
+		// Honour an internal returnTo (e.g. a QR /add/{token} deep link the user
+		// was bounced from), otherwise land on the app home.
+		throw redirect(303, safeReturn(returnTo, '/app'));
 	}
 };
