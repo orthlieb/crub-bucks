@@ -2,6 +2,7 @@
 	import type { PageData } from './$types';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
+	import { Separator } from '$lib/components/ui/separator';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -11,7 +12,7 @@
 	<header class="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
 		<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
 			<span
-				class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm"
+				class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground"
 			>
 				₡
 			</span>
@@ -20,7 +21,6 @@
 
 		<nav class="flex items-center gap-2">
 			<ThemeToggle />
-			<Button variant="ghost" size="sm" href="/about">About</Button>
 			{#if data.user}
 				<Button size="sm" href="/app">Open app</Button>
 			{:else}
@@ -31,6 +31,7 @@
 	</header>
 
 	<main class="mx-auto max-w-5xl px-6 pb-24 pt-10">
+		<!-- Hero -->
 		<section class="grid grid-cols-1 items-center gap-10 md:grid-cols-[1.1fr,1fr]">
 			<div>
 				<p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -56,46 +57,154 @@
 				</div>
 			</div>
 
-			<div class="relative mx-auto w-full max-w-md">
+			<figure class="relative mx-auto w-full max-w-md">
 				<img
 					src="/crub-buck.jpg"
 					alt="A one Crub Buck note: purple, with Cala the dog as Governor of Bark."
 					width="1024"
 					height="440"
-					class="w-full rotate-[-3deg] rounded-md ring-1 ring-primary/20 shadow-[0_35px_60px_-15px_rgba(124,58,237,0.45),0_12px_24px_-10px_rgba(0,0,0,0.3)] transition-transform duration-300 hover:-translate-y-1 hover:rotate-0"
+					class="w-full rotate-[-3deg] rounded-md shadow-[0_35px_60px_-15px_rgba(124,58,237,0.45),0_12px_24px_-10px_rgba(0,0,0,0.3)] ring-1 ring-primary/20 transition-transform duration-300 hover:-translate-y-1 hover:rotate-0"
 				/>
-			</div>
+				<figcaption class="mt-4 text-center text-xs text-muted-foreground">
+					Issued by <em>The Republic of Crub</em>. Backed by the Tail Tuft Guarantee. Signed by the
+					Governor of Bark and the Registrar of Puppiness.
+				</figcaption>
+			</figure>
 		</section>
 
-		<section class="mt-20 grid grid-cols-1 gap-4 sm:grid-cols-3">
-			<Card>
-				<CardHeader>
-					<CardTitle level={3}>Zero-sum by design</CardTitle>
-				</CardHeader>
-				<CardContent class="text-sm text-muted-foreground">
-					Every transfer debits one wallet and credits another by the same amount. The ledger can't
-					drift out of balance.
+		<!-- Story + how it works (single, long-form page) -->
+		<div class="mx-auto mt-20 max-w-3xl">
+			<Card class="overflow-hidden border-primary/30 bg-primary/5">
+				<CardContent class="flex flex-col gap-5 py-6 sm:flex-row sm:items-center">
+					<img
+						src="/cala-avatar.png"
+						alt="Cala the dog, a.k.a. Crub."
+						width="96"
+						height="96"
+						class="h-24 w-24 shrink-0 select-none rounded-full bg-background object-cover shadow-md ring-2 ring-primary/20"
+					/>
+					<div class="space-y-3 text-muted-foreground">
+						<h2 class="text-xl font-semibold tracking-tight text-foreground">Where it came from</h2>
+						<p>
+							“Crub” was the nickname for our dog, Cala Lily. She was a delightful Aussiedoodle that
+							was always a source of amusement for the kids. The term “Crub Bucks" started as a way
+							for our kids to trade unequal chores — picking up Cala's doody was seen as more
+							onerous than washing the dishes — and over time it grew into fun bets and favours
+							between them. In a funny way, it taught them the value of money and some rudimentary
+							math.
+						</p>
+						<p>You're welcome to enjoy it and to share it with your family.</p>
+					</div>
 				</CardContent>
 			</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle level={3}>Negative is normal</CardTitle>
-				</CardHeader>
-				<CardContent class="text-sm text-muted-foreground">
-					Lose a wager and dip below zero. No overdraft, no shame — just a number to win back.
-				</CardContent>
-			</Card>
+			<Separator class="my-10" />
 
-			<Card>
-				<CardHeader>
-					<CardTitle level={3}>Friends, not groups</CardTitle>
-				</CardHeader>
-				<CardContent class="text-sm text-muted-foreground">
-					Add friends by email. A bet is the only grouping — make one, add friends, set per-person
-					payouts and losses, resolve whenever.
-				</CardContent>
-			</Card>
-		</section>
+			<section class="space-y-8">
+				<Card>
+					<CardHeader>
+						<CardTitle level={2}>Zero-sum by construction</CardTitle>
+					</CardHeader>
+					<CardContent class="text-muted-foreground">
+						Every economic event is a transfer: one wallet's balance goes down, another's goes up,
+						by the same amount, in one database transaction. Balances are never stored — they're
+						derived by summing the ledger — so they cannot drift. Cumulative bugs in the math are
+						impossible.
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle level={2}>One wallet, your friends</CardTitle>
+					</CardHeader>
+					<CardContent class="text-muted-foreground">
+						Add a friend by email, by texting your personal link, or by scanning their QR in person;
+						your single CB balance follows you everywhere. New players get a 100 CB welcome grant
+						from the Bank on first login — the Bank just goes that much more negative, keeping the
+						books at zero.
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle level={2}>A public feed</CardTitle>
+					</CardHeader>
+					<CardContent class="text-muted-foreground">
+						Like Venmo, there's a shared feed: who started a bet, who won (team games can have
+						several winners), and who paid whom. Everyone signed in can follow along.
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle level={2}>Bets, made flexible</CardTitle>
+					</CardHeader>
+					<CardContent class="text-muted-foreground">
+						No groups to set up — a bet <em>is</em> the grouping. You make a bet, add some friends (you're
+						always in it too), and declare each person's potential payout (if they win) and loss (if they
+						lose) — they don't have to be 1:1. Resolve it whenever the result is in; the ledger moves
+						CB from losers to winners. Payouts and losses must balance, or we refuse to settle.
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle level={2}>Bet on real sports</CardTitle>
+					</CardHeader>
+					<CardContent class="text-muted-foreground">
+						Back real games across soccer (World Cup, Premier League, Champions League, MLS),
+						baseball, football (NFL, college, CFL), basketball (NBA, WNBA, college), hockey, tennis,
+						and UFC — pulled from a live feed. The pools are parimutuel: your first wager opens the
+						market, friends take the other side, and when the game ends the winners split the
+						losers' pool in proportion to their stake (the odds shift as money comes in). A draw —
+						or a game nobody counter-bets — simply pushes, and everyone gets refunded. Results
+						settle automatically from the feed. It's the same closed CB ledger: no real money, no
+						bookmaker.
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle level={2}>No real money</CardTitle>
+					</CardHeader>
+					<CardContent class="text-muted-foreground">
+						Crub Bucks have no real-world value. Don't try to send people USD via the app, don't try
+						to redeem CB for anything tangible, and please don't get any of your friends arrested
+						over a poker debt.
+					</CardContent>
+				</Card>
+			</section>
+
+			<Separator class="my-10" />
+
+			<section class="text-center">
+				<h2 class="text-2xl font-semibold tracking-tight">Ready to play?</h2>
+				<p class="mt-2 text-muted-foreground">It takes about a minute to set up.</p>
+				<div class="mt-6 flex justify-center gap-3">
+					{#if data.user}
+						<Button size="lg" href="/app">Go to your bets</Button>
+					{:else}
+						<Button size="lg" href="/register">Create an account</Button>
+						<Button size="lg" variant="outline" href="/login">I have an account</Button>
+					{/if}
+				</div>
+			</section>
+		</div>
 	</main>
+
+	<footer class="border-t">
+		<div
+			class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-6 text-sm text-muted-foreground"
+		>
+			<div>Crub Bucks · closed-loop play currency</div>
+			<div class="flex gap-4">
+				{#if data.user}
+					<a href="/app" class="hover:text-foreground">Open app</a>
+				{:else}
+					<a href="/login" class="hover:text-foreground">Log in</a>
+					<a href="/register" class="hover:text-foreground">Sign up</a>
+				{/if}
+			</div>
+		</div>
+	</footer>
 </div>
