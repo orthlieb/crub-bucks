@@ -205,14 +205,33 @@ describe('parseEspnScoreboard', () => {
 	});
 
 	it('isPlaceholderTeam flags bracket stand-ins but not real teams', () => {
-		expect(isPlaceholderTeam('Round of 32 3 Winner')).toBe(true);
-		expect(isPlaceholderTeam('Group A Runner-Up')).toBe(true);
-		expect(isPlaceholderTeam('Winner Match 73')).toBe(true);
-		expect(isPlaceholderTeam('TBD')).toBe(true);
-		expect(isPlaceholderTeam('')).toBe(true);
-		expect(isPlaceholderTeam('Canada')).toBe(false);
-		expect(isPlaceholderTeam('United States')).toBe(false);
-		expect(isPlaceholderTeam('Manchester City')).toBe(false);
+		for (const p of [
+			'Round of 32 3 Winner',
+			'Group A Runner-Up',
+			'Winner Match 73',
+			'Winner Game 12',
+			'SEC Champion',
+			'ACC Champion',
+			'At-Large',
+			'Play-In Winner',
+			'Wild Card',
+			'3 Seed',
+			'Quarterfinal 2',
+			'TBD',
+			''
+		]) {
+			expect(isPlaceholderTeam(p)).toBe(true);
+		}
+		for (const real of [
+			'Canada',
+			'United States',
+			'Manchester City',
+			'Georgia Bulldogs',
+			'Real Madrid',
+			'Las Vegas Aces'
+		]) {
+			expect(isPlaceholderTeam(real)).toBe(false);
+		}
 	});
 
 	it('tolerates an empty / shapeless payload', () => {

@@ -114,19 +114,31 @@ function teamLogo(team: any): string | null {
 
 /**
  * ESPN lists not-yet-decided bracket fixtures with placeholder "teams" — e.g.
- * "Round of 32 3 Winner", "Group A Runner-Up", "Winner Match 73". The opponent
- * is unknown, so the game isn't bettable; treat such a side as a placeholder
- * and skip the fixture. No real club/nation name contains these tokens.
+ * "Round of 32 3 Winner", "Group A Runner-Up", "Winner Match 73", "SEC
+ * Champion", "TBD". The opponent is unknown, so the game isn't bettable; treat
+ * such a side as a placeholder and skip the fixture. No real club/nation/college
+ * name in our wired leagues contains these tokens.
+ *
+ * ⚠️ LANGUAGE-DEPENDENT (English). We only query ESPN's US scoreboard endpoints,
+ * which return placeholder names in English, so this is correct today. It is the
+ * ONLY locale-sensitive string match in the adapter — status uses language-
+ * neutral STATUS_* codes and winners come from numeric scores / boolean flags.
+ * TODO(i18n): if a non-English / localized feed is ever added, these patterns
+ * must become locale-aware (or move the placeholder signal to a structural one,
+ * e.g. a missing team id / abbreviation, if ESPN exposes it reliably).
  */
 export function isPlaceholderTeam(name: string): boolean {
 	const n = (name ?? '').trim();
 	if (!n) return true;
 	return (
-		/\b(winner|runner[\s-]?up|loser|tbd|to be determined)\b/i.test(n) ||
+		/\b(winner|runner[\s-]?up|loser|tbd|to be determined|champions?|qualifier|wild[\s-]?card|play[\s-]?in|at[\s-]?large|bye)\b/i.test(
+			n
+		) ||
 		/\bround of \d+\b/i.test(n) ||
 		/\bgroup [a-l]\b/i.test(n) ||
 		/\b(quarter|semi)[\s-]?final/i.test(n) ||
-		/\bmatch \d+\b/i.test(n)
+		/\b(match|game) \d+\b/i.test(n) ||
+		/\bseed\b/i.test(n)
 	);
 }
 
