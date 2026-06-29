@@ -3,6 +3,7 @@ import {
 	normalizeEspnStatus,
 	parseEspnScoreboard,
 	parseEspnAthleteMatches,
+	isPlaceholderTeam,
 	forwardWindow,
 	espnAdapter
 } from './espn';
@@ -171,6 +172,47 @@ describe('parseEspnScoreboard', () => {
 			awayScore: null,
 			winner: null
 		});
+	});
+
+	it('skips undecided knockout fixtures with placeholder teams', () => {
+		const KNOCKOUT = {
+			leagues: [{ name: 'FIFA World Cup' }],
+			events: [
+				{
+					id: 'ko-1',
+					date: '2026-07-04T19:00Z',
+					competitions: [
+						{
+							status: { type: { name: 'STATUS_SCHEDULED', state: 'pre', completed: false } },
+							competitors: [
+								{
+									homeAway: 'home',
+									score: '',
+									team: { displayName: 'Canada', abbreviation: 'CAN' }
+								},
+								{
+									homeAway: 'away',
+									score: '',
+									team: { displayName: 'Round of 32 3 Winner', abbreviation: '' }
+								}
+							]
+						}
+					]
+				}
+			]
+		};
+		expect(parseEspnScoreboard(KNOCKOUT, 'soccer', 'FIFA World Cup')).toEqual([]);
+	});
+
+	it('isPlaceholderTeam flags bracket stand-ins but not real teams', () => {
+		expect(isPlaceholderTeam('Round of 32 3 Winner')).toBe(true);
+		expect(isPlaceholderTeam('Group A Runner-Up')).toBe(true);
+		expect(isPlaceholderTeam('Winner Match 73')).toBe(true);
+		expect(isPlaceholderTeam('TBD')).toBe(true);
+		expect(isPlaceholderTeam('')).toBe(true);
+		expect(isPlaceholderTeam('Canada')).toBe(false);
+		expect(isPlaceholderTeam('United States')).toBe(false);
+		expect(isPlaceholderTeam('Manchester City')).toBe(false);
 	});
 
 	it('tolerates an empty / shapeless payload', () => {

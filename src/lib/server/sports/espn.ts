@@ -112,6 +112,24 @@ function teamLogo(team: any): string | null {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+/**
+ * ESPN lists not-yet-decided bracket fixtures with placeholder "teams" — e.g.
+ * "Round of 32 3 Winner", "Group A Runner-Up", "Winner Match 73". The opponent
+ * is unknown, so the game isn't bettable; treat such a side as a placeholder
+ * and skip the fixture. No real club/nation name contains these tokens.
+ */
+export function isPlaceholderTeam(name: string): boolean {
+	const n = (name ?? '').trim();
+	if (!n) return true;
+	return (
+		/\b(winner|runner[\s-]?up|loser|tbd|to be determined)\b/i.test(n) ||
+		/\bround of \d+\b/i.test(n) ||
+		/\bgroup [a-l]\b/i.test(n) ||
+		/\b(quarter|semi)[\s-]?final/i.test(n) ||
+		/\bmatch \d+\b/i.test(n)
+	);
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Parse one ESPN scoreboard payload into normalized events. Pure — no network —
@@ -133,6 +151,11 @@ export function parseEspnScoreboard(json: any, sport: string, fallbackLeague = '
 		const away = competitors.find((c: any) => c?.homeAway === 'away');
 		if (!home || !away) continue;
 
+		const homeName = String(home.team?.displayName ?? home.team?.name ?? '');
+		const awayName = String(away.team?.displayName ?? away.team?.name ?? '');
+		// Skip undecided bracket fixtures (one side is a "… Winner" placeholder).
+		if (isPlaceholderTeam(homeName) || isPlaceholderTeam(awayName)) continue;
+
 		const statusType = (comp.status ?? ev.status)?.type ?? {};
 		const status = normalizeEspnStatus(statusType.name, statusType.state, statusType.completed);
 		const homeScore = num(home.score);
@@ -148,13 +171,13 @@ export function parseEspnScoreboard(json: any, sport: string, fallbackLeague = '
 			status,
 			home: {
 				id: String(home.team?.id ?? ''),
-				name: String(home.team?.displayName ?? home.team?.name ?? ''),
+				name: homeName,
 				abbr: String(home.team?.abbreviation ?? ''),
 				logo: teamLogo(home.team)
 			},
 			away: {
 				id: String(away.team?.id ?? ''),
-				name: String(away.team?.displayName ?? away.team?.name ?? ''),
+				name: awayName,
 				abbr: String(away.team?.abbreviation ?? ''),
 				logo: teamLogo(away.team)
 			},
