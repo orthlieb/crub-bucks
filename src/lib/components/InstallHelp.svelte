@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { isStandalone } from '$lib/pwa';
-	import Share from '@lucide/svelte/icons/share';
+	import SquareArrowUp from '@lucide/svelte/icons/square-arrow-up';
 	import EllipsisVertical from '@lucide/svelte/icons/ellipsis-vertical';
 
 	// Hidden once the app is already installed — the steps would be redundant.
@@ -26,7 +26,7 @@
 						<li>
 							Tap the
 							<span class="inline-flex items-center gap-1 font-medium text-foreground">
-								Share <Share class="inline size-4" />
+								Share <SquareArrowUp class="inline size-4" />
 							</span>
 							button.
 						</li>
