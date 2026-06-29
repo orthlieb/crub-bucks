@@ -8,6 +8,8 @@
 	import SoundToggle from '$lib/components/SoundToggle.svelte';
 	import NotificationToggle from '$lib/components/NotificationToggle.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import InstallSteps from '$lib/components/InstallSteps.svelte';
+	import { installState, promptInstall } from '$lib/install.svelte';
 	import { resizeToSquare } from '$lib/avatar-client';
 
 	let {
@@ -25,6 +27,11 @@
 	let fileInput: HTMLInputElement;
 	let busy = $state(false);
 	let errorMsg = $state('');
+
+	// Install-as-a-web-app row (hidden once running standalone). On Android/desktop
+	// the captured native prompt drives a one-tap Install; iOS expands the steps.
+	const install = installState();
+	let showInstallSteps = $state(false);
 
 	// True when the user has any custom avatar (photo or emoji) to remove.
 	const hasCustomAvatar = $derived(!!user.avatarUpdatedAt || !!user.avatarIcon);
@@ -319,6 +326,36 @@
 				</div>
 				<NotificationToggle />
 			</div>
+
+			{#if !install.installed}
+				<div class="py-3">
+					<div class="flex items-center justify-between gap-3">
+						<div>
+							<div class="text-sm font-medium">Install as a web app</div>
+							<div class="text-xs text-muted-foreground">
+								Add Crub Bucks to your home screen for a full-screen experience.
+							</div>
+						</div>
+						{#if install.canPrompt}
+							<Button variant="outline" size="sm" onclick={promptInstall}>Install</Button>
+						{:else}
+							<Button
+								variant="ghost"
+								size="sm"
+								aria-expanded={showInstallSteps}
+								onclick={() => (showInstallSteps = !showInstallSteps)}
+							>
+								{showInstallSteps ? 'Hide' : 'Learn more'}
+							</Button>
+						{/if}
+					</div>
+					{#if showInstallSteps && !install.canPrompt}
+						<div class="mt-3 rounded-md border bg-muted/20 p-3">
+							<InstallSteps />
+						</div>
+					{/if}
+				</div>
+			{/if}
 		</div>
 
 		<Dialog.Footer>

@@ -6,7 +6,7 @@
 	import type { LayoutData } from './$types';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
-	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
+	import { initInstall } from '$lib/install.svelte';
 	import Shield from '@lucide/svelte/icons/shield';
 	import { isSoundEnabled, play, warmUpSound, type SoundName } from '$lib/sound';
 	import { formatAmount } from '$lib/format';
@@ -96,6 +96,7 @@
 	const POLL_MS = 20_000;
 	onMount(() => {
 		warmUpSound();
+		initInstall();
 		const tick = () => {
 			if (document.visibilityState === 'visible') invalidateAll();
 		};
@@ -345,7 +346,6 @@
 				{/each}
 			</div>
 		{/if}
-		<InstallPrompt />
 		{@render children()}
 	</main>
 </div>

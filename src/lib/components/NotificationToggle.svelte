@@ -53,7 +53,7 @@
 
 	const hint = $derived(
 		blocked === 'install'
-			? 'Add to Home Screen'
+			? 'Install app first'
 			: blocked === 'denied'
 				? 'Blocked in browser'
 				: blocked === 'unsupported'
