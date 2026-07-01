@@ -235,6 +235,21 @@ export const friendInvites = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Leaderboard medals — current holders of the top-3 positions (rank 1=gold,
+// 2=silver, 3=bronze). A tiny state table so medal-change notifications fire
+// only when a medal actually changes hands, not on every balance movement.
+// The leaderboard itself is always derived live from the ledger.
+// ---------------------------------------------------------------------------
+
+export const leaderboardMedals = pgTable('leaderboard_medals', {
+	// 1 = gold, 2 = silver, 3 = bronze.
+	rank: integer('rank').primaryKey(),
+	// null when there aren't enough ranked users to fill this medal.
+	userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+});
+
+// ---------------------------------------------------------------------------
 // Wallets (global) — one per user, plus a single system-wide Bank
 // ---------------------------------------------------------------------------
 
