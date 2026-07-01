@@ -239,6 +239,13 @@
       "when": 1782867409955,
       "tag": "0033_rainy_king_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1782884286849,
+      "tag": "0034_medals_by_user",
+      "breakpoints": true
     }
   ]
 }

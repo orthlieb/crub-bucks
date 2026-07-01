@@ -37,18 +37,15 @@
 			<Card class="mt-3">
 				<CardContent class="p-0">
 					<ul class="divide-y">
-						{#each data.leaderboard as entry, i (entry.userId)}
+						{#each data.leaderboard as entry (entry.userId)}
 							{@const me = entry.userId === data.meId}
+							{@const tier = entry.rank <= 3 ? MEDAL_TIER[entry.rank - 1] : null}
 							<li class={cn('flex items-center gap-3 px-4 py-3', me && 'bg-accent/60')}>
 								<span class="flex w-7 shrink-0 justify-center">
-									{#if i < 3}
-										<img
-											src={tierBug(MEDAL_TIER[i])}
-											alt={`${MEDAL_TIER[i]} medal`}
-											class="h-6 w-6 object-contain"
-										/>
+									{#if tier}
+										<img src={tierBug(tier)} alt={`${tier} medal`} class="h-6 w-6 object-contain" />
 									{:else}
-										<span class="text-sm tabular-nums text-muted-foreground">{i + 1}</span>
+										<span class="text-sm tabular-nums text-muted-foreground">{entry.rank}</span>
 									{/if}
 								</span>
 								<Avatar
@@ -73,6 +70,27 @@
 							</li>
 						{/each}
 					</ul>
+					<!-- Your own standing, when you're not already shown in the top 10. -->
+					{#if data.myRank && !data.leaderboard.some((e) => e.userId === data.meId)}
+						<div class="flex items-center gap-3 border-t bg-accent/60 px-4 py-3">
+							<span class="w-7 shrink-0 text-center text-sm tabular-nums text-muted-foreground">
+								{data.myRank.rank}
+							</span>
+							<span class="min-w-0 flex-1 truncate font-medium">
+								You
+								<span class="text-xs font-normal text-muted-foreground">of {data.myRank.total}</span
+								>
+							</span>
+							<span
+								class={cn(
+									'shrink-0 font-semibold tabular-nums',
+									data.myRank.balance < 0 && 'text-destructive'
+								)}
+							>
+								{formatAmount(data.myRank.balance)} ₡
+							</span>
+						</div>
+					{/if}
 				</CardContent>
 			</Card>
 		</section>

@@ -302,17 +302,28 @@ export async function userBalancesFor(userIds: string[]): Promise<Map<string, nu
 // Leaderboard — global standings by CB balance, with medal-change alerts
 // ---------------------------------------------------------------------------
 
+export type MedalTier = 'gold' | 'silver' | 'bronze';
+
 export interface LeaderboardEntry {
 	userId: string;
 	displayName: string;
 	balance: number;
 	avatarUpdatedAt: Date | null;
 	avatarIcon: string | null;
+	/** Standard competition rank (1,1,3): ties share a rank, the next distinct
+	 *  balance skips accordingly. */
+	rank: number;
+}
+
+/** Medal tier for a competition rank (gold/silver/bronze for 1/2/3), or null. */
+export function tierForRank(rank: number): MedalTier | null {
+	return rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : null;
 }
 
 /**
- * Global standings: active users ranked by CB balance (highest first, ties
- * broken by name). Derived live from the ledger — no cached balances.
+ * Global standings: active users ranked by CB balance (highest first). Ties get
+ * the SAME rank (standard "1,1,3" competition ranking); within a tie, order is
+ * by name for stable display. Derived live from the ledger — no cached balances.
  */
 export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
 	const balance = sql<number>`coalesce(sum(${ledgerEntries.delta}), 0)`;
@@ -331,62 +342,99 @@ export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
 		.groupBy(users.id, users.displayName, users.avatarUpdatedAt, users.avatarIcon)
 		.orderBy(sql`${balance} desc`, users.displayName)
 		.limit(limit);
-	return rows.map((r) => ({
-		userId: r.userId,
-		displayName: r.displayName,
-		balance: Number(r.balance),
-		avatarUpdatedAt: r.avatarUpdatedAt,
-		avatarIcon: r.avatarIcon
-	}));
+
+	let rank = 0;
+	let prevBalance: number | null = null;
+	return rows.map((r, i) => {
+		const bal = Number(r.balance);
+		if (prevBalance === null || bal !== prevBalance) {
+			rank = i + 1; // standard competition ranking: skip after a tie
+			prevBalance = bal;
+		}
+		return {
+			userId: r.userId,
+			displayName: r.displayName,
+			balance: bal,
+			avatarUpdatedAt: r.avatarUpdatedAt,
+			avatarIcon: r.avatarIcon,
+			rank
+		};
+	});
 }
 
-const MEDAL_META = [
-	{ rank: 1, tier: 'gold', name: 'gold' },
-	{ rank: 2, tier: 'silver', name: 'silver' },
-	{ rank: 3, tier: 'bronze', name: 'bronze' }
-] as const;
+export interface UserRank {
+	rank: number;
+	balance: number;
+	/** Total ranked (active) users. */
+	total: number;
+}
 
 /**
- * Recompute the top 3 and, when a medal changes hands, notify the new holder
- * (and anyone bumped off the podium). Stores the current holders in
- * `leaderboard_medals` so repeated calls only notify on real changes. Best-
- * effort and safe to call anytime; driven periodically by the settle cron.
+ * The caller's own standing among all active users — their competition rank
+ * (1 + the number of users with a strictly higher balance), balance, and the
+ * total ranked users. Lets the UI show "You're #17 of 40" even when the caller
+ * isn't in the top 10. Null if the user has no wallet yet.
+ */
+export async function getUserRank(userId: string): Promise<UserRank | null> {
+	const rows = await db
+		.select({
+			userId: users.id,
+			balance: sql<number>`coalesce(sum(${ledgerEntries.delta}), 0)`
+		})
+		.from(users)
+		.innerJoin(wallets, and(eq(wallets.userId, users.id), eq(wallets.kind, 'user')))
+		.leftJoin(ledgerEntries, eq(ledgerEntries.walletId, wallets.id))
+		.where(eq(users.isActive, true))
+		.groupBy(users.id);
+
+	const me = rows.find((r) => r.userId === userId);
+	if (!me) return null;
+	const myBalance = Number(me.balance);
+	const higher = rows.filter((r) => Number(r.balance) > myBalance).length;
+	return { rank: higher + 1, balance: myBalance, total: rows.length };
+}
+
+/**
+ * Recompute the podium and, when a medal changes hands, notify the affected
+ * users. Ties share a medal, so a tier can have several holders and a tier can
+ * be empty. Current holders (userId → tier) are stored in `leaderboard_medals`
+ * so repeated calls only notify on real changes: a user who newly holds a tier
+ * (or moves between tiers) is told, and anyone who drops off the podium is told.
+ * Best-effort and safe to call anytime; driven periodically by the settle cron.
  */
 export async function refreshLeaderboardMedals(): Promise<void> {
-	const top = await getLeaderboard(3);
-	const prev = await db.select().from(leaderboardMedals);
-	const prevByRank = new Map(prev.map((r) => [r.rank, r.userId]));
-	const prevHolders = new Set(prev.map((r) => r.userId).filter((v): v is string => v !== null));
-	const newHolders = new Set(top.map((e) => e.userId));
+	// Pull generously so all rank≤3 holders are covered even with large ties.
+	const ranked = await getLeaderboard(100);
+	const holders = new Map<string, MedalTier>();
+	for (const e of ranked) {
+		const tier = tierForRank(e.rank);
+		if (tier) holders.set(e.userId, tier);
+	}
 
-	for (const m of MEDAL_META) {
-		const entry = top[m.rank - 1];
-		const newUserId = entry?.userId ?? null;
-		const oldUserId = prevByRank.get(m.rank) ?? null;
-		if (newUserId && newUserId !== oldUserId) {
+	const prev = await db.select().from(leaderboardMedals);
+	const prevByUser = new Map(prev.map((r) => [r.userId, r.tier as MedalTier]));
+
+	// Gained a medal, or moved to a different tier.
+	for (const e of ranked) {
+		const tier = tierForRank(e.rank);
+		if (!tier) continue;
+		if (prevByUser.get(e.userId) !== tier) {
 			await createNotification({
-				userId: newUserId,
+				userId: e.userId,
 				level: 'success',
-				title: `You're ${m.name} on the leaderboard`,
-				body: `You're #${m.rank} with ${entry.balance} ₡.`,
-				icon: `/bug-${m.tier}.png`,
+				title: `You're ${tier} on the leaderboard`,
+				body: `You're #${e.rank} with ${e.balance} ₡.`,
+				icon: `/bug-${tier}.png`,
 				link: '/app/awards'
 			}).catch(() => {});
 		}
-		await db
-			.insert(leaderboardMedals)
-			.values({ rank: m.rank, userId: newUserId, updatedAt: new Date() })
-			.onConflictDoUpdate({
-				target: leaderboardMedals.rank,
-				set: { userId: newUserId, updatedAt: new Date() }
-			});
 	}
 
-	// Anyone who held a medal before but is off the podium now.
-	for (const uid of prevHolders) {
-		if (!newHolders.has(uid)) {
+	// Dropped off the podium entirely.
+	for (const r of prev) {
+		if (!holders.has(r.userId)) {
 			await createNotification({
-				userId: uid,
+				userId: r.userId,
 				level: 'info',
 				title: 'You lost your leaderboard medal',
 				body: 'Someone edged you off the podium — win it back.',
@@ -394,6 +442,16 @@ export async function refreshLeaderboardMedals(): Promise<void> {
 			}).catch(() => {});
 		}
 	}
+
+	// Replace the stored holder set.
+	await db.transaction(async (tx) => {
+		await tx.delete(leaderboardMedals);
+		if (holders.size > 0) {
+			await tx
+				.insert(leaderboardMedals)
+				.values([...holders].map(([userId, tier]) => ({ userId, tier })));
+		}
+	});
 }
 
 // ---------------------------------------------------------------------------

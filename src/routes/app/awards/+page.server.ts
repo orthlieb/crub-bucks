@@ -2,14 +2,14 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { userBadges } from '$lib/server/db/schema';
 import { computeMetrics } from '$lib/server/badges';
-import { getLeaderboard } from '$lib/server/ledger';
+import { getLeaderboard, getUserRank } from '$lib/server/ledger';
 import { BADGES } from '$lib/badges';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.user!.id;
 
-	const [metrics, earned, leaderboard] = await Promise.all([
+	const [metrics, earned, leaderboard, myRank] = await Promise.all([
 		computeMetrics(userId),
 		db
 			.select({
@@ -19,7 +19,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			})
 			.from(userBadges)
 			.where(eq(userBadges.userId, userId)),
-		getLeaderboard(10)
+		getLeaderboard(10),
+		getUserRank(userId)
 	]);
 
 	const earnedMap = new Map(earned.map((e) => [e.badgeKey, e]));
@@ -46,6 +47,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		earnedCount: earned.length,
 		totalCount: BADGES.length,
 		leaderboard,
-		meId: userId
+		meId: userId,
+		myRank
 	};
 };
