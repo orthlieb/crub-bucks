@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../db';
 import { sportMarkets, sportWagers, notifications, ledgerEntries } from '../db/schema';
 import { resetDb, createUser } from '../../../test/db';
-import { issueFromBank, userBalance } from '../ledger';
+import { issueFromBank, userBalance, establishFriendship } from '../ledger';
 import { getFeed } from '../feed';
 import {
 	openMarketFromEvent,
@@ -12,6 +12,7 @@ import {
 	resolveMarket,
 	voidMarket,
 	poolsBySide,
+	backersBySide,
 	settleDueMarkets,
 	MarketError
 } from './markets';
@@ -67,6 +68,31 @@ describe('openMarketFromEvent', () => {
 		const rows = await db.select().from(sportMarkets);
 		expect(rows).toHaveLength(1);
 		expect(rows[0]).toMatchObject({ status: 'open', sport: 'soccer', homeAbbr: 'HOM' });
+	});
+});
+
+describe('backersBySide', () => {
+	it('reveals the viewer + friends by name and counts strangers anonymously', async () => {
+		const admin = await createUser();
+		const me = await fundedUser(100);
+		const friend = await fundedUser(100);
+		const stranger = await fundedUser(100);
+		await establishFriendship(me.id, friend.id);
+
+		const marketId = await openMarketFromEvent(makeEvent(), admin.id);
+		await placeWager({ marketId, userId: me.id, side: 'home', stake: 30 });
+		await placeWager({ marketId, userId: friend.id, side: 'home', stake: 20 });
+		await placeWager({ marketId, userId: stranger.id, side: 'home', stake: 10 });
+
+		const backers = await backersBySide(marketId, me.id);
+		const home = backers['home'];
+		// Self first, then friend by stake; stranger is anonymous.
+		expect(home.friends.map((f) => f.userId)).toEqual([me.id, friend.id]);
+		expect(home.friends[0].isSelf).toBe(true);
+		expect(home.friends[1].stake).toBe(20);
+		expect(home.otherCount).toBe(1);
+		// A side with no backers is absent.
+		expect(backers['away']).toBeUndefined();
 	});
 });
 

@@ -2,6 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { getFeed } from '$lib/server/sports';
 import {
 	getMarketView,
+	backersBySide,
 	placeWager,
 	cancelWager,
 	MarketError,
@@ -14,9 +15,11 @@ import type { Actions, PageServerLoad } from './$types';
  *  the bet form. Wagering is only open before kickoff. */
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const userId = locals.user!.id;
-	const [market, balance] = await Promise.all([
+	const [market, balance, backers] = await Promise.all([
 		getMarketView(userId, params.id),
-		userBalance(userId)
+		userBalance(userId),
+		// Reveal only the viewer + their friends per side; others stay a count.
+		backersBySide(params.id, userId)
 	]);
 	if (!market) throw error(404, 'Market not found');
 
@@ -38,7 +41,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 	// Wagering is open only before kickoff (the cron settles after the game ends).
 	const bettable = market.status === 'open' && Date.parse(market.startTime) > Date.now();
-	return { market, balance, score, bettable };
+	return { market, balance, score, bettable, backers };
 };
 
 export const actions: Actions = {
