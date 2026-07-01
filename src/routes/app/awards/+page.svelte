@@ -5,13 +5,13 @@
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { formatAmount } from '$lib/format';
 	import { assetUrl } from '$lib/assets';
+	import { tierBug } from '$lib/badges';
 	import { cn } from '$lib/utils';
 
 	let { data }: { data: PageData } = $props();
 
-	// 🥇🥈🥉 for the top three, a plain rank number below that.
-	const MEDALS = ['🥇', '🥈', '🥉'];
-	const rankLabel = (i: number) => MEDALS[i] ?? `${i + 1}`;
+	// Gold/silver/bronze medallion image for the podium; a plain number below.
+	const MEDAL_TIER = ['gold', 'silver', 'bronze'] as const;
 </script>
 
 <div class="space-y-8">
@@ -40,8 +40,16 @@
 						{#each data.leaderboard as entry, i (entry.userId)}
 							{@const me = entry.userId === data.meId}
 							<li class={cn('flex items-center gap-3 px-4 py-3', me && 'bg-accent/60')}>
-								<span class="w-7 shrink-0 text-center text-lg leading-none tabular-nums">
-									{rankLabel(i)}
+								<span class="flex w-7 shrink-0 justify-center">
+									{#if i < 3}
+										<img
+											src={tierBug(MEDAL_TIER[i])}
+											alt={`${MEDAL_TIER[i]} medal`}
+											class="h-6 w-6 object-contain"
+										/>
+									{:else}
+										<span class="text-sm tabular-nums text-muted-foreground">{i + 1}</span>
+									{/if}
 								</span>
 								<Avatar
 									id={entry.userId}

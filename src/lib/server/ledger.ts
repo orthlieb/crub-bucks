@@ -341,9 +341,9 @@ export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
 }
 
 const MEDAL_META = [
-	{ rank: 1, emoji: '🥇', name: 'gold' },
-	{ rank: 2, emoji: '🥈', name: 'silver' },
-	{ rank: 3, emoji: '🥉', name: 'bronze' }
+	{ rank: 1, tier: 'gold', name: 'gold' },
+	{ rank: 2, tier: 'silver', name: 'silver' },
+	{ rank: 3, tier: 'bronze', name: 'bronze' }
 ] as const;
 
 /**
@@ -367,8 +367,9 @@ export async function refreshLeaderboardMedals(): Promise<void> {
 			await createNotification({
 				userId: newUserId,
 				level: 'success',
-				title: `${m.emoji} You're ${m.name} on the leaderboard`,
+				title: `You're ${m.name} on the leaderboard`,
 				body: `You're #${m.rank} with ${entry.balance} ₡.`,
+				icon: `/bug-${m.tier}.png`,
 				link: '/app/awards'
 			}).catch(() => {});
 		}
