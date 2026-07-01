@@ -9,6 +9,7 @@ import {
 	friendships,
 	friendInvites,
 	friendFavorites,
+	leaderboardMedals,
 	users
 } from './db/schema';
 import { sendFriendInviteEmail } from './email';
@@ -295,6 +296,103 @@ export async function userBalancesFor(userIds: string[]): Promise<Map<string, nu
 		.groupBy(wallets.userId);
 	for (const r of rows) if (r.userId) m.set(r.userId, Number(r.balance ?? 0));
 	return m;
+}
+
+// ---------------------------------------------------------------------------
+// Leaderboard — global standings by CB balance, with medal-change alerts
+// ---------------------------------------------------------------------------
+
+export interface LeaderboardEntry {
+	userId: string;
+	displayName: string;
+	balance: number;
+	avatarUpdatedAt: Date | null;
+	avatarIcon: string | null;
+}
+
+/**
+ * Global standings: active users ranked by CB balance (highest first, ties
+ * broken by name). Derived live from the ledger — no cached balances.
+ */
+export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
+	const balance = sql<number>`coalesce(sum(${ledgerEntries.delta}), 0)`;
+	const rows = await db
+		.select({
+			userId: users.id,
+			displayName: users.displayName,
+			avatarUpdatedAt: users.avatarUpdatedAt,
+			avatarIcon: users.avatarIcon,
+			balance
+		})
+		.from(users)
+		.innerJoin(wallets, and(eq(wallets.userId, users.id), eq(wallets.kind, 'user')))
+		.leftJoin(ledgerEntries, eq(ledgerEntries.walletId, wallets.id))
+		.where(eq(users.isActive, true))
+		.groupBy(users.id, users.displayName, users.avatarUpdatedAt, users.avatarIcon)
+		.orderBy(sql`${balance} desc`, users.displayName)
+		.limit(limit);
+	return rows.map((r) => ({
+		userId: r.userId,
+		displayName: r.displayName,
+		balance: Number(r.balance),
+		avatarUpdatedAt: r.avatarUpdatedAt,
+		avatarIcon: r.avatarIcon
+	}));
+}
+
+const MEDAL_META = [
+	{ rank: 1, emoji: '🥇', name: 'gold' },
+	{ rank: 2, emoji: '🥈', name: 'silver' },
+	{ rank: 3, emoji: '🥉', name: 'bronze' }
+] as const;
+
+/**
+ * Recompute the top 3 and, when a medal changes hands, notify the new holder
+ * (and anyone bumped off the podium). Stores the current holders in
+ * `leaderboard_medals` so repeated calls only notify on real changes. Best-
+ * effort and safe to call anytime; driven periodically by the settle cron.
+ */
+export async function refreshLeaderboardMedals(): Promise<void> {
+	const top = await getLeaderboard(3);
+	const prev = await db.select().from(leaderboardMedals);
+	const prevByRank = new Map(prev.map((r) => [r.rank, r.userId]));
+	const prevHolders = new Set(prev.map((r) => r.userId).filter((v): v is string => v !== null));
+	const newHolders = new Set(top.map((e) => e.userId));
+
+	for (const m of MEDAL_META) {
+		const entry = top[m.rank - 1];
+		const newUserId = entry?.userId ?? null;
+		const oldUserId = prevByRank.get(m.rank) ?? null;
+		if (newUserId && newUserId !== oldUserId) {
+			await createNotification({
+				userId: newUserId,
+				level: 'success',
+				title: `${m.emoji} You're ${m.name} on the leaderboard`,
+				body: `You're #${m.rank} with ${entry.balance} ₡.`,
+				link: '/app/awards'
+			}).catch(() => {});
+		}
+		await db
+			.insert(leaderboardMedals)
+			.values({ rank: m.rank, userId: newUserId, updatedAt: new Date() })
+			.onConflictDoUpdate({
+				target: leaderboardMedals.rank,
+				set: { userId: newUserId, updatedAt: new Date() }
+			});
+	}
+
+	// Anyone who held a medal before but is off the podium now.
+	for (const uid of prevHolders) {
+		if (!newHolders.has(uid)) {
+			await createNotification({
+				userId: uid,
+				level: 'info',
+				title: 'You lost your leaderboard medal',
+				body: 'Someone edged you off the podium — win it back.',
+				link: '/app/awards'
+			}).catch(() => {});
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------

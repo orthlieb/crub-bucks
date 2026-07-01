@@ -1,6 +1,7 @@
 import { building } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { settleDueMarkets } from './markets';
+import { refreshLeaderboardMedals } from '../ledger';
 
 /**
  * In-process auto-resolution.
@@ -35,6 +36,9 @@ export function startSettleCron(): void {
 					`[settle-cron] resolved=${s.resolved} voided=${s.voided} skipped=${s.skipped} errors=${s.errors}`
 				);
 			}
+			// Recompute leaderboard medals and alert on any change in gold/silver/
+			// bronze (balances also move via bets/payments between ticks).
+			await refreshLeaderboardMedals();
 		} catch (err) {
 			console.error('[settle-cron] pass failed', err);
 		} finally {
