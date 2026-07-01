@@ -5,6 +5,7 @@
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
+	import Avatar from '$lib/components/Avatar.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -97,11 +98,12 @@
 			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 				{#each sides as side (side)}
 					{@const p = poolFor(m, side)}
-					<div class="flex items-center gap-2 rounded-md border p-3">
+					{@const b = data.backers[side]}
+					<div class="flex items-start gap-2 rounded-md border p-3">
 						{#if sideLogo(m, side)}
-							<img src={sideLogo(m, side)} alt="" class="h-6 w-6 object-contain" />
+							<img src={sideLogo(m, side)} alt="" class="h-6 w-6 shrink-0 object-contain" />
 						{/if}
-						<div class="min-w-0">
+						<div class="min-w-0 flex-1">
 							<div class="font-medium">{sideName(m, side)}</div>
 							<div class="text-xs text-muted-foreground">
 								{p?.total ?? 0} ₡ · {p?.count ?? 0} backer{(p?.count ?? 0) === 1 ? '' : 's'} · {oddsFor(
@@ -109,6 +111,32 @@
 									side
 								)}
 							</div>
+							{#if b && (b.friends.length > 0 || b.otherCount > 0)}
+								<div class="mt-2 flex flex-wrap items-center gap-1.5">
+									{#each b.friends as f (f.userId)}
+										<span
+											class="inline-flex items-center gap-1 rounded-full border bg-background py-0.5 pr-2 pl-0.5 text-xs"
+											title={`${f.isSelf ? 'You' : f.displayName} · ${f.stake} ₡`}
+										>
+											<Avatar
+												id={f.userId}
+												name={f.displayName}
+												avatarUpdatedAt={f.avatarUpdatedAt}
+												avatarIcon={f.avatarIcon}
+												size={18}
+											/>
+											<span class="max-w-24 truncate">{f.isSelf ? 'You' : f.displayName}</span>
+										</span>
+									{/each}
+									{#if b.otherCount > 0}
+										<span class="text-xs text-muted-foreground">
+											{b.friends.length > 0 ? '+ ' : ''}{b.otherCount} other{b.otherCount === 1
+												? ''
+												: 's'}
+										</span>
+									{/if}
+								</div>
+							{/if}
 						</div>
 					</div>
 				{/each}

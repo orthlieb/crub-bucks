@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, lte, or, sql } from 'drizzle-orm';
 import { db } from '../db';
-import { sportMarkets, sportWagers } from '../db/schema';
+import { sportMarkets, sportWagers, users, friendships } from '../db/schema';
 import { transferInTx, getOrCreateUserWallet, userBalance } from '../ledger';
 import { parimutuelDeltas, planSettlement } from '../../ledger-math';
 import { createNotification } from '../notifications';
@@ -437,6 +437,109 @@ export async function getMarketView(userId: string, marketId: string): Promise<M
 	if (!m) return null;
 	const wagers = await db.select().from(sportWagers).where(eq(sportWagers.marketId, marketId));
 	return toMarketView(m, wagers, userId);
+}
+
+/** A backer revealed to the viewer (the viewer themselves, or one of their
+ *  accepted friends), with their total stake on that side. */
+export interface RevealedBacker {
+	userId: string;
+	displayName: string;
+	avatarUpdatedAt: Date | null;
+	avatarIcon: string | null;
+	stake: number;
+	isSelf: boolean;
+}
+
+export interface SideBackers {
+	/** Viewer + friends who backed this side (self first, then by stake). */
+	friends: RevealedBacker[];
+	/** Distinct non-friend backers, kept anonymous. */
+	otherCount: number;
+}
+
+/**
+ * Per-side backers for a market, revealing only the viewer and their accepted
+ * friends by name; everyone else is counted anonymously. Keyed by side; a side
+ * with no backers is simply absent. Multiple wagers by one user on a side are
+ * summed into a single revealed entry.
+ */
+export async function backersBySide(
+	marketId: string,
+	viewerId: string
+): Promise<Record<string, SideBackers>> {
+	const rows = await db
+		.select({
+			side: sportWagers.side,
+			userId: sportWagers.userId,
+			stake: sportWagers.stake,
+			displayName: users.displayName,
+			avatarUpdatedAt: users.avatarUpdatedAt,
+			avatarIcon: users.avatarIcon
+		})
+		.from(sportWagers)
+		.innerJoin(users, eq(users.id, sportWagers.userId))
+		.where(eq(sportWagers.marketId, marketId));
+
+	// The viewer's accepted-friend ids (either direction).
+	const otherId = sql<string>`case when ${friendships.requesterId} = ${viewerId} then ${friendships.addresseeId} else ${friendships.requesterId} end`;
+	const friendRows = await db
+		.select({ id: otherId })
+		.from(friendships)
+		.where(
+			and(
+				eq(friendships.status, 'accepted'),
+				or(eq(friendships.requesterId, viewerId), eq(friendships.addresseeId, viewerId))
+			)
+		);
+	const friendIds = new Set(friendRows.map((r) => r.id));
+
+	// Sum stake per (side, user).
+	const agg = new Map<string, RevealedBacker & { side: string }>();
+	for (const r of rows) {
+		const key = `${r.side}:${r.userId}`;
+		const existing = agg.get(key);
+		if (existing) {
+			existing.stake += r.stake;
+			continue;
+		}
+		agg.set(key, {
+			side: r.side,
+			userId: r.userId,
+			displayName: r.displayName,
+			avatarUpdatedAt: r.avatarUpdatedAt,
+			avatarIcon: r.avatarIcon,
+			stake: r.stake,
+			isSelf: r.userId === viewerId
+		});
+	}
+
+	const bySide: Record<string, SideBackers> = {};
+	const bucket = (side: string) => (bySide[side] ??= { friends: [], otherCount: 0 });
+	for (const a of agg.values()) {
+		const b = bucket(a.side);
+		if (a.isSelf || friendIds.has(a.userId)) {
+			b.friends.push({
+				userId: a.userId,
+				displayName: a.displayName,
+				avatarUpdatedAt: a.avatarUpdatedAt,
+				avatarIcon: a.avatarIcon,
+				stake: a.stake,
+				isSelf: a.isSelf
+			});
+		} else {
+			b.otherCount += 1;
+		}
+	}
+	// Self first, then biggest stake, then name.
+	for (const b of Object.values(bySide)) {
+		b.friends.sort(
+			(x, y) =>
+				Number(y.isSelf) - Number(x.isSelf) ||
+				y.stake - x.stake ||
+				x.displayName.localeCompare(y.displayName)
+		);
+	}
+	return bySide;
 }
 
 // ---------------------------------------------------------------------------
