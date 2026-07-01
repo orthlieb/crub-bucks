@@ -235,17 +235,19 @@ export const friendInvites = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// Leaderboard medals — current holders of the top-3 positions (rank 1=gold,
-// 2=silver, 3=bronze). A tiny state table so medal-change notifications fire
-// only when a medal actually changes hands, not on every balance movement.
-// The leaderboard itself is always derived live from the ledger.
+// Leaderboard medals — the users currently holding a podium medal, one row per
+// holder (ties share a medal, so a tier can have several rows and a tier can be
+// empty). A tiny state table so medal-change notifications fire only when a
+// medal actually changes hands, not on every balance movement. The leaderboard
+// itself is always derived live from the ledger.
 // ---------------------------------------------------------------------------
 
 export const leaderboardMedals = pgTable('leaderboard_medals', {
-	// 1 = gold, 2 = silver, 3 = bronze.
-	rank: integer('rank').primaryKey(),
-	// null when there aren't enough ranked users to fill this medal.
-	userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+	userId: uuid('user_id')
+		.primaryKey()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	// 'gold' | 'silver' | 'bronze' — the tier this user currently holds.
+	tier: text('tier').notNull(),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 });
 
