@@ -100,7 +100,8 @@ suite('notification GC on dismissal', () => {
 		const a = await createUser({ displayName: 'Payer' });
 		const b = await createUser();
 		await grantWelcomeIfNeeded(a.id);
-		await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 10, memo: 'lunch' });
+		// 1000 coins = 10 CB; the notification title displays whole CB ("10 ₡").
+		await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 1000, memo: 'lunch' });
 		const [n] = await db.select().from(notifications).where(eq(notifications.userId, b.id));
 		expect(n?.link).toBe('/app/feed');
 		expect(n?.title).toMatch(/Payer.*10/);
