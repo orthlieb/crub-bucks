@@ -9,6 +9,7 @@ import {
 import { db } from '$lib/server/db';
 import { sportMarkets } from '$lib/server/db/schema';
 import { userBalance } from '$lib/server/ledger';
+import { wholeCbToCoins } from '$lib/money';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -50,7 +51,14 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const eventId = String(form.get('eventId') ?? '');
 		const side = String(form.get('side') ?? '') as WagerSide;
-		const stake = Number(form.get('stake'));
+		// Whole-CB stake → integer coins.
+		const stake = wholeCbToCoins(form.get('stake'));
+		if (stake === null) {
+			return fail(400, {
+				message: 'Stake must be a positive whole number of Crub Bucks.',
+				eventId
+			});
+		}
 
 		const event = await getFeed().getEvent(eventId);
 		if (!event) return fail(404, { message: 'Game not found in the feed', eventId });

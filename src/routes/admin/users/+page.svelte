@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page as pageState } from '$app/state';
+	import { CENTI_PER_CB } from '$lib/money';
 	import type { ActionData, PageData } from './$types';
 	import {
 		Table,
@@ -187,7 +188,7 @@
 										name="balance"
 										type="number"
 										step="1"
-										value={u.balance}
+										value={Math.round(u.balance / CENTI_PER_CB)}
 										aria-label={`Balance for ${u.displayName}`}
 										class="h-8 w-24 text-right tabular-nums"
 										aria-invalid={balanceErrUserId === u.id}

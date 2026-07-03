@@ -3,6 +3,7 @@
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import BetCard, { type BetTone } from '$lib/components/BetCard.svelte';
+	import { formatAmount } from '$lib/format';
 	import { assetUrl } from '$lib/assets';
 
 	let { data }: { data: PageData } = $props();
@@ -48,7 +49,10 @@
 				? 'Draw — wagers pushed (refunded)'
 				: `${sideName(m, m.winningSide)} won`;
 		if (m.phase === 'live') return 'In play';
-		const total = m.pools.reduce((s, p) => s + p.total, 0);
+		const total = formatAmount(
+			m.pools.reduce((s, p) => s + p.total, 0),
+			data.locale
+		);
 		const sidesWithMoney = m.pools.filter((p) => p.total > 0).length;
 		return sidesWithMoney < 2 ? `${total} ₡ — awaiting counter-bets` : `${total} ₡ in the pool`;
 	}

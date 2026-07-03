@@ -249,6 +249,30 @@ describe('resolveMarket', () => {
 		expect(wagers.reduce((s, w) => s + (w.settledDelta ?? 0), 0)).toBe(0);
 	});
 
+	it('splits an indivisible-in-CB pool into partial (coin) payouts', async () => {
+		// Two backers stake 1 CB (100 coins) on away, one stakes 1 CB on home.
+		// Away wins: the 100-coin (1 CB) losing pool splits 50/50 — each away
+		// backer nets +0.50 CB (50 coins), which whole CB alone couldn't express.
+		const admin = await createUser();
+		const a = await fundedUser(1000);
+		const b = await fundedUser(1000);
+		const c = await fundedUser(1000);
+		const marketId = await openMarketFromEvent(makeEvent(), admin.id);
+
+		await placeWager({ marketId, userId: a.id, side: 'away', stake: 100 });
+		await placeWager({ marketId, userId: b.id, side: 'away', stake: 100 });
+		await placeWager({ marketId, userId: c.id, side: 'home', stake: 100 });
+
+		await resolveMarket({ marketId, winningSide: 'away', resolvedBy: admin.id });
+
+		expect(await userBalance(a.id)).toBe(1050); // +50 coins = +0.50 CB
+		expect(await userBalance(b.id)).toBe(1050); // +50 coins = +0.50 CB
+		expect(await userBalance(c.id)).toBe(900); // −100 coins = −1.00 CB
+
+		const wagers = await db.select().from(sportWagers).where(eq(sportWagers.marketId, marketId));
+		expect(wagers.reduce((s, w) => s + (w.settledDelta ?? 0), 0)).toBe(0);
+	});
+
 	it('is a push (no money moves) when nobody backed the winning side', async () => {
 		const admin = await createUser();
 		const a = await fundedUser(100);

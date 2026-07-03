@@ -9,6 +9,7 @@ import {
 	type WagerSide
 } from '$lib/server/sports/markets';
 import { userBalance } from '$lib/server/ledger';
+import { wholeCbToCoins } from '$lib/money';
 import type { Actions, PageServerLoad } from './$types';
 
 /** Sports market detail — pools/odds, your wager, score, and (while bettable)
@@ -48,7 +49,11 @@ export const actions: Actions = {
 	placeWager: async ({ request, locals, params }) => {
 		const form = await request.formData();
 		const side = String(form.get('side') ?? '') as WagerSide;
-		const stake = Number(form.get('stake'));
+		// Users stake whole CB; store as integer coins (1/100 CB).
+		const stake = wholeCbToCoins(form.get('stake'));
+		if (stake === null) {
+			return fail(400, { message: 'Stake must be a positive whole number of Crub Bucks.' });
+		}
 		try {
 			await placeWager({ marketId: params.id, userId: locals.user!.id, side, stake });
 			return { ok: true as const };

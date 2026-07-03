@@ -82,23 +82,25 @@ suite('ledger workflows (DB)', () => {
 			const stmt = await getAccountStatement(a.id);
 			expect(stmt).toHaveLength(3);
 
-			// Newest first: bet win (+20), payment (−30), welcome grant (+100).
+			// Newest first: bet win (+20), payment (−30), welcome grant (+10000 coins
+			// = 100 CB). Amounts are in coins (1/100 CB); the welcome grant is the
+			// only value the migration rescaled.
 			expect(stmt[0].delta).toBe(20);
 			expect(stmt[0].betId).toBe(betId);
 			expect(stmt[0].betTitle).toBe('Ping pong');
 			expect(stmt[0].betIcon).toBe('🏓');
 			expect(stmt[0].counterparty).toBe(b.displayName);
-			expect(stmt[0].balanceAfter).toBe(90);
+			expect(stmt[0].balanceAfter).toBe(9990); // 10000 − 30 + 20
 
 			expect(stmt[1].delta).toBe(-30);
 			expect(stmt[1].betId).toBeNull();
 			expect(stmt[1].memo).toBe('lunch');
 			expect(stmt[1].counterparty).toBe(b.displayName);
-			expect(stmt[1].balanceAfter).toBe(70);
+			expect(stmt[1].balanceAfter).toBe(9970);
 
-			expect(stmt[2].delta).toBe(100);
+			expect(stmt[2].delta).toBe(10000);
 			expect(stmt[2].counterparty).toBe('The Bank');
-			expect(stmt[2].balanceAfter).toBe(100);
+			expect(stmt[2].balanceAfter).toBe(10000);
 
 			// The newest row's running balance equals the current wallet balance.
 			expect(stmt[0].balanceAfter).toBe(await userBalance(a.id));
@@ -107,18 +109,18 @@ suite('ledger workflows (DB)', () => {
 		it('caps at `limit` but keeps running balances accurate over full history', async () => {
 			const a = await createUser();
 			const b = await createUser();
-			await grantWelcomeIfNeeded(a.id); // +100 → 100
+			await grantWelcomeIfNeeded(a.id); // +10000 coins (100 CB)
 			for (let i = 0; i < 6; i++) {
 				await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 1 }); // six −1s
 			}
-			// a now has 7 ledger entries; balance = 100 − 6 = 94.
-			expect(await userBalance(a.id)).toBe(94);
+			// a now has 7 ledger entries; balance = 10000 − 6 = 9994.
+			expect(await userBalance(a.id)).toBe(9994);
 
 			const stmt = await getAccountStatement(a.id, 5);
 			expect(stmt).toHaveLength(5); // capped, even though 7 entries exist
 			expect(stmt.every((s) => s.delta === -1)).toBe(true); // the welcome grant is off-window
 			// Running balance is correct for the window despite older rows being excluded.
-			expect(stmt.map((s) => s.balanceAfter)).toEqual([94, 95, 96, 97, 98]);
+			expect(stmt.map((s) => s.balanceAfter)).toEqual([9994, 9995, 9996, 9997, 9998]);
 			expect(stmt[0].balanceAfter).toBe(await userBalance(a.id));
 		});
 	});
@@ -128,8 +130,8 @@ suite('ledger workflows (DB)', () => {
 			const a = await createUser();
 			const granted = await grantWelcomeIfNeeded(a.id);
 			expect(granted).toBe(true);
-			expect(await userBalance(a.id)).toBe(100);
-			expect(await bankBalance()).toBe(-100);
+			expect(await userBalance(a.id)).toBe(10000); // 100 CB in coins
+			expect(await bankBalance()).toBe(-10000);
 			expect(await assertZeroSum()).toBe(true);
 		});
 
@@ -137,8 +139,8 @@ suite('ledger workflows (DB)', () => {
 			const a = await createUser();
 			expect(await grantWelcomeIfNeeded(a.id)).toBe(true);
 			expect(await grantWelcomeIfNeeded(a.id)).toBe(false);
-			expect(await userBalance(a.id)).toBe(100);
-			expect(await bankBalance()).toBe(-100);
+			expect(await userBalance(a.id)).toBe(10000);
+			expect(await bankBalance()).toBe(-10000);
 		});
 	});
 
@@ -148,7 +150,7 @@ suite('ledger workflows (DB)', () => {
 			const b = await createUser();
 			await grantWelcomeIfNeeded(a.id);
 			await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 30, memo: 'lunch' });
-			expect(await userBalance(a.id)).toBe(70);
+			expect(await userBalance(a.id)).toBe(9970);
 			expect(await userBalance(b.id)).toBe(30);
 			expect(await assertZeroSum()).toBe(true);
 		});
@@ -348,8 +350,8 @@ suite('ledger workflows (DB)', () => {
 			});
 			await goLive(betId, [a.id, b.id], a.id);
 			await resolveBet({ betId, outcomes: { [a.id]: 'won', [b.id]: 'lost' }, resolvedBy: a.id });
-			expect(await userBalance(a.id)).toBe(110);
-			expect(await userBalance(b.id)).toBe(90);
+			expect(await userBalance(a.id)).toBe(10010);
+			expect(await userBalance(b.id)).toBe(9990);
 			expect(await assertZeroSum()).toBe(true);
 		});
 
@@ -439,7 +441,7 @@ suite('ledger workflows (DB)', () => {
 			expect(live.status).toBe('open');
 
 			await resolveBet({ betId, outcomes: { [a.id]: 'won', [b.id]: 'lost' }, resolvedBy: a.id });
-			expect(await userBalance(a.id)).toBe(110);
+			expect(await userBalance(a.id)).toBe(10010);
 			expect(await assertZeroSum()).toBe(true);
 		});
 
@@ -450,8 +452,8 @@ suite('ledger workflows (DB)', () => {
 			const [row] = await db.select().from(bets).where(eq(bets.id, betId));
 			expect(row.status).toBe('cancelled');
 			expect(row.cancelledBy).toBe(b.id);
-			expect(await userBalance(a.id)).toBe(100);
-			expect(await userBalance(b.id)).toBe(100);
+			expect(await userBalance(a.id)).toBe(10000);
+			expect(await userBalance(b.id)).toBe(10000);
 		});
 
 		it('cannot accept or decline a bet that is already live', async () => {
@@ -536,9 +538,9 @@ suite('ledger workflows (DB)', () => {
 			});
 			await goLive(betId, [a.id, b.id, c.id], a.id);
 			await resolveBet({ betId, winnerId: a.id, resolvedBy: a.id });
-			expect(await userBalance(a.id)).toBe(130); // +30
-			expect(await userBalance(b.id)).toBe(85); // -15
-			expect(await userBalance(c.id)).toBe(85); // -15
+			expect(await userBalance(a.id)).toBe(10030); // +30
+			expect(await userBalance(b.id)).toBe(9985); // -15
+			expect(await userBalance(c.id)).toBe(9985); // -15
 			expect(await assertZeroSum()).toBe(true);
 		});
 
@@ -553,9 +555,9 @@ suite('ledger workflows (DB)', () => {
 			});
 			await goLive(betId, [a.id, b.id, c.id], a.id);
 			await resolveBet({ betId, winnerId: a.id, loserId: b.id, resolvedBy: a.id });
-			expect(await userBalance(a.id)).toBe(120); // +20
-			expect(await userBalance(b.id)).toBe(80); // -20
-			expect(await userBalance(c.id)).toBe(100); // unchanged
+			expect(await userBalance(a.id)).toBe(10020); // +20
+			expect(await userBalance(b.id)).toBe(9980); // -20
+			expect(await userBalance(c.id)).toBe(10000); // unchanged
 			expect(await assertZeroSum()).toBe(true);
 		});
 
@@ -571,9 +573,9 @@ suite('ledger workflows (DB)', () => {
 			await goLive(betId, [a.id, b.id, c.id], a.id);
 			// b = first loser (pays least), c = last loser (pays most)
 			await resolveBet({ betId, winnerId: a.id, loserOrder: [b.id, c.id], resolvedBy: a.id });
-			expect(await userBalance(a.id)).toBe(130); // +30
-			expect(await userBalance(b.id)).toBe(90); // -10 (1/3)
-			expect(await userBalance(c.id)).toBe(80); // -20 (2/3)
+			expect(await userBalance(a.id)).toBe(10030); // +30
+			expect(await userBalance(b.id)).toBe(9990); // -10 (1/3)
+			expect(await userBalance(c.id)).toBe(9980); // -20 (2/3)
 			expect(await assertZeroSum()).toBe(true);
 		});
 
@@ -591,9 +593,9 @@ suite('ledger workflows (DB)', () => {
 			await acceptBet({ betId, userId: c.id, stake: 10 }); // all in → goes live
 			// c (the longshot) wins → takes 50 + 20 = 70; a and b lose their wagers.
 			await resolveBet({ betId, winnerId: c.id, resolvedBy: c.id });
-			expect(await userBalance(a.id)).toBe(50); // 100 − 50
-			expect(await userBalance(b.id)).toBe(80); // 100 − 20
-			expect(await userBalance(c.id)).toBe(170); // 100 + 70
+			expect(await userBalance(a.id)).toBe(9950); // 10000 − 50
+			expect(await userBalance(b.id)).toBe(9980); // 10000 − 20
+			expect(await userBalance(c.id)).toBe(10070); // 10000 + 70
 			expect(await assertZeroSum()).toBe(true);
 		});
 
@@ -653,9 +655,9 @@ suite('ledger workflows (DB)', () => {
 				note: 'a & b tied for first',
 				resolvedBy: a.id
 			});
-			expect(await userBalance(a.id)).toBe(115); // +15
-			expect(await userBalance(b.id)).toBe(115); // +15
-			expect(await userBalance(c.id)).toBe(70); // -30
+			expect(await userBalance(a.id)).toBe(10015); // +15
+			expect(await userBalance(b.id)).toBe(10015); // +15
+			expect(await userBalance(c.id)).toBe(9970); // -30
 			expect(await assertZeroSum()).toBe(true);
 		});
 	});
@@ -740,9 +742,9 @@ suite('ledger workflows (DB)', () => {
 				resolvedBy: a.id,
 				winnings: { [a.id]: 100, [b.id]: 50, [c.id]: 0 }
 			});
-			expect(await userBalance(a.id)).toBe(150); // +50
-			expect(await userBalance(b.id)).toBe(100); // 0
-			expect(await userBalance(c.id)).toBe(50); // -50
+			expect(await userBalance(a.id)).toBe(10050); // +50
+			expect(await userBalance(b.id)).toBe(10000); // 0
+			expect(await userBalance(c.id)).toBe(9950); // -50
 			expect(await assertZeroSum()).toBe(true);
 		});
 

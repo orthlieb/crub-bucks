@@ -27,6 +27,8 @@ import {
 	type BetMode,
 	type ParticipantDelta
 } from '../ledger-math';
+import { formatAmount } from '../format';
+import { CENTI_PER_CB } from '../money';
 
 /**
  * The ledger: every economic event in Crub Bucks is a transfer of a positive
@@ -44,6 +46,7 @@ import {
 export class LedgerError extends Error {}
 
 const WELCOME_GRANT_CB = 100;
+const WELCOME_GRANT_COINS = WELCOME_GRANT_CB * CENTI_PER_CB;
 
 /** Max accepted friends per user (abuse limit). Pending/invites don't count. */
 export const MAX_FRIENDS = 99;
@@ -214,7 +217,7 @@ export async function transferBetweenUsers(opts: {
 	await createNotification({
 		userId: opts.toUserId,
 		level: 'success',
-		title: `${payer?.displayName ?? 'Someone'} paid you ${opts.amount} ₡`,
+		title: `${payer?.displayName ?? 'Someone'} paid you ${formatAmount(opts.amount)} ₡`,
 		body: opts.memo ? `“${opts.memo}”` : null,
 		link: '/app/feed'
 	}).catch(() => {});
@@ -423,7 +426,7 @@ export async function refreshLeaderboardMedals(): Promise<void> {
 				userId: e.userId,
 				level: 'success',
 				title: `You're ${tier} on the leaderboard`,
-				body: `You're #${e.rank} with ${e.balance} ₡.`,
+				body: `You're #${e.rank} with ${formatAmount(e.balance)} ₡.`,
 				icon: `/bug-${tier}.png`,
 				link: '/app/awards'
 			}).catch(() => {});
@@ -474,7 +477,7 @@ export async function grantWelcomeIfNeeded(userId: string): Promise<boolean> {
 
 		await issueFromBank({
 			toUserId: userId,
-			amount: WELCOME_GRANT_CB,
+			amount: WELCOME_GRANT_COINS,
 			memo: 'Welcome grant',
 			createdBy: null,
 			tx
@@ -2004,7 +2007,7 @@ export async function resolveBet(opts: {
 			const pool = Number(bet.pool ?? 0);
 			if (won !== pool) {
 				throw new LedgerError(
-					`The winnings must total the ${pool} ₡ pot (you distributed ${won} ₡). For an all-tie wash where no one pays, cancel the bet instead.`
+					`The winnings must total the ${formatAmount(pool)} ₡ pot (you distributed ${formatAmount(won)} ₡). For an all-tie wash where no one pays, cancel the bet instead.`
 				);
 			}
 		} else if (bet.mode === 'custom') {

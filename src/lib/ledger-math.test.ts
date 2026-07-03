@@ -326,6 +326,42 @@ describe('parimutuelDeltas', () => {
 		expect(find(d, 'a') + find(d, 'b')).toBe(30 + 20);
 	});
 
+	// Coins (1/100 CB) exist so a losing pool splits fairly when it wouldn't
+	// divide in whole CB. Two winners staking 1 CB (100 coins) each and one loser
+	// staking 1 CB: the 100-coin losing pool splits 50/50 (0.50 CB each) — instead
+	// of one winner taking the whole indivisible 1 CB.
+	it('splits an indivisible-in-CB pool evenly at coin granularity', () => {
+		const d = parimutuelDeltas(
+			[
+				{ userId: 'a', side: 'away', stake: 100 },
+				{ userId: 'b', side: 'away', stake: 100 },
+				{ userId: 'c', side: 'home', stake: 100 }
+			],
+			'away'
+		);
+		expect(find(d, 'a')).toBe(50); // +0.50 CB
+		expect(find(d, 'b')).toBe(50); // +0.50 CB
+		expect(find(d, 'c')).toBe(-100); // −1.00 CB
+		expect(sum(d)).toBe(0);
+	});
+
+	it('still leaves a single indivisible coin via largest-remainder (3-way tie)', () => {
+		// 100-coin pool over three equal winners: 34 / 33 / 33 (sums to 100).
+		const d = parimutuelDeltas(
+			[
+				{ userId: 'a', side: 'away', stake: 100 },
+				{ userId: 'b', side: 'away', stake: 100 },
+				{ userId: 'c', side: 'away', stake: 100 },
+				{ userId: 'd', side: 'home', stake: 100 }
+			],
+			'away'
+		);
+		const wins = [find(d, 'a'), find(d, 'b'), find(d, 'c')].sort((x, y) => y - x);
+		expect(wins).toEqual([34, 33, 33]);
+		expect(find(d, 'd')).toBe(-100);
+		expect(sum(d)).toBe(0);
+	});
+
 	it('reduces to odds mode when there is a single winner', () => {
 		const wagers = [
 			{ userId: 'a', side: 'home', stake: 50 },

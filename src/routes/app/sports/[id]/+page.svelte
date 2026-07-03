@@ -6,6 +6,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import { formatAmount } from '$lib/format';
+	import { CENTI_PER_CB } from '$lib/money';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -106,17 +108,17 @@
 						<div class="min-w-0 flex-1">
 							<div class="font-medium">{sideName(m, side)}</div>
 							<div class="text-xs text-muted-foreground">
-								{p?.total ?? 0} ₡ · {p?.count ?? 0} backer{(p?.count ?? 0) === 1 ? '' : 's'} · {oddsFor(
-									m,
-									side
-								)}
+								{formatAmount(p?.total ?? 0, data.locale)} ₡ · {p?.count ?? 0} backer{(p?.count ??
+									0) === 1
+									? ''
+									: 's'} · {oddsFor(m, side)}
 							</div>
 							{#if b && (b.friends.length > 0 || b.otherCount > 0)}
 								<div class="mt-2 flex flex-wrap items-center gap-1.5">
 									{#each b.friends as f (f.userId)}
 										<span
 											class="inline-flex items-center gap-1 rounded-full border bg-background py-0.5 pr-2 pl-0.5 text-xs"
-											title={`${f.isSelf ? 'You' : f.displayName} · ${f.stake} ₡`}
+											title={`${f.isSelf ? 'You' : f.displayName} · ${formatAmount(f.stake, data.locale)} ₡`}
 										>
 											<Avatar
 												id={f.userId}
@@ -154,7 +156,7 @@
 		<Card>
 			<CardContent class="py-4 text-sm">
 				Your wager: <span class="font-medium"
-					>{m.myWager.stake} ₡ on {sideName(m, m.myWager.side)}</span
+					>{formatAmount(m.myWager.stake, data.locale)} ₡ on {sideName(m, m.myWager.side)}</span
 				>
 				{#if m.myWager.settledDelta !== null}
 					—
@@ -165,7 +167,10 @@
 								? 'text-destructive'
 								: 'text-muted-foreground'}
 					>
-						{m.myWager.settledDelta > 0 ? '+' : ''}{m.myWager.settledDelta} ₡
+						{m.myWager.settledDelta > 0 ? '+' : ''}{formatAmount(
+							m.myWager.settledDelta,
+							data.locale
+						)} ₡
 					</span>
 				{/if}
 			</CardContent>
@@ -201,9 +206,9 @@
 							type="number"
 							name="stake"
 							min="1"
-							max={data.balance}
+							max={Math.floor(data.balance / CENTI_PER_CB)}
 							step="1"
-							value={m.myWager?.stake ?? ''}
+							value={m.myWager ? m.myWager.stake / CENTI_PER_CB : ''}
 							required
 							class="w-28"
 						/>
