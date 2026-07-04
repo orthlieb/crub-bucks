@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { createBet, getFriends, LedgerError } from '$lib/server/ledger';
 import { checkClean } from '$lib/server/moderation';
+import { wholeCbToCoins } from '$lib/money';
 import type { BetMode } from '$lib/ledger-math';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -46,7 +47,11 @@ export const actions: Actions = {
 			if (mode === 'pot' || mode === 'odds') {
 				// pot: equal buy-in for everyone. odds: the creator's own wager
 				// (each invited player sets theirs on accept). Both use `stake`.
-				const stake = Number(form.get('stake'));
+				// Whole-CB entry → integer coins (1/100 CB).
+				const stake = wholeCbToCoins(form.get('stake'));
+				if (stake === null) {
+					return fail(400, { error: 'Enter a positive whole number of Crub Bucks.', title, icon });
+				}
 				const selected = form.getAll('participantId').map(String).filter(Boolean);
 				const participantIds = Array.from(new Set([userId, ...selected]));
 				betId = await createBet({
@@ -58,7 +63,10 @@ export const actions: Actions = {
 					participantIds
 				});
 			} else {
-				const pool = Number(form.get('amount'));
+				const pool = wholeCbToCoins(form.get('amount'));
+				if (pool === null) {
+					return fail(400, { error: 'Enter a positive whole number of Crub Bucks.', title, icon });
+				}
 				// Creator is always in; plus the friends they checked.
 				const selected = form.getAll('participantId').map(String).filter(Boolean);
 				const participantIds = Array.from(new Set([userId, ...selected]));

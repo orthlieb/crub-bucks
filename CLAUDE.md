@@ -40,7 +40,13 @@ Invariants that must never be broken:
    negative to fund a grant.
 2. **No stored balances.** A balance is the SUM of that wallet's `ledger_entries`.
    Never add a cached `balance` column — derive it.
-3. **Integers only.** All amounts are whole CB. No fractional values anywhere.
+3. **Integers only, denominated in coins (1 CB = 100 coins).** The ledger integer
+   is 1/100 CB — "Crub Coins" (`CENTI_PER_CB` in `src/lib/money.ts`). This is an
+   INTERNAL precision so parimutuel/pot splits divide fairly (a 1 CB pool over two
+   winners is 50 + 50 coins, not 1 + 0). Coins are never a user-facing unit:
+   amounts are ENTERED as whole CB (`wholeCbToCoins` at the form boundary, ×100)
+   and DISPLAYED as CB (`formatAmount`, coins → CB with up to 2 decimals). All
+   settlement math stays whole-integer; the sub-unit is just finer.
 4. **No escrow.** Bets do not hold money while open; CB moves only at resolution
    (or not at all, on cancel).
 

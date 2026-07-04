@@ -20,6 +20,7 @@ import {
 	LedgerError
 } from '$lib/server/ledger';
 import { checkClean } from '$lib/server/moderation';
+import { wholeCbToCoins } from '$lib/money';
 import { getAppUrl } from '$lib/server/email';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -188,7 +189,8 @@ export const actions: Actions = {
 		const userId = locals.user!.id;
 		const form = await request.formData();
 		const toUserId = String(form.get('toUserId') ?? '');
-		const amount = Number(form.get('amount'));
+		// Whole-CB entry → integer coins (1/100 CB).
+		const amount = wholeCbToCoins(form.get('amount'));
 		const memo = String(form.get('memo') ?? '').trim() || null;
 		// Cap at 8 chars to allow multi-codepoint emoji (skin tones, ZWJ) while
 		// preventing prose abuse.
@@ -204,6 +206,12 @@ export const actions: Actions = {
 		if (!memoClean.ok) return fail(400, { payError: memoClean.message, payField: 'memo' });
 		if (!(await areFriends(userId, toUserId))) {
 			return fail(400, { payError: 'You can only pay your friends.' });
+		}
+		if (amount === null) {
+			return fail(400, {
+				payError: 'Enter a positive whole number of Crub Bucks.',
+				payField: 'amount'
+			});
 		}
 
 		try {

@@ -1,18 +1,23 @@
+import { CENTI_PER_CB } from './money';
+
 /**
- * Locale-aware amount formatting for Crub Bucks. The `locale` should be the
- * visitor's locale (derived from the Accept-Language header in the root
- * layout) so server-rendered and client-rendered amounts agree.
+ * Locale-aware amount formatting for Crub Bucks. Input is the internal integer
+ * coin amount (1/100 CB); output is CB. The `locale` should be the visitor's
+ * locale (from the Accept-Language header in the root layout) so server- and
+ * client-rendered amounts agree.
  *
- * CB are whole numbers, so we never show fractional digits; the locale only
- * affects the grouping separator (1,000 in en-US, 1.000 in de-DE, etc.).
+ * Whole CB show no decimals; a coin fraction from a split shows up to 2 (e.g.
+ * 100 → "1", 250 → "2.5", 1234 → "12.34"). The locale affects the grouping
+ * separator (1,000 in en-US, 1.000 in de-DE, etc.).
  */
 
-export function formatAmount(n: number, locale?: string): string {
+export function formatAmount(coins: number, locale?: string): string {
+	const cb = coins / CENTI_PER_CB;
 	try {
-		return n.toLocaleString(locale, { maximumFractionDigits: 0 });
+		return cb.toLocaleString(locale, { maximumFractionDigits: 2 });
 	} catch {
 		// Invalid/unsupported BCP-47 tag → fall back to the runtime default.
-		return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+		return cb.toLocaleString(undefined, { maximumFractionDigits: 2 });
 	}
 }
 

@@ -23,6 +23,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { formatAmount } from '$lib/format';
+	import { CENTI_PER_CB } from '$lib/money';
 	import {
 		evenSplitDeltas,
 		winnerLoserDeltas,
@@ -167,19 +168,24 @@
 	function manualSigned(userId: string): number {
 		return (manualSign[userId] ?? 1) * (Number(manualMag[userId]) || 0);
 	}
-	const manualSum = $derived(data.participants.reduce((s, p) => s + manualSigned(p.userId), 0));
+	// Users type whole CB; the ledger works in coins (1/100 CB), so scale the
+	// entered magnitudes to coins for the balance checks + displays (which use
+	// fmt = coins→CB). The hidden field still posts the raw CB value.
+	const manualSum = $derived(
+		data.participants.reduce((s, p) => s + manualSigned(p.userId), 0) * CENTI_PER_CB
+	);
 	const manualWon = $derived(
 		data.participants.reduce((s, p) => {
 			const v = manualSigned(p.userId);
 			return s + (v > 0 ? v : 0);
-		}, 0)
+		}, 0) * CENTI_PER_CB
 	);
 	const manualValid = $derived(manualSum === 0 && manualWon === pool);
 
 	// --- pot mode -------------------------------------------------------------
 	let winnings = $state<Record<string, number>>({});
 	const winningsTotal = $derived(
-		data.participants.reduce((s, p) => s + (Number(winnings[p.userId]) || 0), 0)
+		data.participants.reduce((s, p) => s + (Number(winnings[p.userId]) || 0) * CENTI_PER_CB, 0)
 	);
 	const potTotal = $derived(Number(data.bet.pool ?? 0));
 	const potRemaining = $derived(potTotal - winningsTotal);
@@ -564,7 +570,7 @@
 							<div class="space-y-1">
 								{#each data.participants as p (p.userId)}
 									{@const bi = Number(p.boughtIn ?? 0)}
-									{@const w = Number(winnings[p.userId] ?? 0)}
+									{@const w = Number(winnings[p.userId] ?? 0) * CENTI_PER_CB}
 									{@const net = (Number.isFinite(w) ? w : 0) - bi}
 									<div class="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm">
 										<div class="flex-1">
@@ -804,7 +810,7 @@
 							<strong
 								class="tabular-nums {manualWon === pool ? 'text-success' : 'text-destructive'}"
 							>
-								{manualWon}
+								{fmt(manualWon)}
 							</strong>
 							/ {fmt(pool)} ₡{#if manualWon !== pool}<span class="text-muted-foreground">
 									— must total the pot</span
@@ -813,7 +819,7 @@
 						<div>
 							Balance:
 							<strong class="tabular-nums {manualSum === 0 ? 'text-success' : 'text-destructive'}">
-								{manualSum}
+								{fmt(manualSum)}
 							</strong>
 							₡{#if manualSum !== 0}<span class="text-muted-foreground"> — must net 0</span>{/if}
 						</div>

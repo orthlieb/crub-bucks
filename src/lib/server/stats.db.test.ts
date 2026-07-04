@@ -46,7 +46,7 @@ suite('global stats counters', () => {
 
 	it('welcome grants drive bankTotal negative', async () => {
 		await friends(); // two 100 ₡ grants from the Bank
-		expect((await getStats()).bankTotal).toBe(-200);
+		expect((await getStats()).bankTotal).toBe(-20000);
 	});
 
 	it('tracks open / resolved / wagered across the bet lifecycle', async () => {

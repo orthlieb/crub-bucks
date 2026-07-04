@@ -70,7 +70,7 @@ suite('badges (DB)', () => {
 
 	it('awards bronze badges from resolved-bet history', async () => {
 		const { a, b } = await makeFriends();
-		for (let i = 0; i < 5; i++) await playResolvedBet(a.id, b.id, a.id, 20);
+		for (let i = 0; i < 5; i++) await playResolvedBet(a.id, b.id, a.id, 2000);
 
 		const aBadges = new Map(
 			(await db.select().from(userBadges).where(eq(userBadges.userId, a.id))).map((x) => [
@@ -80,7 +80,7 @@ suite('badges (DB)', () => {
 		);
 		expect(aBadges.get('first_steps')).toBe('bronze'); // 5 bets joined
 		expect(aBadges.get('winner')).toBe('bronze'); // 5 wins
-		expect(aBadges.get('all_in')).toBe('bronze'); // 5 × 20 = 100 ₡
+		expect(aBadges.get('all_in')).toBe('bronze'); // 5 × 2000 coins → 100 ₡
 
 		const bBadges = new Map(
 			(await db.select().from(userBadges).where(eq(userBadges.userId, b.id))).map((x) => [
@@ -151,9 +151,9 @@ suite('badges (DB)', () => {
 	it('max_pot = the largest single pool the user was in', async () => {
 		const { a, b } = await makeFriends();
 		await grantWelcomeIfNeeded(a.id);
-		await playPooledBet(a.id, b.id, a.id, 80);
-		await playPooledBet(a.id, b.id, a.id, 300);
-		await playPooledBet(a.id, b.id, a.id, 120);
+		await playPooledBet(a.id, b.id, a.id, 8000);
+		await playPooledBet(a.id, b.id, a.id, 30000);
+		await playPooledBet(a.id, b.id, a.id, 12000);
 
 		expect((await computeMetrics(a.id)).max_pot).toBe(300);
 
@@ -229,11 +229,11 @@ suite('badges (DB)', () => {
 
 	it('cb_sent (Throwing Bones) sums peer payments the user sent, not received', async () => {
 		const { a, b } = await makeFriends(); // each holds the 100 ₡ welcome grant
-		await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 30 });
-		await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 70 });
-		await transferBetweenUsers({ fromUserId: b.id, toUserId: a.id, amount: 10 });
+		await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 3000 });
+		await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 7000 });
+		await transferBetweenUsers({ fromUserId: b.id, toUserId: a.id, amount: 1000 });
 
-		// a sent 100 (30 + 70); receiving b's 10 doesn't count toward a.
+		// a sent 100 ₡ (3000 + 7000 coins); receiving b's 1000 back doesn't count toward a.
 		expect((await computeMetrics(a.id)).cb_sent).toBe(100);
 		expect((await computeMetrics(b.id)).cb_sent).toBe(10);
 

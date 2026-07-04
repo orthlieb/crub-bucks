@@ -13,6 +13,7 @@ import {
 	LedgerError
 } from '$lib/server/ledger';
 import { checkClean } from '$lib/server/moderation';
+import { wholeCbToCoins, CENTI_PER_CB } from '$lib/money';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -97,11 +98,14 @@ export const actions: Actions = {
 				const v = String(value);
 				if (v === 'won' || v === 'lost') outcomes[m[1]] = v;
 			}
+			// Users enter whole CB; store as integer coins (1/100 CB). Round to guard
+			// against float error (1.1 * 100 !== 110 exactly); a true sub-coin value
+			// then fails the ledger's integer check.
 			const w = /^winnings\[(.+)\]$/.exec(key);
-			if (w) winnings[w[1]] = Number(value);
+			if (w) winnings[w[1]] = Math.round(Number(value) * CENTI_PER_CB);
 			const mm = /^manual\[(.+)\]$/.exec(key);
 			if (mm) {
-				manualRaw[mm[1]] = Number(value);
+				manualRaw[mm[1]] = Math.round(Number(value) * CENTI_PER_CB);
 				hasManual = true;
 			}
 		}
@@ -131,7 +135,10 @@ export const actions: Actions = {
 		if (!(await isBetParticipant(betId, userId))) throw error(403, 'Not a participant');
 
 		const form = await request.formData();
-		const amount = Number(form.get('amount'));
+		const amount = wholeCbToCoins(form.get('amount'));
+		if (amount === null) {
+			return fail(400, { error: 'Enter a positive whole number of Crub Bucks.' });
+		}
 		try {
 			await rebuy({ betId, userId, amount, requestedBy: userId });
 		} catch (e) {
@@ -163,7 +170,14 @@ export const actions: Actions = {
 		// Odds bets carry the accepting player's own wager; other modes ignore it.
 		const form = await request.formData();
 		const stakeRaw = form.get('stake');
-		const stake = stakeRaw != null && String(stakeRaw).trim() !== '' ? Number(stakeRaw) : undefined;
+		let stake: number | undefined;
+		if (stakeRaw != null && String(stakeRaw).trim() !== '') {
+			const coins = wholeCbToCoins(stakeRaw); // whole CB → integer coins
+			if (coins === null) {
+				return fail(400, { error: 'Enter a positive whole number of Crub Bucks.' });
+			}
+			stake = coins;
+		}
 
 		try {
 			await acceptBet({ betId, userId, stake });

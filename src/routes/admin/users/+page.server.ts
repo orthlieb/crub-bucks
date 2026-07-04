@@ -6,6 +6,7 @@ import { invalidateAllSessionsForUser } from '$lib/server/auth/session';
 import { logSecurityEvent } from '$lib/server/auth/audit';
 import { validateDisplayName } from '$lib/server/display-name';
 import { adminSetBalance, userBalancesFor, LedgerError } from '$lib/server/ledger';
+import { CENTI_PER_CB } from '$lib/money';
 import type { Actions, PageServerLoad } from './$types';
 
 const PAGE_SIZE = 25;
@@ -190,7 +191,8 @@ export const actions: Actions = {
 			result = await adminSetBalance({
 				adminId: event.locals.user!.id,
 				userId: id,
-				target: Number(raw)
+				// Admin enters a whole-CB target; the ledger stores integer coins.
+				target: Number(raw) * CENTI_PER_CB
 			});
 		} catch (e) {
 			if (e instanceof LedgerError)

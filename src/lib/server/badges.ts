@@ -10,6 +10,7 @@ import {
 	wallets
 } from './db/schema';
 import { createNotification } from './notifications';
+import { CENTI_PER_CB } from '../money';
 import {
 	BADGES,
 	tierFor,
@@ -106,15 +107,20 @@ export async function computeMetrics(userId: string): Promise<Record<MetricKey, 
 			)
 		);
 
+	// Money metrics are aggregated in coins (1/100 CB) but badge thresholds are
+	// defined in whole CB, so convert here (floored) — the badge domain stays in
+	// CB and the ledger stays in coins, meeting at this one boundary.
+	const toCb = (coins: number) => Math.floor(coins / CENTI_PER_CB);
+
 	return {
 		bets_joined: betsJoined,
 		bets_won: betsWon,
-		cb_wagered: cbWagered,
-		max_pot: maxPot,
+		cb_wagered: toCb(cbWagered),
+		max_pot: toCb(maxPot),
 		win_streak: winStreak,
 		bets_settled: Number(settled?.n ?? 0),
 		friends: Number(friends?.n ?? 0),
-		cb_sent: Number(sent?.total ?? 0)
+		cb_sent: toCb(Number(sent?.total ?? 0))
 	};
 }
 

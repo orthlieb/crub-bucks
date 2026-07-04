@@ -5,6 +5,7 @@ import { transferInTx, getOrCreateUserWallet, userBalance } from '../ledger';
 import { parimutuelDeltas, planSettlement } from '../../ledger-math';
 import { createNotification } from '../notifications';
 import { getFeed } from './index';
+import { formatAmount } from '../../format';
 import type { FeedAdapter, FeedEvent } from './types';
 
 type MarketRow = typeof sportMarkets.$inferSelect;
@@ -567,7 +568,7 @@ async function notifyResolved(m: MarketRow, deltas: { userId: string; delta: num
 			userId: d.userId,
 			level: won ? 'success' : 'info',
 			title: won ? 'You won a sports bet' : 'Sports bet settled',
-			body: `${won ? '+' : '-'}${Math.abs(d.delta)} CB on ${matchup}`,
+			body: `${won ? '+' : '-'}${formatAmount(Math.abs(d.delta))} CB on ${matchup}`,
 			link: '/app/sports'
 		}).catch(() => {});
 	}

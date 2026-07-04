@@ -7,6 +7,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import BetCard from '$lib/components/BetCard.svelte';
 	import { leagueColor } from '$lib/sports/colors';
+	import { CENTI_PER_CB } from '$lib/money';
 	import { cn } from '$lib/utils';
 	import Search from '@lucide/svelte/icons/search';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
@@ -289,7 +290,7 @@
 									type="number"
 									name="stake"
 									min="1"
-									max={data.balance}
+									max={Math.floor(data.balance / CENTI_PER_CB)}
 									step="1"
 									required
 									class="w-28"
