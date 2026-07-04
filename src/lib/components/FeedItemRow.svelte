@@ -95,6 +95,21 @@
 				: null
 	);
 
+	// CB figure shown before the title: bet total (created/resolved/cancelled) or
+	// the payment amount. Badges and settled-sports items carry no single amount.
+	const amount = $derived.by(() => {
+		switch (item.type) {
+			case 'bet_created':
+			case 'bet_resolved':
+			case 'bet_cancelled':
+				return item.amount; // number | null (null hides the line)
+			case 'payment':
+				return item.amount;
+			default:
+				return null;
+		}
+	});
+
 	// Standardised body shared with the dashboard: title, amount, comment, date.
 	const title = $derived.by(() => {
 		if (item.type === 'payment') return `${item.from.name} paid ${item.to.name}`;
@@ -180,6 +195,7 @@
 	{label}
 	{tone}
 	{title}
+	{amount}
 	comment={item.type === 'badge_earned'
 		? tierBugComment
 		: item.type === 'sports_settled'
