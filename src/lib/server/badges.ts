@@ -10,10 +10,13 @@ import {
 	wallets
 } from './db/schema';
 import { createNotification } from './notifications';
+import { issueFromBank } from './ledger';
 import { CENTI_PER_CB } from '../money';
+import { formatAmount } from '../format';
 import {
 	BADGES,
 	tierFor,
+	tierAwardDeltaCb,
 	TIER_RANK,
 	TIER_LABEL,
 	badgeIcon,
@@ -143,6 +146,8 @@ interface AwardedBadge {
 	title: string;
 	emoji: string;
 	tier: BadgeTier;
+	/** CB the Bank paid for this award (delta from the previously-held tier). */
+	awardCb: number;
 }
 
 /**
@@ -178,7 +183,25 @@ export async function evaluateBadges(
 				target: [userBadges.userId, userBadges.badgeKey],
 				set: { tier: desired, earnedAt: new Date(), metricValue: value }
 			});
-		awarded.push({ key: def.key, title: def.title, emoji: def.emoji, tier: desired });
+
+		// Bank pays the delta from the previously-held tier (forward-only, so this
+		// is always positive). Skipped on silent backfills — "no back pay". Best-
+		// effort like the welcome grant: a failed grant doesn't un-earn the badge,
+		// which is already recorded above.
+		const awardCb = opts.silent ? 0 : tierAwardDeltaCb(desired, have ?? null);
+		if (awardCb > 0) {
+			try {
+				await issueFromBank({
+					toUserId: userId,
+					amount: awardCb * CENTI_PER_CB,
+					memo: `${TIER_LABEL[desired]} badge: ${def.title}`,
+					createdBy: null
+				});
+			} catch (err) {
+				console.warn('[badges] award grant failed:', err);
+			}
+		}
+		awarded.push({ key: def.key, title: def.title, emoji: def.emoji, tier: desired, awardCb });
 	}
 
 	if (awarded.length > 0 && !opts.silent) {
@@ -204,12 +227,15 @@ async function notifyAwards(userId: string, awarded: AwardedBadge[]): Promise<vo
 		// of a medal emoji. The in-app banner falls back if the file is missing.
 		const icon = badgeIcon(a.key, a.tier);
 
-		// The earner — celebratory, links to their wall.
+		// The earner — celebratory, links to their wall. Mention the Bank award.
 		await createNotification({
 			userId,
 			level: 'success',
 			title: `You earned ${tierLabel} “${a.title}”`,
-			body: 'Nice — see it on your Awards wall.',
+			body:
+				a.awardCb > 0
+					? `The Bank paid you ${formatAmount(a.awardCb * CENTI_PER_CB)} ₡. See it on your Awards wall.`
+					: 'Nice — see it on your Awards wall.',
 			link: '/app/awards',
 			icon
 		}).catch(() => {});

@@ -5,6 +5,7 @@
 		badgeSilhouette,
 		howToEarn,
 		nextTier,
+		tierAwardDeltaCb,
 		tiersOf,
 		TIER_COLOR,
 		TIER_LABEL,
@@ -40,7 +41,13 @@
 	const displayTier: BadgeTier = $derived(badge.earnedTier ?? lockedBaseTier);
 	const next = $derived(def ? nextTier(def, badge.earnedTier) : null);
 	const nextThreshold = $derived(next ? (badge.thresholds[next] ?? null) : null);
+	// CB the Bank pays on reaching the next tier (delta from the current tier).
+	const nextPayoutCb = $derived(next ? tierAwardDeltaCb(next, badge.earnedTier) : 0);
 	const howTo = $derived(def ? howToEarn(def) : '');
+	// Tooltip: how to earn + what the next tier pays out.
+	const tip = $derived(
+		next ? `${howTo} Reach ${TIER_LABEL[next]} for +${nextPayoutCb} ₡ from the Bank.` : howTo
+	);
 
 	// Art resolution: prefer the single tintable silhouette (<slug>.svg), fall
 	// back to per-tier PNGs, then to the emoji.
@@ -75,7 +82,7 @@
 		'flex h-full flex-col items-center rounded-lg border bg-card p-4 text-center shadow-sm',
 		locked && 'opacity-95'
 	)}
-	use:tooltip={howTo}
+	use:tooltip={tip}
 >
 	{#if !svgFailed}
 		<!-- SVG silhouette: tier colour when earned, light purple when locked. -->
@@ -126,6 +133,7 @@
 			<div class="mt-1 text-[11px] text-muted-foreground">
 				{badge.value} / {nextThreshold}
 				{METRIC_UNIT[badge.metric]} → {TIER_LABEL[next]}
+				<span class="text-primary">+{nextPayoutCb} ₡</span>
 			</div>
 		{:else if badge.earnedTier}
 			<div class="text-[11px] font-medium text-primary">Maxed out 🎉</div>

@@ -22,6 +22,16 @@ export const TIER_EMOJI: Record<BadgeTier, string> = {
 	gold: '🥇'
 };
 
+// CB the Bank pays for reaching each tier — CUMULATIVE, so an award pays the
+// DELTA from the previously-held tier (e.g. bronze→gold pays 100−10 = 90).
+// Reaching gold on a badge is always worth 100 CB total, regardless of path.
+export const TIER_AWARD_CB: Record<BadgeTier, number> = { bronze: 10, silver: 50, gold: 100 };
+
+/** CB the Bank pays to move from `from` (or none) up to `to` — the delta. */
+export function tierAwardDeltaCb(to: BadgeTier, from: BadgeTier | null): number {
+	return TIER_AWARD_CB[to] - (from ? TIER_AWARD_CB[from] : 0);
+}
+
 /** Lifetime, monotonic metrics the current badges read. */
 export type MetricKey =
 	| 'bets_joined'
