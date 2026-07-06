@@ -7,7 +7,10 @@ import {
 	resolveBet,
 	acceptBet,
 	grantWelcomeIfNeeded,
-	transferBetweenUsers
+	transferBetweenUsers,
+	userBalance,
+	bankBalance,
+	assertZeroSum
 } from '$lib/server/ledger';
 import { evaluateBadges, computeMetrics } from '$lib/server/badges';
 import { hasTestDb, resetDb, createUser } from '../../test/db';
@@ -244,5 +247,20 @@ suite('badges (DB)', () => {
 			.from(userBadges)
 			.where(and(eq(userBadges.userId, a.id), eq(userBadges.badgeKey, 'throwing_bones')));
 		expect(tb.tier).toBe('bronze');
+	});
+
+	it('pays a Bank award (the tier delta) when a badge is earned, staying zero-sum', async () => {
+		const { a, b } = await makeFriends(); // a holds 10000 coins (100 CB) welcome
+		const bankBefore = await bankBalance();
+
+		// a sends 100 CB (10000 coins) → earns Throwing Bones bronze; the transfer
+		// auto-evaluates badges, so the Bank pays the +10 CB (1000-coin) award.
+		await transferBetweenUsers({ fromUserId: a.id, toUserId: b.id, amount: 10000 });
+
+		// a: 10000 welcome − 10000 sent + 1000 bronze award = 1000.
+		expect(await userBalance(a.id)).toBe(1000);
+		// The Bank funded the 1000-coin award (went that much more negative).
+		expect(await bankBalance()).toBe(bankBefore - 1000);
+		expect(await assertZeroSum()).toBe(true);
 	});
 });
