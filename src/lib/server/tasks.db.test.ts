@@ -7,9 +7,11 @@ import { establishFriendship, userBalance, assertZeroSum } from './ledger';
 import {
 	createTask,
 	claimTask,
+	releaseTask,
 	submitTask,
 	approveTask,
 	rejectTask,
+	archiveTask,
 	listTasksForUser,
 	TaskError
 } from './tasks';
@@ -126,5 +128,159 @@ describe('tasks', () => {
 		forTaskee = await listTasksForUser(taskee.id);
 		expect(forTaskee.available).toHaveLength(0);
 		expect(forTaskee.doing.map((t) => t.id)).toContain(id);
+	});
+});
+
+describe('tasks — guards & edge cases', () => {
+	it('rejects an empty title or a non-positive price', async () => {
+		const a = await createUser();
+		await expect(
+			createTask({ creatorId: a.id, title: '   ', price: 500, recurring: false })
+		).rejects.toBeInstanceOf(TaskError);
+		await expect(
+			createTask({ creatorId: a.id, title: 'X', price: 0, recurring: false })
+		).rejects.toBeInstanceOf(TaskError);
+	});
+
+	it('clears the cadence on a one-time task', async () => {
+		const a = await createUser();
+		const id = await createTask({
+			creatorId: a.id,
+			title: 'One',
+			price: 100,
+			recurring: false,
+			cadence: 'daily'
+		});
+		const [t] = await db.select().from(tasks).where(eq(tasks.id, id));
+		expect(t.recurring).toBe(false);
+		expect(t.cadence).toBeNull();
+	});
+
+	it('a second friend cannot claim an already-claimed task', async () => {
+		const { creator, taskee } = await pair();
+		const other = await createUser();
+		await establishFriendship(creator.id, other.id);
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'T',
+			price: 200,
+			recurring: false
+		});
+		await claimTask(id, taskee.id);
+		await expect(claimTask(id, other.id)).rejects.toBeInstanceOf(TaskError);
+	});
+
+	it('only the claimer can submit, and only a claimed task', async () => {
+		const { creator, taskee } = await pair();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'T',
+			price: 200,
+			recurring: false
+		});
+		await expect(submitTask(id, taskee.id)).rejects.toBeInstanceOf(TaskError); // not claimed
+		await claimTask(id, taskee.id);
+		await expect(submitTask(id, creator.id)).rejects.toBeInstanceOf(TaskError); // not the claimer
+		await submitTask(id, taskee.id);
+	});
+
+	it('only the creator approves, and only a submitted task', async () => {
+		const { creator, taskee } = await pair();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'T',
+			price: 200,
+			recurring: false
+		});
+		await claimTask(id, taskee.id);
+		await expect(approveTask(id, creator.id)).rejects.toBeInstanceOf(TaskError); // not submitted
+		await submitTask(id, taskee.id);
+		await expect(approveTask(id, taskee.id)).rejects.toBeInstanceOf(TaskError); // not the creator
+		await approveTask(id, creator.id);
+		expect(await userBalance(taskee.id)).toBe(200);
+	});
+
+	it('the claimer can release back to open; a non-claimer cannot', async () => {
+		const { creator, taskee } = await pair();
+		const other = await createUser();
+		await establishFriendship(creator.id, other.id);
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'T',
+			price: 200,
+			recurring: false
+		});
+		await claimTask(id, taskee.id);
+		await expect(releaseTask(id, other.id)).rejects.toBeInstanceOf(TaskError);
+		await releaseTask(id, taskee.id);
+		const [t] = await db.select().from(tasks).where(eq(tasks.id, id));
+		expect(t.status).toBe('open');
+		expect(t.claimedBy).toBeNull();
+		await claimTask(id, other.id); // free to claim again
+	});
+
+	it('the creator can archive a task; others cannot, and it leaves the lists', async () => {
+		const { creator, taskee } = await pair();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'T',
+			price: 200,
+			recurring: false
+		});
+		await expect(archiveTask(id, taskee.id)).rejects.toBeInstanceOf(TaskError);
+		await archiveTask(id, creator.id);
+		const [t] = await db.select().from(tasks).where(eq(tasks.id, id));
+		expect(t.status).toBe('archived');
+		expect((await listTasksForUser(taskee.id)).available.map((x) => x.id)).not.toContain(id);
+		expect((await listTasksForUser(creator.id)).posted.map((x) => x.id)).not.toContain(id);
+	});
+
+	it('a non-friend never sees an open task as available', async () => {
+		const creator = await createUser();
+		const stranger = await createUser();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'T',
+			price: 200,
+			recurring: false
+		});
+		const lists = await listTasksForUser(stranger.id);
+		expect(lists.available.map((x) => x.id)).not.toContain(id);
+	});
+
+	it('a recurring task pays each cycle and records a completion per approval', async () => {
+		const { creator, taskee } = await pair();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'Dishes',
+			price: 300,
+			recurring: true
+		});
+		for (let i = 0; i < 2; i++) {
+			await claimTask(id, taskee.id);
+			await submitTask(id, taskee.id);
+			await approveTask(id, creator.id);
+		}
+		expect(await userBalance(taskee.id)).toBe(600);
+		expect(await userBalance(creator.id)).toBe(-600);
+		const comps = await db.select().from(taskCompletions).where(eq(taskCompletions.taskId, id));
+		expect(comps).toHaveLength(2);
+		expect(comps.every((c) => c.approved && c.price === 300)).toBe(true);
+	});
+
+	it('a completed one-time task cannot be claimed again', async () => {
+		const { creator, taskee } = await pair();
+		const other = await createUser();
+		await establishFriendship(creator.id, other.id);
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'T',
+			price: 200,
+			recurring: false
+		});
+		await claimTask(id, taskee.id);
+		await submitTask(id, taskee.id);
+		await approveTask(id, creator.id);
+		await expect(claimTask(id, other.id)).rejects.toBeInstanceOf(TaskError);
 	});
 });
