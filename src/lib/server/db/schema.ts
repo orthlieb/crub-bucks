@@ -75,6 +75,21 @@ export const sportMarketStatusEnum = pgEnum('sport_market_status', [
 	'void'
 ]);
 
+// Chore/task marketplace lifecycle:
+//   open      — posted, available for a friend to claim
+//   claimed   — a friend has taken it on (not yet done)
+//   submitted — the claimer marked it done; awaiting the creator's approval
+//   done      — a one-time task was approved & paid (terminal)
+//   archived  — the creator retired it (terminal)
+// A recurring task never reaches 'done' — on approval it returns to 'open'.
+export const taskStatusEnum = pgEnum('task_status', [
+	'open',
+	'claimed',
+	'submitted',
+	'done',
+	'archived'
+]);
+
 // ---------------------------------------------------------------------------
 // Users + sessions
 // ---------------------------------------------------------------------------
@@ -250,6 +265,66 @@ export const leaderboardMedals = pgTable('leaderboard_medals', {
 	tier: text('tier').notNull(),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 });
+
+// ---------------------------------------------------------------------------
+// Tasks (chore marketplace)
+// A creator posts a task with a CB price; any of their friends can CLAIM it,
+// then mark it DONE (submitted); the creator APPROVES, which pays the price
+// creator → claimer via the normal ledger (no escrow — CB moves only on
+// approval). One-time tasks archive after one approval; recurring tasks return
+// to 'open' to be done again. `task_completions` records each resolution.
+// ---------------------------------------------------------------------------
+
+export const tasks = pgTable(
+	'tasks',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		creatorId: uuid('creator_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		title: text('title').notNull(),
+		notes: text('notes'),
+		// Reward in coins (1/100 CB). Paid creator → claimer on approval.
+		price: bigint('price', { mode: 'number' }).notNull(),
+		// false = one-time (archives after approval); true = repeatable.
+		recurring: boolean('recurring').notNull().default(false),
+		// Optional display-only cadence for recurring tasks: 'daily' | 'weekly' | 'monthly'.
+		cadence: text('cadence'),
+		status: taskStatusEnum('status').notNull().default('open'),
+		// The friend currently doing it (null when open/archived/done).
+		claimedBy: uuid('claimed_by').references(() => users.id, { onDelete: 'set null' }),
+		claimedAt: timestamp('claimed_at', { withTimezone: true }),
+		submittedAt: timestamp('submitted_at', { withTimezone: true }),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => ({
+		creatorIdx: index('tasks_creator_idx').on(t.creatorId),
+		statusIdx: index('tasks_status_idx').on(t.status),
+		claimedByIdx: index('tasks_claimed_by_idx').on(t.claimedBy)
+	})
+);
+
+export const taskCompletions = pgTable(
+	'task_completions',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		taskId: uuid('task_id')
+			.notNull()
+			.references(() => tasks.id, { onDelete: 'cascade' }),
+		taskeeId: uuid('taskee_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		// Coins snapshot at resolution (the task price may change later).
+		price: bigint('price', { mode: 'number' }).notNull(),
+		// true = approved (paid); false = rejected.
+		approved: boolean('approved').notNull(),
+		resolvedAt: timestamp('resolved_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => ({
+		taskIdx: index('task_completions_task_idx').on(t.taskId),
+		taskeeIdx: index('task_completions_taskee_idx').on(t.taskeeId)
+	})
+);
 
 // ---------------------------------------------------------------------------
 // Wallets (global) — one per user, plus a single system-wide Bank
