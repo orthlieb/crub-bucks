@@ -253,6 +253,13 @@
       "when": 1783120956529,
       "tag": "0035_coins_x100",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1783793336506,
+      "tag": "0036_abandoned_nomad",
+      "breakpoints": true
     }
   ]
 }

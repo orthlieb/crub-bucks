@@ -118,7 +118,7 @@
 		{ href: '/app', label: 'Bets', exact: true },
 		{ href: '/app/feed', label: 'Feed' },
 		{ href: '/app/friends', label: 'Friends' },
-		{ href: '/app/sports', label: 'Sports' },
+		{ href: '/app/tasks', label: 'Tasks' },
 		{ href: '/app/awards', label: 'Awards' },
 		{ href: '/app/account', label: 'Account' }
 	];

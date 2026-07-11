@@ -149,17 +149,13 @@
 
 				<Card>
 					<CardHeader>
-						<CardTitle level={2}>Bet on real sports</CardTitle>
+						<CardTitle level={2}>Earn CB for chores</CardTitle>
 					</CardHeader>
 					<CardContent class="text-muted-foreground">
-						Back real games across soccer (World Cup, Premier League, Champions League, MLS),
-						baseball, football (NFL, college, CFL), basketball (NBA, WNBA, college), hockey, tennis,
-						and UFC — pulled from a live feed. The pools are parimutuel: your first wager opens the
-						market, friends take the other side, and when the game ends the winners split the
-						losers' pool in proportion to their stake (the odds shift as money comes in). A draw —
-						or a game nobody counter-bets — simply pushes, and everyone gets refunded. Results
-						settle automatically from the feed. It's the same closed CB ledger: no real money, no
-						bookmaker.
+						Post tasks — one-time or recurring — with a Crub Bucks reward: take out the trash, walk
+						the dog, unload the dishwasher. A family member claims a task, does it, and marks it
+						done; once you approve, the reward moves from your wallet to theirs. It's the same
+						closed CB ledger, so chores turn into a friendly little economy.
 					</CardContent>
 				</Card>
 

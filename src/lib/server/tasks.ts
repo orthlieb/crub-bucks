@@ -1,0 +1,303 @@
+import { and, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
+import { db } from './db';
+import { tasks, taskCompletions, users, friendships } from './db/schema';
+import { getOrCreateUserWallet, transferInTx, areFriends } from './ledger';
+import { evaluateBadges } from './badges';
+import { createNotification } from './notifications';
+import { formatAmount } from '../format';
+
+/**
+ * Chore marketplace. A creator posts a task with a CB price; any of their
+ * friends can CLAIM it, then mark it DONE (submitted); the creator APPROVES,
+ * which pays the price creator → claimer via the ledger (no escrow — CB moves
+ * only on approval). One-time tasks archive after approval; recurring tasks
+ * return to 'open'. All friendship/ownership guards live here.
+ */
+
+export class TaskError extends Error {}
+
+export type Cadence = 'daily' | 'weekly' | 'monthly';
+
+/** Accepted-friend user ids of `userId` (either direction). */
+async function friendIds(userId: string): Promise<string[]> {
+	const other = sql<string>`case when ${friendships.requesterId} = ${userId} then ${friendships.addresseeId} else ${friendships.requesterId} end`;
+	const rows = await db
+		.select({ id: other })
+		.from(friendships)
+		.where(
+			and(
+				eq(friendships.status, 'accepted'),
+				or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId))
+			)
+		);
+	return rows.map((r) => r.id);
+}
+
+export async function createTask(opts: {
+	creatorId: string;
+	title: string;
+	notes?: string | null;
+	price: number; // coins
+	recurring: boolean;
+	cadence?: Cadence | null;
+}): Promise<string> {
+	const title = opts.title.trim();
+	if (!title) throw new TaskError('Give the task a title.');
+	if (!Number.isInteger(opts.price) || opts.price < 1) {
+		throw new TaskError('Set a positive whole-CB price.');
+	}
+	const [row] = await db
+		.insert(tasks)
+		.values({
+			creatorId: opts.creatorId,
+			title,
+			notes: opts.notes?.trim() || null,
+			price: opts.price,
+			recurring: opts.recurring,
+			cadence: opts.recurring ? (opts.cadence ?? null) : null
+		})
+		.returning({ id: tasks.id });
+	return row.id;
+}
+
+/** A friend claims an open task. */
+export async function claimTask(taskId: string, userId: string): Promise<void> {
+	const [t] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+	if (!t) throw new TaskError('Task not found.');
+	if (t.creatorId === userId) throw new TaskError("You can't claim your own task.");
+	if (t.status !== 'open') throw new TaskError('That task is no longer available.');
+	if (!(await areFriends(userId, t.creatorId))) {
+		throw new TaskError("You can only claim a friend's task.");
+	}
+	// Guarded transition so two people can't both claim.
+	const res = await db
+		.update(tasks)
+		.set({ status: 'claimed', claimedBy: userId, claimedAt: new Date() })
+		.where(and(eq(tasks.id, taskId), eq(tasks.status, 'open')))
+		.returning({ id: tasks.id });
+	if (res.length === 0) throw new TaskError('Someone just claimed that task.');
+
+	const [claimer] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, userId))
+		.limit(1);
+	await createNotification({
+		userId: t.creatorId,
+		level: 'info',
+		title: `${claimer?.displayName ?? 'Someone'} claimed “${t.title}”`,
+		body: "They'll mark it done when it's finished.",
+		link: '/app/tasks'
+	}).catch(() => {});
+}
+
+/** The claimer releases a task they can't finish (back to open). */
+export async function releaseTask(taskId: string, userId: string): Promise<void> {
+	const res = await db
+		.update(tasks)
+		.set({ status: 'open', claimedBy: null, claimedAt: null, submittedAt: null })
+		.where(
+			and(
+				eq(tasks.id, taskId),
+				eq(tasks.claimedBy, userId),
+				inArray(tasks.status, ['claimed', 'submitted'])
+			)
+		)
+		.returning({ id: tasks.id });
+	if (res.length === 0) throw new TaskError("You can't release that task.");
+}
+
+/** The claimer marks it done — awaiting the creator's approval. */
+export async function submitTask(taskId: string, userId: string): Promise<void> {
+	const [t] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+	if (!t) throw new TaskError('Task not found.');
+	if (t.claimedBy !== userId || t.status !== 'claimed') {
+		throw new TaskError("That task isn't yours to submit.");
+	}
+	await db
+		.update(tasks)
+		.set({ status: 'submitted', submittedAt: new Date() })
+		.where(and(eq(tasks.id, taskId), eq(tasks.claimedBy, userId), eq(tasks.status, 'claimed')));
+
+	const [claimer] = await db
+		.select({ displayName: users.displayName })
+		.from(users)
+		.where(eq(users.id, userId))
+		.limit(1);
+	await createNotification({
+		userId: t.creatorId,
+		level: 'info',
+		title: `${claimer?.displayName ?? 'Someone'} finished “${t.title}”`,
+		body: `Approve to pay ${formatAmount(t.price)} ₡.`,
+		link: '/app/tasks'
+	}).catch(() => {});
+}
+
+/**
+ * The creator approves a submitted task: pay the price claimer, record the
+ * completion, and either archive (one-time) or reopen (recurring) — all in one
+ * transaction so the money and the state change can't diverge.
+ */
+export async function approveTask(taskId: string, creatorId: string): Promise<void> {
+	const result = await db.transaction(async (tx) => {
+		const [t] = await tx.select().from(tasks).where(eq(tasks.id, taskId)).limit(1).for('update');
+		if (!t) throw new TaskError('Task not found.');
+		if (t.creatorId !== creatorId) throw new TaskError('Only the creator can approve.');
+		if (t.status !== 'submitted' || !t.claimedBy) {
+			throw new TaskError('That task is not awaiting approval.');
+		}
+
+		const fromWallet = await getOrCreateUserWallet(creatorId, tx);
+		const toWallet = await getOrCreateUserWallet(t.claimedBy, tx);
+		await transferInTx(tx, {
+			fromWalletId: fromWallet,
+			toWalletId: toWallet,
+			amount: t.price,
+			memo: `Task: ${t.title}`,
+			createdBy: creatorId
+		});
+
+		await tx.insert(taskCompletions).values({
+			taskId: t.id,
+			taskeeId: t.claimedBy,
+			price: t.price,
+			approved: true
+		});
+
+		// One-time → archived-as-done; recurring → back to open for the next round.
+		if (t.recurring) {
+			await tx
+				.update(tasks)
+				.set({ status: 'open', claimedBy: null, claimedAt: null, submittedAt: null })
+				.where(eq(tasks.id, t.id));
+		} else {
+			await tx.update(tasks).set({ status: 'done' }).where(eq(tasks.id, t.id));
+		}
+
+		return { taskeeId: t.claimedBy, price: t.price, title: t.title };
+	});
+
+	// Best-effort side effects (outside the money transaction).
+	await createNotification({
+		userId: result.taskeeId,
+		level: 'success',
+		title: `“${result.title}” approved`,
+		body: `You earned ${formatAmount(result.price)} ₡.`,
+		link: '/app/tasks'
+	}).catch(() => {});
+	await evaluateBadges(creatorId).catch(() => {});
+}
+
+/** The creator rejects a submitted task — records it and reopens for another go. */
+export async function rejectTask(taskId: string, creatorId: string): Promise<void> {
+	const [t] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+	if (!t) throw new TaskError('Task not found.');
+	if (t.creatorId !== creatorId) throw new TaskError('Only the creator can reject.');
+	if (t.status !== 'submitted' || !t.claimedBy) {
+		throw new TaskError('That task is not awaiting approval.');
+	}
+	const taskeeId = t.claimedBy;
+	await db.insert(taskCompletions).values({
+		taskId: t.id,
+		taskeeId,
+		price: t.price,
+		approved: false
+	});
+	await db
+		.update(tasks)
+		.set({ status: 'open', claimedBy: null, claimedAt: null, submittedAt: null })
+		.where(eq(tasks.id, t.id));
+
+	await createNotification({
+		userId: taskeeId,
+		level: 'warning',
+		title: `“${t.title}” wasn't approved`,
+		body: 'It has been reopened — give it another go.',
+		link: '/app/tasks'
+	}).catch(() => {});
+}
+
+/** The creator retires a task (any non-terminal state). */
+export async function archiveTask(taskId: string, creatorId: string): Promise<void> {
+	const res = await db
+		.update(tasks)
+		.set({ status: 'archived', claimedBy: null })
+		.where(
+			and(
+				eq(tasks.id, taskId),
+				eq(tasks.creatorId, creatorId),
+				inArray(tasks.status, ['open', 'claimed', 'submitted'])
+			)
+		)
+		.returning({ id: tasks.id });
+	if (res.length === 0) throw new TaskError("You can't archive that task.");
+}
+
+export interface TaskView {
+	id: string;
+	title: string;
+	notes: string | null;
+	price: number;
+	recurring: boolean;
+	cadence: string | null;
+	status: string;
+	creatorId: string;
+	creatorName: string;
+	claimedById: string | null;
+	claimerName: string | null;
+	createdAt: Date;
+}
+
+/**
+ * Everything the Tasks page needs for `userId`, in three buckets:
+ *   posted    — tasks I created (open/claimed/submitted/done), newest first
+ *   available — friends' open tasks I could claim
+ *   doing     — tasks I've claimed (claimed/submitted)
+ */
+export async function listTasksForUser(userId: string): Promise<{
+	posted: TaskView[];
+	available: TaskView[];
+	doing: TaskView[];
+}> {
+	// Task + creator name + claimer name (claimer resolved via a scalar subquery).
+	const rows = await db
+		.select({
+			t: tasks,
+			creatorName: users.displayName,
+			claimerName: sql<
+				string | null
+			>`(select display_name from users u2 where u2.id = ${tasks.claimedBy})`
+		})
+		.from(tasks)
+		.innerJoin(users, eq(users.id, tasks.creatorId))
+		.where(ne(tasks.status, 'archived'))
+		.orderBy(desc(tasks.createdAt));
+
+	const friends = new Set(await friendIds(userId));
+	const posted: TaskView[] = [];
+	const available: TaskView[] = [];
+	const doing: TaskView[] = [];
+	for (const r of rows) {
+		const t = r.t;
+		const v: TaskView = {
+			id: t.id,
+			title: t.title,
+			notes: t.notes,
+			price: t.price,
+			recurring: t.recurring,
+			cadence: t.cadence,
+			status: t.status,
+			creatorId: t.creatorId,
+			creatorName: r.creatorName,
+			claimedById: t.claimedBy,
+			claimerName: r.claimerName,
+			createdAt: t.createdAt
+		};
+		if (v.creatorId === userId) posted.push(v);
+		else if (v.status === 'open' && friends.has(v.creatorId)) available.push(v);
+		if (v.claimedById === userId && (v.status === 'claimed' || v.status === 'submitted')) {
+			doing.push(v);
+		}
+	}
+	return { posted, available, doing };
+}
