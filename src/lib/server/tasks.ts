@@ -60,6 +60,55 @@ export async function createTask(opts: {
 	return row.id;
 }
 
+/**
+ * Creator edits their task. While it's still `open` everything is editable
+ * (title, notes, price, recurring/cadence). Once it's claimed/submitted/done,
+ * only the notes can change — the title, price, and terms are locked so they
+ * can't move after someone signed up (archived tasks can't be edited at all).
+ */
+export async function editTask(
+	taskId: string,
+	creatorId: string,
+	patch: {
+		title?: string;
+		notes?: string | null;
+		price?: number;
+		recurring?: boolean;
+		cadence?: Cadence | null;
+	}
+): Promise<void> {
+	const [t] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+	if (!t) throw new TaskError('Task not found.');
+	if (t.creatorId !== creatorId) throw new TaskError('Only the creator can edit this task.');
+	if (t.status === 'archived') throw new TaskError("You can't edit an archived task.");
+
+	const set: Partial<typeof tasks.$inferInsert> = {};
+	// Notes are editable in any non-archived state.
+	if (patch.notes !== undefined) set.notes = patch.notes?.trim() || null;
+
+	// The rest is only editable while nobody has claimed it.
+	if (t.status === 'open') {
+		if (patch.title !== undefined) {
+			const title = patch.title.trim();
+			if (!title) throw new TaskError('Give the task a title.');
+			set.title = title;
+		}
+		if (patch.price !== undefined) {
+			if (!Number.isInteger(patch.price) || patch.price < 1) {
+				throw new TaskError('Set a positive whole-CB price.');
+			}
+			set.price = patch.price;
+		}
+		if (patch.recurring !== undefined) {
+			set.recurring = patch.recurring;
+			set.cadence = patch.recurring ? (patch.cadence ?? null) : null;
+		}
+	}
+
+	if (Object.keys(set).length === 0) return;
+	await db.update(tasks).set(set).where(eq(tasks.id, taskId));
+}
+
 /** A friend claims an open task. */
 export async function claimTask(taskId: string, userId: string): Promise<void> {
 	const [t] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);

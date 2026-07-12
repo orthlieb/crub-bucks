@@ -2,6 +2,7 @@ import { fail, type RequestEvent } from '@sveltejs/kit';
 import {
 	listTasksForUser,
 	createTask,
+	editTask,
 	claimTask,
 	releaseTask,
 	submitTask,
@@ -71,6 +72,42 @@ export const actions: Actions = {
 			throw e;
 		}
 		return { created: true as const };
+	},
+
+	edit: async ({ request, locals }) => {
+		const form = await request.formData();
+		const taskId = String(form.get('taskId') ?? '');
+		// `full` marks the open-task form (all fields); otherwise it's notes-only.
+		const full = form.get('full') !== null;
+
+		const patch: Parameters<typeof editTask>[2] = {};
+		if (form.has('notes')) patch.notes = String(form.get('notes') ?? '').trim() || null;
+		if (full) {
+			patch.title = String(form.get('title') ?? '').trim();
+			const p = wholeCbToCoins(form.get('price'));
+			if (p === null) return fail(400, { taskError: 'Enter a positive whole-CB price.' });
+			patch.price = p;
+			patch.recurring = form.get('recurring') !== null;
+			const cadenceRaw = String(form.get('cadence') ?? '');
+			patch.cadence = CADENCES.includes(cadenceRaw) ? (cadenceRaw as Cadence) : null;
+		}
+
+		if (patch.title !== undefined) {
+			const c = checkClean(patch.title, 'title');
+			if (!c.ok) return fail(400, { taskError: c.message });
+		}
+		if (patch.notes !== undefined) {
+			const c = checkClean(patch.notes, 'notes');
+			if (!c.ok) return fail(400, { taskError: c.message });
+		}
+
+		try {
+			await editTask(taskId, locals.user!.id, patch);
+		} catch (e) {
+			if (e instanceof TaskError) return fail(400, { taskError: e.message });
+			throw e;
+		}
+		return { ok: true as const };
 	},
 
 	claim: taskAction(claimTask),
