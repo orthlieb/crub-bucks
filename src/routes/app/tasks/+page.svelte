@@ -13,6 +13,7 @@
 
 	const price = (coins: number) => `${formatAmount(coins, data.locale)} ₡`;
 	let recurring = $state(false);
+	let editingId = $state<string | null>(null);
 
 	const STATUS_LABEL: Record<string, string> = {
 		open: 'Open',
@@ -175,37 +176,114 @@
 		{:else}
 			<ul class="space-y-2">
 				{#each data.posted as t (t.id)}
-					<li class="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
-						<div class="min-w-0 flex-1">
-							<div class="font-medium">
-								{t.title}
-								{#if t.recurring}<Badge variant="secondary" class="ml-1 align-middle"
-										>{t.cadence ?? 'recurring'}</Badge
-									>{/if}
+					<li class="rounded-lg border bg-card p-3">
+						<div class="flex flex-wrap items-center gap-3">
+							<div class="min-w-0 flex-1">
+								<div class="font-medium">
+									{t.title}
+									{#if t.recurring}<Badge variant="secondary" class="ml-1 align-middle"
+											>{t.cadence ?? 'recurring'}</Badge
+										>{/if}
+								</div>
+								<div class="text-xs text-muted-foreground">
+									{STATUS_LABEL[t.status] ?? t.status}{#if t.claimerName}
+										· {t.claimerName}{/if}
+								</div>
 							</div>
-							<div class="text-xs text-muted-foreground">
-								{STATUS_LABEL[t.status] ?? t.status}{#if t.claimerName}
-									· {t.claimerName}{/if}
-							</div>
+							<div class="font-semibold tabular-nums">{price(t.price)}</div>
+							{#if t.status === 'submitted'}
+								<form method="POST" action="?/approve" use:enhance>
+									<input type="hidden" name="taskId" value={t.id} />
+									<Button type="submit" size="sm">Approve &amp; pay</Button>
+								</form>
+								<form method="POST" action="?/reject" use:enhance>
+									<input type="hidden" name="taskId" value={t.id} />
+									<Button type="submit" size="sm" variant="ghost" class="text-destructive"
+										>Reject</Button
+									>
+								</form>
+							{:else if t.status === 'open' || t.status === 'claimed'}
+								<form method="POST" action="?/archive" use:enhance>
+									<input type="hidden" name="taskId" value={t.id} />
+									<Button type="submit" size="sm" variant="ghost" class="text-muted-foreground"
+										>Archive</Button
+									>
+								</form>
+							{/if}
+							{#if t.status !== 'done'}
+								<Button
+									type="button"
+									size="sm"
+									variant="ghost"
+									class="text-muted-foreground"
+									onclick={() => (editingId = editingId === t.id ? null : t.id)}
+								>
+									{editingId === t.id ? 'Cancel' : 'Edit'}
+								</Button>
+							{/if}
 						</div>
-						<div class="font-semibold tabular-nums">{price(t.price)}</div>
-						{#if t.status === 'submitted'}
-							<form method="POST" action="?/approve" use:enhance>
+
+						{#if editingId === t.id}
+							<!-- Open → edit everything; otherwise only the notes. -->
+							<form
+								method="POST"
+								action="?/edit"
+								use:enhance={() =>
+									async ({ update }) => {
+										await update();
+										editingId = null;
+									}}
+								class="mt-3 space-y-2 border-t pt-3"
+							>
 								<input type="hidden" name="taskId" value={t.id} />
-								<Button type="submit" size="sm">Approve &amp; pay</Button>
-							</form>
-							<form method="POST" action="?/reject" use:enhance>
-								<input type="hidden" name="taskId" value={t.id} />
-								<Button type="submit" size="sm" variant="ghost" class="text-destructive"
-									>Reject</Button
-								>
-							</form>
-						{:else if t.status === 'open' || t.status === 'claimed'}
-							<form method="POST" action="?/archive" use:enhance>
-								<input type="hidden" name="taskId" value={t.id} />
-								<Button type="submit" size="sm" variant="ghost" class="text-muted-foreground"
-									>Archive</Button
-								>
+								{#if t.status === 'open'}
+									<input type="hidden" name="full" value="1" />
+									<div class="grid gap-2 sm:grid-cols-[1fr_auto]">
+										<Input name="title" value={t.title} required maxlength={80} />
+										<Input
+											name="price"
+											type="number"
+											min="1"
+											step="1"
+											value={t.price / 100}
+											required
+											class="w-28"
+										/>
+									</div>
+									<Input name="notes" value={t.notes ?? ''} placeholder="Notes" maxlength={160} />
+									<div class="flex flex-wrap items-center gap-4">
+										<label class="flex cursor-pointer items-center gap-2 text-sm select-none">
+											<input
+												type="checkbox"
+												name="recurring"
+												class="h-4 w-4 rounded border-input"
+												checked={t.recurring}
+											/>
+											<span>Recurring</span>
+										</label>
+										<label class="text-sm">
+											<span class="mr-2 text-muted-foreground">Cadence</span>
+											<select
+												name="cadence"
+												class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+											>
+												<option value="" selected={!t.cadence}>—</option>
+												<option value="daily" selected={t.cadence === 'daily'}>Daily</option>
+												<option value="weekly" selected={t.cadence === 'weekly'}>Weekly</option>
+												<option value="monthly" selected={t.cadence === 'monthly'}>Monthly</option>
+											</select>
+										</label>
+										<Button type="submit" size="sm" class="ml-auto">Save</Button>
+									</div>
+								{:else}
+									<div class="flex flex-wrap items-end gap-2">
+										<div class="flex-1 space-y-1">
+											<Label class="text-xs text-muted-foreground">Notes</Label>
+											<Input name="notes" value={t.notes ?? ''} maxlength={160} />
+										</div>
+										<Button type="submit" size="sm">Save notes</Button>
+									</div>
+								{/if}
 							</form>
 						{/if}
 					</li>

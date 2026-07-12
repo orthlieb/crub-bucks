@@ -6,6 +6,7 @@ import { resetDb, createUser } from '../../test/db';
 import { establishFriendship, userBalance, assertZeroSum } from './ledger';
 import {
 	createTask,
+	editTask,
 	claimTask,
 	releaseTask,
 	submitTask,
@@ -282,5 +283,57 @@ describe('tasks — guards & edge cases', () => {
 		await submitTask(id, taskee.id);
 		await approveTask(id, creator.id);
 		await expect(claimTask(id, other.id)).rejects.toBeInstanceOf(TaskError);
+	});
+});
+
+describe('tasks — editing', () => {
+	it('edits everything while the task is open', async () => {
+		const a = await createUser();
+		const id = await createTask({ creatorId: a.id, title: 'Old', price: 100, recurring: false });
+		await editTask(id, a.id, {
+			title: 'New',
+			notes: 'careful',
+			price: 250,
+			recurring: true,
+			cadence: 'weekly'
+		});
+		const [t] = await db.select().from(tasks).where(eq(tasks.id, id));
+		expect(t).toMatchObject({
+			title: 'New',
+			notes: 'careful',
+			price: 250,
+			recurring: true,
+			cadence: 'weekly'
+		});
+	});
+
+	it('locks title & price once claimed — only the notes change', async () => {
+		const { creator, taskee } = await pair();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'Trash',
+			price: 500,
+			recurring: false
+		});
+		await claimTask(id, taskee.id);
+		await editTask(id, creator.id, { title: 'Hacked', price: 999, notes: 'bins out back' });
+		const [t] = await db.select().from(tasks).where(eq(tasks.id, id));
+		expect(t.title).toBe('Trash'); // unchanged
+		expect(t.price).toBe(500); // unchanged
+		expect(t.notes).toBe('bins out back'); // changed
+	});
+
+	it('rejects edits from a non-creator, on archived tasks, or with an invalid price', async () => {
+		const { creator, taskee } = await pair();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'T',
+			price: 100,
+			recurring: false
+		});
+		await expect(editTask(id, taskee.id, { notes: 'x' })).rejects.toBeInstanceOf(TaskError);
+		await expect(editTask(id, creator.id, { price: 0 })).rejects.toBeInstanceOf(TaskError);
+		await archiveTask(id, creator.id);
+		await expect(editTask(id, creator.id, { notes: 'x' })).rejects.toBeInstanceOf(TaskError);
 	});
 });
