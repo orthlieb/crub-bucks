@@ -63,6 +63,7 @@
 		"obscenity": "^0.4.6",
 		"postgres": "^3.4.5",
 		"qrcode": "^1.5.4",
+		"rrule": "^2.8.1",
 		"tailwind-merge": "^3.6.0",
 		"tailwind-variants": "^3.2.2",
 		"tippy.js": "^6.3.7",

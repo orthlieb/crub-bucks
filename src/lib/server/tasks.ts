@@ -4,6 +4,13 @@ import { tasks, taskCompletions, users, friendships } from './db/schema';
 import { getOrCreateUserWallet, transferInTx, areFriends } from './ledger';
 import { evaluateBadges } from './badges';
 import { createNotification } from './notifications';
+import {
+	buildRecurrence,
+	nextOccurrenceAfter,
+	recurrenceLabel,
+	RecurrenceError,
+	type RecurrenceInput
+} from './recurrence';
 import { formatAmount } from '../format';
 
 /**
@@ -16,7 +23,8 @@ import { formatAmount } from '../format';
 
 export class TaskError extends Error {}
 
-export type Cadence = 'daily' | 'weekly' | 'monthly';
+// Re-export so route code can accept a recurrence picker payload.
+export type { RecurrenceInput } from './recurrence';
 
 /** Accepted-friend user ids of `userId` (either direction). */
 async function friendIds(userId: string): Promise<string[]> {
@@ -39,13 +47,30 @@ export async function createTask(opts: {
 	notes?: string | null;
 	price: number; // coins
 	recurring: boolean;
-	cadence?: Cadence | null;
+	recurrence?: RecurrenceInput | null;
 }): Promise<string> {
 	const title = opts.title.trim();
 	if (!title) throw new TaskError('Give the task a title.');
 	if (!Number.isInteger(opts.price) || opts.price < 1) {
 		throw new TaskError('Set a positive whole-CB price.');
 	}
+
+	// A recurring task carries a canonical rrule + its first due date; a one-time
+	// task has neither. `buildRecurrence` throws RecurrenceError on bad input.
+	let rrule: string | null = null;
+	let nextDueAt: Date | null = null;
+	if (opts.recurring) {
+		if (!opts.recurrence) throw new TaskError('Choose how the task repeats.');
+		try {
+			const built = buildRecurrence(opts.recurrence, new Date());
+			rrule = built.rrule;
+			nextDueAt = built.nextDueAt;
+		} catch (e) {
+			if (e instanceof RecurrenceError) throw new TaskError(e.message);
+			throw e;
+		}
+	}
+
 	const [row] = await db
 		.insert(tasks)
 		.values({
@@ -54,7 +79,8 @@ export async function createTask(opts: {
 			notes: opts.notes?.trim() || null,
 			price: opts.price,
 			recurring: opts.recurring,
-			cadence: opts.recurring ? (opts.cadence ?? null) : null
+			rrule,
+			nextDueAt
 		})
 		.returning({ id: tasks.id });
 	return row.id;
@@ -62,9 +88,9 @@ export async function createTask(opts: {
 
 /**
  * Creator edits their task. While it's still `open` everything is editable
- * (title, notes, price, recurring/cadence). Once it's claimed/submitted/done,
- * only the notes can change — the title, price, and terms are locked so they
- * can't move after someone signed up (archived tasks can't be edited at all).
+ * (title, notes, price, recurrence). Once it's claimed/submitted/done, only the
+ * notes can change — the title, price, and terms are locked so they can't move
+ * after someone signed up (archived tasks can't be edited at all).
  */
 export async function editTask(
 	taskId: string,
@@ -74,7 +100,7 @@ export async function editTask(
 		notes?: string | null;
 		price?: number;
 		recurring?: boolean;
-		cadence?: Cadence | null;
+		recurrence?: RecurrenceInput | null;
 	}
 ): Promise<void> {
 	const [t] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
@@ -101,7 +127,20 @@ export async function editTask(
 		}
 		if (patch.recurring !== undefined) {
 			set.recurring = patch.recurring;
-			set.cadence = patch.recurring ? (patch.cadence ?? null) : null;
+			if (patch.recurring) {
+				if (!patch.recurrence) throw new TaskError('Choose how the task repeats.');
+				try {
+					const built = buildRecurrence(patch.recurrence, new Date());
+					set.rrule = built.rrule;
+					set.nextDueAt = built.nextDueAt;
+				} catch (e) {
+					if (e instanceof RecurrenceError) throw new TaskError(e.message);
+					throw e;
+				}
+			} else {
+				set.rrule = null;
+				set.nextDueAt = null;
+			}
 		}
 	}
 
@@ -213,12 +252,27 @@ export async function approveTask(taskId: string, creatorId: string): Promise<vo
 			approved: true
 		});
 
-		// One-time → archived-as-done; recurring → back to open for the next round.
+		// Recurring → advance to the next occurrence strictly after now and reopen;
+		// if the recurrence is exhausted (an end date/count that has passed), it's
+		// finished like a one-time task. One-time → archived-as-done.
 		if (t.recurring) {
-			await tx
-				.update(tasks)
-				.set({ status: 'open', claimedBy: null, claimedAt: null, submittedAt: null })
-				.where(eq(tasks.id, t.id));
+			// Legacy recurring rows without an rrule just reopen indefinitely.
+			const next = t.rrule ? nextOccurrenceAfter(t.rrule, new Date()) : null;
+			if (!t.rrule || next) {
+				await tx
+					.update(tasks)
+					.set({
+						status: 'open',
+						claimedBy: null,
+						claimedAt: null,
+						submittedAt: null,
+						nextDueAt: next
+					})
+					.where(eq(tasks.id, t.id));
+			} else {
+				// Recurrence ran out — mark done and clear the stale due date.
+				await tx.update(tasks).set({ status: 'done', nextDueAt: null }).where(eq(tasks.id, t.id));
+			}
 		} else {
 			await tx.update(tasks).set({ status: 'done' }).where(eq(tasks.id, t.id));
 		}
@@ -288,7 +342,9 @@ export interface TaskView {
 	notes: string | null;
 	price: number;
 	recurring: boolean;
-	cadence: string | null;
+	rrule: string | null;
+	recurrenceLabel: string | null;
+	nextDueAt: Date | null;
 	status: string;
 	creatorId: string;
 	creatorName: string;
@@ -334,7 +390,9 @@ export async function listTasksForUser(userId: string): Promise<{
 			notes: t.notes,
 			price: t.price,
 			recurring: t.recurring,
-			cadence: t.cadence,
+			rrule: t.rrule,
+			recurrenceLabel: t.rrule ? recurrenceLabel(t.rrule) : null,
+			nextDueAt: t.nextDueAt,
 			status: t.status,
 			creatorId: t.creatorId,
 			creatorName: r.creatorName,

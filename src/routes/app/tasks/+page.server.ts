@@ -10,7 +10,7 @@ import {
 	rejectTask,
 	archiveTask,
 	TaskError,
-	type Cadence
+	type RecurrenceInput
 } from '$lib/server/tasks';
 import { userBalance } from '$lib/server/ledger';
 import { checkClean } from '$lib/server/moderation';
@@ -23,7 +23,35 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return { ...lists, balance };
 };
 
-const CADENCES = ['daily', 'weekly', 'monthly'];
+/**
+ * Pull the recurrence picker fields out of a submitted form into a
+ * `RecurrenceInput`. Validation of the combination lives in `buildRecurrence`;
+ * here we only shape the raw strings. Returns null when nothing was selected.
+ */
+function parseRecurrence(form: FormData): RecurrenceInput | null {
+	const mode = String(form.get('mode') ?? '');
+	if (!mode) return null;
+	const num = (name: string): number | undefined => {
+		const raw = form.get(name);
+		if (raw === null || String(raw).trim() === '') return undefined;
+		const n = Number(raw);
+		return Number.isFinite(n) ? n : undefined;
+	};
+	return {
+		mode: mode as RecurrenceInput['mode'],
+		weekdays: form.getAll('weekdays').map(String),
+		monthday: num('monthday'),
+		nthPos: num('nthPos'),
+		nthWeekday: String(form.get('nthWeekday') ?? '') || undefined,
+		month: num('month'),
+		interval: num('interval'),
+		customFreq: (String(form.get('customFreq') ?? '') ||
+			undefined) as RecurrenceInput['customFreq'],
+		endMode: (String(form.get('endMode') ?? '') || undefined) as RecurrenceInput['endMode'],
+		count: num('count'),
+		until: String(form.get('until') ?? '') || undefined
+	};
+}
 
 /** Shared handler for the taskId-only actions (claim/release/submit/approve/reject/archive). */
 function taskAction(fn: (taskId: string, userId: string) => Promise<void>) {
@@ -47,8 +75,7 @@ export const actions: Actions = {
 		const notes = String(form.get('notes') ?? '').trim() || null;
 		const price = wholeCbToCoins(form.get('price'));
 		const recurring = form.get('recurring') !== null;
-		const cadenceRaw = String(form.get('cadence') ?? '');
-		const cadence = CADENCES.includes(cadenceRaw) ? (cadenceRaw as Cadence) : null;
+		const recurrence = recurring ? parseRecurrence(form) : null;
 
 		const titleClean = checkClean(title, 'title');
 		if (!titleClean.ok) return fail(400, { createError: titleClean.message, title, notes });
@@ -65,7 +92,7 @@ export const actions: Actions = {
 				notes,
 				price,
 				recurring,
-				cadence
+				recurrence
 			});
 		} catch (e) {
 			if (e instanceof TaskError) return fail(400, { createError: e.message, title, notes });
@@ -88,8 +115,7 @@ export const actions: Actions = {
 			if (p === null) return fail(400, { taskError: 'Enter a positive whole-CB price.' });
 			patch.price = p;
 			patch.recurring = form.get('recurring') !== null;
-			const cadenceRaw = String(form.get('cadence') ?? '');
-			patch.cadence = CADENCES.includes(cadenceRaw) ? (cadenceRaw as Cadence) : null;
+			patch.recurrence = patch.recurring ? parseRecurrence(form) : null;
 		}
 
 		if (patch.title !== undefined) {

@@ -8,12 +8,15 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { formatAmount } from '$lib/format';
+	import RecurrencePicker from '$lib/components/RecurrencePicker.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const price = (coins: number) => `${formatAmount(coins, data.locale)} ₡`;
 	let recurring = $state(false);
 	let editingId = $state<string | null>(null);
+	// Per-open-task edit form: is its recurring box ticked?
+	let editRecurring = $state(false);
 
 	const STATUS_LABEL: Record<string, string> = {
 		open: 'Open',
@@ -21,6 +24,21 @@
 		submitted: 'Awaiting approval',
 		done: 'Done'
 	};
+
+	/** "Due Jul 15", "Due today", or "Overdue Jul 10" for a target date. */
+	function dueLabel(iso: string | Date | null): string | null {
+		if (!iso) return null;
+		const due = new Date(iso);
+		if (Number.isNaN(due.getTime())) return null;
+		const fmt = due.toLocaleDateString(data.locale, { month: 'short', day: 'numeric' });
+		const startOfToday = new Date();
+		startOfToday.setHours(0, 0, 0, 0);
+		const dueDay = new Date(due);
+		dueDay.setHours(0, 0, 0, 0);
+		if (dueDay.getTime() === startOfToday.getTime()) return 'Due today';
+		if (dueDay.getTime() < startOfToday.getTime()) return `Overdue ${fmt}`;
+		return `Due ${fmt}`;
+	}
 </script>
 
 <div class="space-y-8">
@@ -70,31 +88,22 @@
 					<Label for="notes">Notes (optional)</Label>
 					<Input id="notes" name="notes" placeholder="Bins go out Tuesday night" maxlength={160} />
 				</div>
-				<div class="flex flex-wrap items-center gap-4">
-					<label class="flex cursor-pointer items-center gap-2 text-sm select-none">
-						<input
-							type="checkbox"
-							name="recurring"
-							class="h-4 w-4 rounded border-input"
-							bind:checked={recurring}
-						/>
-						<span>Recurring (repeatable)</span>
-					</label>
-					{#if recurring}
-						<label class="text-sm">
-							<span class="mr-2 text-muted-foreground">Cadence</span>
-							<select
-								name="cadence"
-								class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-							>
-								<option value="">—</option>
-								<option value="daily">Daily</option>
-								<option value="weekly">Weekly</option>
-								<option value="monthly">Monthly</option>
-							</select>
+				<div class="space-y-3">
+					<div class="flex flex-wrap items-center gap-4">
+						<label class="flex cursor-pointer items-center gap-2 text-sm select-none">
+							<input
+								type="checkbox"
+								name="recurring"
+								class="h-4 w-4 rounded border-input"
+								bind:checked={recurring}
+							/>
+							<span>Recurring (repeatable)</span>
 						</label>
+						<Button type="submit" size="sm" class="ml-auto">Post task</Button>
+					</div>
+					{#if recurring}
+						<RecurrencePicker />
 					{/if}
-					<Button type="submit" size="sm" class="ml-auto">Post task</Button>
 				</div>
 			</form>
 		</CardContent>
@@ -117,11 +126,14 @@
 							<div class="font-medium">
 								{t.title}
 								{#if t.recurring}<Badge variant="secondary" class="ml-1 align-middle"
-										>{t.cadence ?? 'recurring'}</Badge
+										>{t.recurrenceLabel ?? 'Recurring'}</Badge
 									>{/if}
 							</div>
 							{#if t.notes}<div class="text-xs text-muted-foreground">{t.notes}</div>{/if}
-							<div class="text-xs text-muted-foreground">from {t.creatorName}</div>
+							<div class="text-xs text-muted-foreground">
+								from {t.creatorName}{#if dueLabel(t.nextDueAt)}
+									· {dueLabel(t.nextDueAt)}{/if}
+							</div>
 						</div>
 						<div class="font-semibold tabular-nums">{price(t.price)}</div>
 						<form method="POST" action="?/claim" use:enhance>
@@ -182,12 +194,13 @@
 								<div class="font-medium">
 									{t.title}
 									{#if t.recurring}<Badge variant="secondary" class="ml-1 align-middle"
-											>{t.cadence ?? 'recurring'}</Badge
+											>{t.recurrenceLabel ?? 'Recurring'}</Badge
 										>{/if}
 								</div>
 								<div class="text-xs text-muted-foreground">
 									{STATUS_LABEL[t.status] ?? t.status}{#if t.claimerName}
-										· {t.claimerName}{/if}
+										· {t.claimerName}{/if}{#if dueLabel(t.nextDueAt)}
+										· {dueLabel(t.nextDueAt)}{/if}
 								</div>
 							</div>
 							<div class="font-semibold tabular-nums">{price(t.price)}</div>
@@ -216,7 +229,11 @@
 									size="sm"
 									variant="ghost"
 									class="text-muted-foreground"
-									onclick={() => (editingId = editingId === t.id ? null : t.id)}
+									onclick={() => {
+										const opening = editingId !== t.id;
+										editingId = opening ? t.id : null;
+										if (opening) editRecurring = t.recurring;
+									}}
 								>
 									{editingId === t.id ? 'Cancel' : 'Edit'}
 								</Button>
@@ -251,29 +268,22 @@
 										/>
 									</div>
 									<Input name="notes" value={t.notes ?? ''} placeholder="Notes" maxlength={160} />
-									<div class="flex flex-wrap items-center gap-4">
-										<label class="flex cursor-pointer items-center gap-2 text-sm select-none">
-											<input
-												type="checkbox"
-												name="recurring"
-												class="h-4 w-4 rounded border-input"
-												checked={t.recurring}
-											/>
-											<span>Recurring</span>
-										</label>
-										<label class="text-sm">
-											<span class="mr-2 text-muted-foreground">Cadence</span>
-											<select
-												name="cadence"
-												class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-											>
-												<option value="" selected={!t.cadence}>—</option>
-												<option value="daily" selected={t.cadence === 'daily'}>Daily</option>
-												<option value="weekly" selected={t.cadence === 'weekly'}>Weekly</option>
-												<option value="monthly" selected={t.cadence === 'monthly'}>Monthly</option>
-											</select>
-										</label>
-										<Button type="submit" size="sm" class="ml-auto">Save</Button>
+									<div class="space-y-3">
+										<div class="flex flex-wrap items-center gap-4">
+											<label class="flex cursor-pointer items-center gap-2 text-sm select-none">
+												<input
+													type="checkbox"
+													name="recurring"
+													class="h-4 w-4 rounded border-input"
+													bind:checked={editRecurring}
+												/>
+												<span>Recurring</span>
+											</label>
+											<Button type="submit" size="sm" class="ml-auto">Save</Button>
+										</div>
+										{#if editRecurring}
+											<RecurrencePicker />
+										{/if}
 									</div>
 								{:else}
 									<div class="flex flex-wrap items-end gap-2">

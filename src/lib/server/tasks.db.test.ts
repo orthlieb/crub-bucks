@@ -59,7 +59,7 @@ describe('tasks', () => {
 			title: 'Dishes',
 			price: 300,
 			recurring: true,
-			cadence: 'daily'
+			recurrence: { mode: 'daily' }
 		});
 
 		await claimTask(id, taskee.id);
@@ -69,6 +69,7 @@ describe('tasks', () => {
 		let [t] = await db.select().from(tasks).where(eq(tasks.id, id));
 		expect(t.status).toBe('open');
 		expect(t.claimedBy).toBeNull();
+		expect(t.rrule).not.toBeNull(); // the recurrence is preserved across cycles
 		expect(await userBalance(taskee.id)).toBe(300);
 
 		await claimTask(id, taskee.id); // available again
@@ -143,18 +144,26 @@ describe('tasks — guards & edge cases', () => {
 		).rejects.toBeInstanceOf(TaskError);
 	});
 
-	it('clears the cadence on a one-time task', async () => {
+	it('stores no recurrence on a one-time task', async () => {
 		const a = await createUser();
 		const id = await createTask({
 			creatorId: a.id,
 			title: 'One',
 			price: 100,
 			recurring: false,
-			cadence: 'daily'
+			recurrence: { mode: 'daily' } // ignored when not recurring
 		});
 		const [t] = await db.select().from(tasks).where(eq(tasks.id, id));
 		expect(t.recurring).toBe(false);
-		expect(t.cadence).toBeNull();
+		expect(t.rrule).toBeNull();
+		expect(t.nextDueAt).toBeNull();
+	});
+
+	it('requires a recurrence when a task is marked recurring', async () => {
+		const a = await createUser();
+		await expect(
+			createTask({ creatorId: a.id, title: 'R', price: 100, recurring: true })
+		).rejects.toBeInstanceOf(TaskError);
 	});
 
 	it('a second friend cannot claim an already-claimed task', async () => {
@@ -255,7 +264,8 @@ describe('tasks — guards & edge cases', () => {
 			creatorId: creator.id,
 			title: 'Dishes',
 			price: 300,
-			recurring: true
+			recurring: true,
+			recurrence: { mode: 'daily' }
 		});
 		for (let i = 0; i < 2; i++) {
 			await claimTask(id, taskee.id);
@@ -295,16 +305,17 @@ describe('tasks — editing', () => {
 			notes: 'careful',
 			price: 250,
 			recurring: true,
-			cadence: 'weekly'
+			recurrence: { mode: 'weekly', weekdays: ['MO', 'WE'] }
 		});
 		const [t] = await db.select().from(tasks).where(eq(tasks.id, id));
 		expect(t).toMatchObject({
 			title: 'New',
 			notes: 'careful',
 			price: 250,
-			recurring: true,
-			cadence: 'weekly'
+			recurring: true
 		});
+		expect(t.rrule).toMatch(/WEEKLY/);
+		expect(t.nextDueAt).not.toBeNull();
 	});
 
 	it('locks title & price once claimed — only the notes change', async () => {

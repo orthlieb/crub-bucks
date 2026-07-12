@@ -288,8 +288,13 @@ export const tasks = pgTable(
 		price: bigint('price', { mode: 'number' }).notNull(),
 		// false = one-time (archives after approval); true = repeatable.
 		recurring: boolean('recurring').notNull().default(false),
-		// Optional display-only cadence for recurring tasks: 'daily' | 'weekly' | 'monthly'.
-		cadence: text('cadence'),
+		// iCalendar recurrence for repeatable tasks — the full "DTSTART:…\nRRULE:…"
+		// string (see src/lib/server/recurrence.ts). Null for one-time tasks.
+		rrule: text('rrule'),
+		// The current occurrence's target date. A friend can claim before it; on
+		// approval it advances to the next occurrence and the task reopens. Null
+		// for one-time tasks or an exhausted recurrence.
+		nextDueAt: timestamp('next_due_at', { withTimezone: true }),
 		status: taskStatusEnum('status').notNull().default('open'),
 		// The friend currently doing it (null when open/archived/done).
 		claimedBy: uuid('claimed_by').references(() => users.id, { onDelete: 'set null' }),
