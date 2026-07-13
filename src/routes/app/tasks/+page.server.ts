@@ -12,16 +12,34 @@ import {
 	TaskError,
 	type RecurrenceInput
 } from '$lib/server/tasks';
-import { userBalance } from '$lib/server/ledger';
+import { userBalance, getFriends } from '$lib/server/ledger';
 import { checkClean } from '$lib/server/moderation';
 import { wholeCbToCoins } from '$lib/money';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.user!.id;
-	const [lists, balance] = await Promise.all([listTasksForUser(userId), userBalance(userId)]);
-	return { ...lists, balance };
+	const [lists, balance, friends] = await Promise.all([
+		listTasksForUser(userId),
+		userBalance(userId),
+		getFriends(userId)
+	]);
+	// Just what the "limit to specific friends" picker needs.
+	return {
+		...lists,
+		balance,
+		friends: friends.map((f) => ({ id: f.id, displayName: f.displayName }))
+	};
 };
+
+/**
+ * Selected friend ids for the claim-audience picker. Empty → no restriction
+ * (open to all friends). `editTask`/`createTask` re-validate against the
+ * creator's real friend list, so this is just shaping.
+ */
+function parseAudience(form: FormData): string[] {
+	return form.getAll('audience').map(String).filter(Boolean);
+}
 
 /**
  * Pull the recurrence picker fields out of a submitted form into a
@@ -92,7 +110,8 @@ export const actions: Actions = {
 				notes,
 				price,
 				recurring,
-				recurrence
+				recurrence,
+				audience: parseAudience(form)
 			});
 		} catch (e) {
 			if (e instanceof TaskError) return fail(400, { createError: e.message, title, notes });
@@ -116,6 +135,7 @@ export const actions: Actions = {
 			patch.price = p;
 			patch.recurring = form.get('recurring') !== null;
 			patch.recurrence = patch.recurring ? parseRecurrence(form) : null;
+			patch.audience = parseAudience(form);
 		}
 
 		if (patch.title !== undefined) {

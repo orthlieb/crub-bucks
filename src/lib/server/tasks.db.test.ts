@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from './db';
-import { tasks, taskCompletions } from './db/schema';
+import { tasks, taskCompletions, taskAudience } from './db/schema';
 import { resetDb, createUser } from '../../test/db';
 import { establishFriendship, userBalance, assertZeroSum } from './ledger';
 import {
@@ -346,5 +346,117 @@ describe('tasks — editing', () => {
 		await expect(editTask(id, creator.id, { price: 0 })).rejects.toBeInstanceOf(TaskError);
 		await archiveTask(id, creator.id);
 		await expect(editTask(id, creator.id, { notes: 'x' })).rejects.toBeInstanceOf(TaskError);
+	});
+});
+
+describe('tasks — claim audience', () => {
+	/** A creator with two friends, Alice and Bob. */
+	async function trio() {
+		const creator = await createUser({ displayName: 'Cora' });
+		const alice = await createUser({ displayName: 'Alice' });
+		const bob = await createUser({ displayName: 'Bob' });
+		await establishFriendship(creator.id, alice.id);
+		await establishFriendship(creator.id, bob.id);
+		return { creator, alice, bob };
+	}
+
+	it('a task limited to one friend can only be claimed by that friend', async () => {
+		const { creator, alice, bob } = await trio();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'Trash',
+			price: 200,
+			recurring: false,
+			audience: [alice.id]
+		});
+		const rows = await db.select().from(taskAudience).where(eq(taskAudience.taskId, id));
+		expect(rows.map((r) => r.userId)).toEqual([alice.id]);
+
+		await expect(claimTask(id, bob.id)).rejects.toBeInstanceOf(TaskError); // excluded
+		await claimTask(id, alice.id); // on the list
+	});
+
+	it('only lists a limited task as available to the allowed friends', async () => {
+		const { creator, alice, bob } = await trio();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'Trash',
+			price: 200,
+			recurring: false,
+			audience: [alice.id]
+		});
+		expect((await listTasksForUser(alice.id)).available.map((t) => t.id)).toContain(id);
+		expect((await listTasksForUser(bob.id)).available.map((t) => t.id)).not.toContain(id);
+
+		// The creator sees whom it's limited to on their posted copy.
+		const posted = (await listTasksForUser(creator.id)).posted.find((t) => t.id === id)!;
+		expect(posted.audienceIds).toEqual([alice.id]);
+		expect(posted.audienceNames).toEqual(['Alice']);
+	});
+
+	it('an empty audience leaves the task open to all friends', async () => {
+		const { creator, alice, bob } = await trio();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'Trash',
+			price: 200,
+			recurring: false,
+			audience: []
+		});
+		expect(await db.select().from(taskAudience).where(eq(taskAudience.taskId, id))).toHaveLength(0);
+		expect((await listTasksForUser(alice.id)).available.map((t) => t.id)).toContain(id);
+		expect((await listTasksForUser(bob.id)).available.map((t) => t.id)).toContain(id);
+		await claimTask(id, bob.id); // anyone may claim
+	});
+
+	it('drops non-friends from a requested audience', async () => {
+		const { creator, alice } = await trio();
+		const stranger = await createUser({ displayName: 'Stranger' });
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'Trash',
+			price: 200,
+			recurring: false,
+			audience: [alice.id, stranger.id]
+		});
+		const rows = await db.select().from(taskAudience).where(eq(taskAudience.taskId, id));
+		expect(rows.map((r) => r.userId)).toEqual([alice.id]); // stranger dropped
+	});
+
+	it('edits the audience while open — narrow, then clear back to everyone', async () => {
+		const { creator, alice, bob } = await trio();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'Trash',
+			price: 200,
+			recurring: false
+		});
+		// Narrow to Alice.
+		await editTask(id, creator.id, { audience: [alice.id] });
+		await expect(claimTask(id, bob.id)).rejects.toBeInstanceOf(TaskError);
+
+		// Clear back to everyone.
+		await editTask(id, creator.id, { audience: [] });
+		expect(await db.select().from(taskAudience).where(eq(taskAudience.taskId, id))).toHaveLength(0);
+		await claimTask(id, bob.id); // Bob can claim again
+	});
+
+	it('a recurring limited task keeps its audience across cycles', async () => {
+		const { creator, alice, bob } = await trio();
+		const id = await createTask({
+			creatorId: creator.id,
+			title: 'Dishes',
+			price: 300,
+			recurring: true,
+			recurrence: { mode: 'daily' },
+			audience: [alice.id]
+		});
+		await claimTask(id, alice.id);
+		await submitTask(id, alice.id);
+		await approveTask(id, creator.id); // reopens for the next cycle
+
+		// Still limited to Alice after the reopen.
+		await expect(claimTask(id, bob.id)).rejects.toBeInstanceOf(TaskError);
+		await claimTask(id, alice.id);
 	});
 });

@@ -9,6 +9,7 @@
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { formatAmount } from '$lib/format';
 	import RecurrencePicker from '$lib/components/RecurrencePicker.svelte';
+	import AudiencePicker from '$lib/components/AudiencePicker.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -17,6 +18,9 @@
 	let editingId = $state<string | null>(null);
 	// Per-open-task edit form: is its recurring box ticked?
 	let editRecurring = $state(false);
+	// Per-open-task edit form: claim-audience picker state.
+	let editLimited = $state(false);
+	let editAudience = $state<string[]>([]);
 
 	const STATUS_LABEL: Record<string, string> = {
 		open: 'Open',
@@ -104,6 +108,7 @@
 					{#if recurring}
 						<RecurrencePicker />
 					{/if}
+					<AudiencePicker friends={data.friends} />
 				</div>
 			</form>
 		</CardContent>
@@ -202,6 +207,11 @@
 										· {t.claimerName}{/if}{#if dueLabel(t.nextDueAt)}
 										· {dueLabel(t.nextDueAt)}{/if}
 								</div>
+								{#if t.audienceNames.length > 0}
+									<div class="text-xs text-muted-foreground">
+										Limited to {t.audienceNames.join(', ')}
+									</div>
+								{/if}
 							</div>
 							<div class="font-semibold tabular-nums">{price(t.price)}</div>
 							{#if t.status === 'submitted'}
@@ -232,7 +242,11 @@
 									onclick={() => {
 										const opening = editingId !== t.id;
 										editingId = opening ? t.id : null;
-										if (opening) editRecurring = t.recurring;
+										if (opening) {
+											editRecurring = t.recurring;
+											editLimited = t.audienceIds.length > 0;
+											editAudience = [...t.audienceIds];
+										}
 									}}
 								>
 									{editingId === t.id ? 'Cancel' : 'Edit'}
@@ -284,6 +298,11 @@
 										{#if editRecurring}
 											<RecurrencePicker />
 										{/if}
+										<AudiencePicker
+											friends={data.friends}
+											bind:limited={editLimited}
+											bind:selected={editAudience}
+										/>
 									</div>
 								{:else}
 									<div class="flex flex-wrap items-end gap-2">

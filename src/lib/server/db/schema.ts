@@ -331,6 +331,28 @@ export const taskCompletions = pgTable(
 	})
 );
 
+// Per-task claim allowlist. When a task has NO rows here it's open to all of the
+// creator's friends (the default); when it has rows, only those friends may
+// claim it — e.g. limit "take out the trash" to family. Rows are the creator's
+// own friends, validated at write time; a `set null`-style cascade isn't needed
+// because both sides cascade on delete.
+export const taskAudience = pgTable(
+	'task_audience',
+	{
+		taskId: uuid('task_id')
+			.notNull()
+			.references(() => tasks.id, { onDelete: 'cascade' }),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => ({
+		pk: primaryKey({ columns: [t.taskId, t.userId] }),
+		taskIdx: index('task_audience_task_idx').on(t.taskId)
+	})
+);
+
 // ---------------------------------------------------------------------------
 // Wallets (global) — one per user, plus a single system-wide Bank
 // ---------------------------------------------------------------------------
