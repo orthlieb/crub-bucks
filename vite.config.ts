@@ -4,6 +4,11 @@ import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	// `rrule` ships a CJS UMD bundle with no `exports` map, so when SvelteKit
+	// externalizes it for the SSR build Node's ESM loader can't see its named
+	// exports (`import { RRule } from 'rrule'` → "does not provide an export").
+	// Bundling it in lets esbuild resolve the CJS→ESM interop at build time.
+	ssr: { noExternal: ['rrule'] },
 	test: {
 		expect: { requireAssertions: true },
 		// Coverage is enforced as a RATCHET FLOOR, not an aspiration. The
