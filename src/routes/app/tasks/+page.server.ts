@@ -24,11 +24,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 		userBalance(userId),
 		getFriends(userId)
 	]);
-	// Just what the "limit to specific friends" picker needs.
+	// Shape friends for the shared FriendCombobox (name/email typeahead +
+	// favourite quick-add), same as the bet-participants picker.
 	return {
 		...lists,
 		balance,
-		friends: friends.map((f) => ({ id: f.id, displayName: f.displayName }))
+		friends: friends.map((f) => ({
+			id: f.id,
+			displayName: f.displayName,
+			email: f.email,
+			isFavorite: f.isFavorite
+		}))
 	};
 };
 

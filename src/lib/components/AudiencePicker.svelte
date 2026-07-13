@@ -1,19 +1,29 @@
 <script lang="ts">
+	import FriendCombobox, { type ComboFriend } from '$lib/components/FriendCombobox.svelte';
+
 	// Claim-audience picker. Off by default → the task is open to all friends.
-	// When "limit" is on, the chosen friends' ids post as repeated `audience`
-	// fields (the server re-validates them against the creator's real friends).
+	// When "limit" is on, this is the SAME control the bet-participants picker
+	// uses: a name/email typeahead (FriendCombobox) plus favourite quick-adds.
+	// The chosen ids post as repeated `audience` fields (the server re-validates
+	// them against the creator's real friends).
 	let {
 		friends,
 		limited = $bindable(false),
 		selected = $bindable<string[]>([])
 	}: {
-		friends: { id: string; displayName: string }[];
+		friends: ComboFriend[];
 		limited?: boolean;
 		selected?: string[];
 	} = $props();
 
-	function toggle(id: string) {
-		selected = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
+	const favorites = $derived(friends.filter((f) => f.isFavorite));
+
+	function toggleFriend(id: string, on: boolean) {
+		if (on) {
+			if (!selected.includes(id)) selected = [...selected, id];
+		} else {
+			selected = selected.filter((x) => x !== id);
+		}
 	}
 </script>
 
@@ -25,24 +35,37 @@
 
 	{#if limited}
 		{#if friends.length === 0}
-			<p class="text-xs text-muted-foreground">Add friends first to limit who can claim.</p>
+			<p class="text-xs text-muted-foreground">
+				No friends yet — <a href="/app/friends" class="text-primary hover:underline">add some</a>.
+			</p>
 		{:else}
-			<div class="flex flex-wrap gap-1">
-				{#each friends as f (f.id)}
-					<button
-						type="button"
-						onclick={() => toggle(f.id)}
-						aria-pressed={selected.includes(f.id)}
-						class="h-8 rounded-md border px-3 text-xs font-medium transition-colors {selected.includes(
-							f.id
-						)
-							? 'border-primary bg-primary text-primary-foreground'
-							: 'border-input bg-transparent text-muted-foreground hover:bg-muted'}"
-					>
-						{f.displayName}
-					</button>
-				{/each}
-			</div>
+			<FriendCombobox
+				id="task-audience"
+				{friends}
+				multiple
+				bind:selectedIds={selected}
+				placeholder="Add a friend by name or email…"
+			/>
+			{#if favorites.length > 0}
+				<div class="space-y-1.5">
+					<p class="text-xs text-muted-foreground">Quick add favourites</p>
+					<div class="flex flex-wrap gap-1.5">
+						{#each favorites as f (f.id)}
+							<label
+								class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border py-1 pr-2.5 pl-2 text-xs transition-colors hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-accent"
+							>
+								<input
+									type="checkbox"
+									class="h-3.5 w-3.5"
+									checked={selected.includes(f.id)}
+									onchange={(e) => toggleFriend(f.id, e.currentTarget.checked)}
+								/>
+								<span aria-hidden="true" class="text-yellow-500">★</span>{f.displayName}
+							</label>
+						{/each}
+					</div>
+				</div>
+			{/if}
 			{#each selected as id (id)}
 				<input type="hidden" name="audience" value={id} />
 			{/each}
