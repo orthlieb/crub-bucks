@@ -288,8 +288,13 @@ export const tasks = pgTable(
 		price: bigint('price', { mode: 'number' }).notNull(),
 		// false = one-time (archives after approval); true = repeatable.
 		recurring: boolean('recurring').notNull().default(false),
-		// Optional display-only cadence for recurring tasks: 'daily' | 'weekly' | 'monthly'.
-		cadence: text('cadence'),
+		// iCalendar recurrence for repeatable tasks — the full "DTSTART:…\nRRULE:…"
+		// string (see src/lib/server/recurrence.ts). Null for one-time tasks.
+		rrule: text('rrule'),
+		// The current occurrence's target date. A friend can claim before it; on
+		// approval it advances to the next occurrence and the task reopens. Null
+		// for one-time tasks or an exhausted recurrence.
+		nextDueAt: timestamp('next_due_at', { withTimezone: true }),
 		status: taskStatusEnum('status').notNull().default('open'),
 		// The friend currently doing it (null when open/archived/done).
 		claimedBy: uuid('claimed_by').references(() => users.id, { onDelete: 'set null' }),
@@ -323,6 +328,28 @@ export const taskCompletions = pgTable(
 	(t) => ({
 		taskIdx: index('task_completions_task_idx').on(t.taskId),
 		taskeeIdx: index('task_completions_taskee_idx').on(t.taskeeId)
+	})
+);
+
+// Per-task claim allowlist. When a task has NO rows here it's open to all of the
+// creator's friends (the default); when it has rows, only those friends may
+// claim it — e.g. limit "take out the trash" to family. Rows are the creator's
+// own friends, validated at write time; a `set null`-style cascade isn't needed
+// because both sides cascade on delete.
+export const taskAudience = pgTable(
+	'task_audience',
+	{
+		taskId: uuid('task_id')
+			.notNull()
+			.references(() => tasks.id, { onDelete: 'cascade' }),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => ({
+		pk: primaryKey({ columns: [t.taskId, t.userId] }),
+		taskIdx: index('task_audience_task_idx').on(t.taskId)
 	})
 );
 
