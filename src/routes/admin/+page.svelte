@@ -8,17 +8,20 @@
 
 	const stats = $derived(data.stats);
 	const system = $derived(data.system);
-	const fmt = (n: number) => formatAmount(n, data.locale);
+	// Counts are plain integers; only the (₡) cards are coin amounts that need
+	// the coins→CB conversion (formatAmount divides by 100).
+	const num = (n: number) => n.toLocaleString(data.locale);
+	const cb = (n: number) => formatAmount(n, data.locale);
 
 	const cards = $derived([
-		{ label: 'Total users', value: fmt(stats.users) },
-		{ label: 'Verified', value: fmt(stats.verifiedUsers) },
-		{ label: 'Active sessions', value: fmt(stats.activeSessions) },
-		{ label: 'Open bets', value: fmt(stats.openBets) },
-		{ label: 'Resolved bets', value: fmt(stats.resolvedBets) },
-		{ label: 'Wagered (₡)', value: fmt(stats.wagered) },
-		{ label: 'Failed logins (24h)', value: fmt(stats.failedLogins24h) },
-		{ label: 'In circulation (₡)', value: fmt(-stats.bankBalance) }
+		{ label: 'Total users', value: num(stats.users) },
+		{ label: 'Verified', value: num(stats.verifiedUsers) },
+		{ label: 'Active sessions', value: num(stats.activeSessions) },
+		{ label: 'Open bets', value: num(stats.openBets) },
+		{ label: 'Resolved bets', value: num(stats.resolvedBets) },
+		{ label: 'Wagered (₡)', value: cb(stats.wagered) },
+		{ label: 'Failed logins (24h)', value: num(stats.failedLogins24h) },
+		{ label: 'In circulation (₡)', value: cb(-stats.bankBalance) }
 	]);
 </script>
 
