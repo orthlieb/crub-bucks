@@ -5,7 +5,12 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter()
+		adapter: adapter(),
+		version: {
+			// Poll the deployed build's version.json so clients notice a new deploy
+			// and can offer a refresh (see UpdatePrompt). Flips the `updated` store.
+			pollInterval: 60_000
+		}
 	}
 };
 

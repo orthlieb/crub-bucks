@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './layout.css';
+	import UpdatePrompt from '$lib/components/UpdatePrompt.svelte';
 
 	let { children }: { children: any } = $props();
 </script>
@@ -15,3 +16,4 @@
 </svelte:head>
 
 {@render children()}
+<UpdatePrompt />

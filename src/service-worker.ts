@@ -8,6 +8,13 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
 sw.addEventListener('install', () => sw.skipWaiting());
 sw.addEventListener('activate', (event) => event.waitUntil(sw.clients.claim()));
 
+// A no-op fetch handler. We do NO offline caching, so every request falls
+// through to the network untouched — but Chromium only treats the app as
+// installable (and fires `beforeinstallprompt`) when the active service worker
+// has a fetch handler at all. Its mere presence is what unlocks the one-tap
+// Install affordance on desktop Chrome/Edge and Android; don't remove it.
+sw.addEventListener('fetch', () => {});
+
 interface PushPayload {
 	title?: string;
 	body?: string;
