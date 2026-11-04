@@ -33,8 +33,7 @@ export const DEFAULT_DAILY_FULL_MESSAGE =
 	"Today's signups are full. Registration reopens at midnight.";
 
 export type SignupGate =
-	| { allow: true }
-	| { allow: false; reason: 'locked' | 'full_today'; message: string };
+	{ allow: true } | { allow: false; reason: 'locked' | 'full_today'; message: string };
 
 /** The subset of SystemConfig this function actually reads. */
 type GateConfig = Pick<
