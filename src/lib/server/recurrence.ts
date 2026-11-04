@@ -18,13 +18,7 @@ const WEEKDAYS: Record<string, Weekday> = {
 };
 
 export type RecurrenceMode =
-	| 'daily'
-	| 'weekday'
-	| 'weekly'
-	| 'monthly_day'
-	| 'monthly_nth'
-	| 'yearly'
-	| 'custom';
+	'daily' | 'weekday' | 'weekly' | 'monthly_day' | 'monthly_nth' | 'yearly' | 'custom';
 
 export interface RecurrenceInput {
 	mode: RecurrenceMode;

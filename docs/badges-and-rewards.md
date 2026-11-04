@@ -189,9 +189,7 @@ export interface BadgeDef {
 	thresholds: Partial<Record<BadgeTier, number>>;
 }
 
-export const BADGES: BadgeDef[] = [
-	/* the catalog from §3 */
-];
+export const BADGES: BadgeDef[] = [/* the catalog from §3 */];
 ```
 
 Keeping definitions in code means tuning a threshold is a code change (review +
